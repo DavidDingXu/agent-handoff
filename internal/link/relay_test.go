@@ -316,7 +316,9 @@ func TestLiveAnonymousProviders(t *testing.T) {
 	if os.Getenv("AGENT_HANDOFF_LIVE_PROVIDER_TEST") != "1" {
 		t.Skip("set AGENT_HANDOFF_LIVE_PROVIDER_TEST=1 to exercise public providers")
 	}
-	payload := []byte("agent-handoff anonymous provider integration probe")
+	// Exercise a realistic encrypted bundle size. Some public providers treat
+	// tiny opaque files as text or reject them based on content heuristics.
+	payload := bytes.Repeat([]byte("agent-handoff anonymous provider integration probe\n"), 2048)
 	res, err := UploadRelay(payload, RelayUploadOptions{
 		TTLSeconds:  RelayMinTTL,
 		ResolverURL: "https://resolver.example/r",
