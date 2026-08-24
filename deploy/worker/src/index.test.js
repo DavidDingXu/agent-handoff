@@ -3,8 +3,6 @@ import test from "node:test";
 
 import worker, { BudgetGate } from "./index.js";
 
-const LIVE_BYTES_LIMIT = 512 * 1024 * 1024;
-
 class MemoryStorage {
   constructor(entries = []) {
     this.data = new Map(entries);
@@ -54,15 +52,6 @@ class MemoryKV {
   }
 }
 
-function currentMonth() {
-  const d = new Date();
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
-function currentDay() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function gateRequest(gate, path, body) {
   return gate.fetch(new Request(`https://do${path}`, {
     method: "POST",
@@ -93,13 +82,16 @@ function validManifest(ttlSeconds) {
   };
 }
 
-test("KV uploads clamp TTL and commit quota metadata", async () => {
+test("KV uploads use configured TTL and keep only share metadata", async () => {
   const storage = new MemoryStorage();
   const kv = new MemoryKV();
   const gate = new BudgetGate({ storage }, { SHARE_KV: kv });
   const env = {
     SHARE_KV: kv,
     SHARE_BUDGET_GATE: gateBinding(gate),
+    SHARE_DEFAULT_TTL_SECONDS: "90",
+    SHARE_MAX_TTL_SECONDS: "120",
+    SHARE_MAX_BLOB_BYTES: "10",
   };
   const manifest = JSON.stringify(validManifest(1));
   const form = new FormData();
@@ -116,7 +108,59 @@ test("KV uploads clamp TTL and commit quota metadata", async () => {
   assert.equal(kv.puts[0].options.expirationTtl, 60);
   const share = [...storage.data.entries()].find(([key]) => key.startsWith("share:"))[1];
   assert.equal(share.manifest.ttl_seconds, 60);
-  assert.equal((await storage.get("budget")).liveBytes, 3 + manifest.length);
+  assert.equal(await storage.get("budget"), undefined);
+  assert.equal(share.downloads, undefined);
+  assert.equal(share.manifest.service, undefined);
+});
+
+test("capabilities expose configured retention and size without project quotas", async () => {
+  const kv = new MemoryKV();
+  const response = await worker.fetch(new Request("https://share.example/v1/capabilities"), {
+    SHARE_KV: kv,
+    SHARE_DEFAULT_TTL_SECONDS: "1800",
+    SHARE_MAX_TTL_SECONDS: "7200",
+    SHARE_MAX_BLOB_BYTES: "1048576",
+  }, {});
+  const capabilities = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(capabilities.schema, "agent-handoff.link-service.v1");
+  assert.equal(capabilities.default_ttl_seconds, 1800);
+  assert.equal(capabilities.max_ttl_seconds, 7200);
+  assert.equal(capabilities.max_blob_bytes, 1048576);
+  for (const removed of [
+    "max_downloads_per_share",
+    "max_live_bytes",
+    "daily_upload_limit",
+    "monthly_upload_limit",
+    "quota_policy",
+  ]) {
+    assert.equal(removed in capabilities, false, `${removed} should not be advertised`);
+  }
+});
+
+test("configured blob size limit rejects oversized ciphertext", async () => {
+  const storage = new MemoryStorage();
+  const kv = new MemoryKV();
+  const gate = new BudgetGate({ storage }, { SHARE_KV: kv });
+  const manifest = JSON.stringify(validManifest(60));
+  const form = new FormData();
+  form.set("manifest", manifest);
+  form.set("blob", new Blob([new Uint8Array([1, 2, 3])]), "blob.enc");
+
+  const response = await worker.fetch(new Request("https://share.example/v1/shares", {
+    method: "POST",
+    body: form,
+  }), {
+    SHARE_KV: kv,
+    SHARE_BUDGET_GATE: gateBinding(gate),
+    SHARE_MAX_BLOB_BYTES: "2",
+  }, {});
+
+  assert.equal(response.status, 413);
+  assert.deepEqual(await response.json(), { error: "blob_too_large", max_bytes: 2 });
+  assert.equal(kv.puts.length, 0);
+  assert.equal([...storage.data.keys()].some((key) => key.startsWith("share:")), false);
 });
 
 test("relay page is static and does not require storage bindings", async () => {
@@ -134,85 +178,57 @@ test("relay page is static and does not require storage bindings", async () => {
   assert.match(body, /github\.com\/DavidDingXu\/agent-handoff/);
 });
 
-test("commit enforces the live byte limit even after preflight", async () => {
+test("legacy budget state no longer blocks new shares", async () => {
+  const legacyBudget = { liveBytes: Number.MAX_SAFE_INTEGER, puts: Number.MAX_SAFE_INTEGER, gets: Number.MAX_SAFE_INTEGER };
   const storage = new MemoryStorage([
-    ["budget", { month: currentMonth(), liveBytes: LIVE_BYTES_LIMIT, puts: 1, gets: 0 }],
+    ["budget", legacyBudget],
   ]);
   const gate = new BudgetGate({ storage }, { SHARE_KV: new MemoryKV() });
 
   const response = await gateRequest(gate, "/commit", {
-    id: "over-limit",
-    objectKey: "shares/over-limit/blob.enc",
+    id: "new-share",
+    objectKey: "shares/new-share/blob.enc",
     bytes: 1,
     expiresAt: new Date(Date.now() + 60_000).toISOString(),
     manifest: {},
   });
 
-  assert.equal(response.status, 507);
-  assert.equal((await response.json()).error, "live_bytes_limit");
-  assert.equal(await storage.get("share:over-limit"), undefined);
-  assert.equal((await storage.get("budget")).liveBytes, LIVE_BYTES_LIMIT);
-});
-
-test("month rollover preserves live bytes while resetting counters", async () => {
-  const storage = new MemoryStorage([
-    ["budget", { month: "2000-01", liveBytes: 100, puts: 99, gets: 88 }],
-  ]);
-  const gate = new BudgetGate({ storage }, { SHARE_KV: new MemoryKV() });
-
-  const response = await gateRequest(gate, "/commit", {
-    id: "new-month",
-    objectKey: "shares/new-month/blob.enc",
-    bytes: 25,
-    expiresAt: new Date(Date.now() + 60_000).toISOString(),
-    manifest: {},
-  });
-
   assert.equal(response.status, 200);
-  assert.deepEqual(await storage.get("budget"), {
-    month: currentMonth(),
-    day: currentDay(),
-    liveBytes: 125,
-    puts: 1,
-    dailyPuts: 1,
-    gets: 0,
-  });
+  assert.deepEqual(await storage.get("budget"), legacyBudget);
+  assert.notEqual(await storage.get("share:new-share"), undefined);
 });
 
-test("daily upload budget rejects new shares without consuming quota", async () => {
+test("downloads are not counted or limited by the project", async () => {
+  const kv = new MemoryKV();
+  const objectKey = "shares/reusable/blob.enc";
+  kv.data.set(objectKey, new Uint8Array([1, 2, 3]).buffer);
   const storage = new MemoryStorage([
-    ["budget", { month: currentMonth(), day: currentDay(), liveBytes: 100, puts: 800, dailyPuts: 800, gets: 0 }],
+    ["share:reusable", {
+      id: "reusable",
+      objectKey,
+      downloads: 10,
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      manifest: {},
+    }],
   ]);
-  const gate = new BudgetGate({ storage }, { SHARE_KV: new MemoryKV() });
+  const gate = new BudgetGate({ storage }, { SHARE_KV: kv });
+  const env = { SHARE_KV: kv, SHARE_BUDGET_GATE: gateBinding(gate) };
 
-  const response = await gateRequest(gate, "/reserve", { bytes: 1 });
+  const first = await worker.fetch(new Request("https://share.example/v1/shares/reusable/blob"), env, {});
+  const second = await worker.fetch(new Request("https://share.example/v1/shares/reusable/blob"), env, {});
 
-  assert.equal(response.status, 429);
-  assert.equal((await response.json()).error, "daily_put_limit");
-  assert.equal((await storage.get("budget")).liveBytes, 100);
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 200);
+  assert.deepEqual(new Uint8Array(await second.arrayBuffer()), new Uint8Array([1, 2, 3]));
+  assert.equal((await storage.get("share:reusable")).downloads, 10);
 });
 
-test("download counting enforces the per-share limit in the gate", async () => {
-  const storage = new MemoryStorage([
-    ["budget", { month: currentMonth(), liveBytes: 100, puts: 1, gets: 9 }],
-    ["share:limited", { downloads: 10 }],
-  ]);
-  const gate = new BudgetGate({ storage }, { SHARE_KV: new MemoryKV() });
-
-  const response = await gateRequest(gate, "/download?id=limited", {});
-
-  assert.equal(response.status, 200);
-  assert.equal((await response.json()).error, "download_limit");
-  assert.equal((await storage.get("budget")).gets, 9);
-  assert.equal((await storage.get("share:limited")).downloads, 10);
-});
-
-test("cleanup deletes expired blobs and releases live bytes", async () => {
+test("cleanup deletes expired blobs without touching legacy budget state", async () => {
   const kv = new MemoryKV();
   const expiredKey = "shares/expired/blob.enc";
   kv.data.set(expiredKey, new ArrayBuffer(3));
   const storage = new MemoryStorage([
-    ["budget", { month: currentMonth(), liveBytes: 300, puts: 2, gets: 0 }],
+    ["budget", { month: "legacy", liveBytes: 300, puts: 2, gets: 0 }],
     ["share:active", {
       objectKey: "shares/active/blob.enc",
       bytes: 200,
@@ -230,9 +246,9 @@ test("cleanup deletes expired blobs and releases live bytes", async () => {
   const result = await response.json();
 
   assert.equal(response.status, 200);
-  assert.deepEqual(result, { ok: true, removed: 1, released_bytes: 100 });
+  assert.deepEqual(result, { ok: true, removed: 1 });
   assert.deepEqual(kv.deletes, [expiredKey]);
   assert.equal(await storage.get("share:expired"), undefined);
   assert.notEqual(await storage.get("share:active"), undefined);
-  assert.equal((await storage.get("budget")).liveBytes, 200);
+  assert.equal((await storage.get("budget")).liveBytes, 300);
 });

@@ -105,7 +105,7 @@ The agent produces `fix-flaky-retry-test.agent-handoff.zip` and shows a card: ti
 
 > You: “create a share link” / 「生成分享链接」
 
-The agent returns an end-to-end encrypted HTTPS link without an account, token, or deployment. The project-operated Worker is used first (10 minutes by default, up to 24 hours with `--ttl`). If it is unavailable, anonymous providers are automatic fallbacks (24 hours by default, configurable up to 7 days; a provider may delete its copy sooner). The decryption capability stays in the URL fragment, so always send the **full link**. Every service is best-effort; use a zip when delivery must be permanent. See [docs/link-service.md](docs/link-service.md).
+The agent returns an end-to-end encrypted HTTPS link without an account, token, or deployment. The project-operated compatible service (currently the optional Worker implementation) is used first, with a 10-minute default and up to 24 hours via `--ttl`. If it is unavailable, anonymous providers are automatic fallbacks (24 hours by default, configurable up to 7 days; a provider may delete its copy sooner). The decryption capability stays in the URL fragment, so always send the **full link**. Every service is best-effort; use a zip when delivery must be permanent. See [docs/link-service.md](docs/link-service.md).
 
 ### Use your own file service
 
@@ -204,7 +204,7 @@ make lint      # golangci-lint
 make build     # bin/agent-handoff
 ```
 
-CI runs tests with `-race` on Ubuntu/macOS/Windows. Architecture: `internal/bundle` (container format), `internal/{codex,claude}` (agent adapters), `internal/neutral` (cross-agent transcript), `internal/link` (E2E crypto + Worker and configured providers), `internal/safety` (secret scan), `internal/cli`. Adding another agent also requires native restore, neutral conversion, host detection, and the cross-agent test matrix; see [docs/adding-agent.md](docs/adding-agent.md).
+CI runs tests with `-race` on Ubuntu/macOS/Windows. Architecture: `internal/bundle` (container format), `internal/{codex,claude}` (agent adapters), `internal/neutral` (cross-agent transcript), `internal/link` (E2E crypto + compatible hosted endpoints and configured providers), `internal/safety` (secret scan), `internal/cli`. Adding another agent also requires native restore, neutral conversion, host detection, and the cross-agent test matrix; see [docs/adding-agent.md](docs/adding-agent.md).
 
 Planned work includes native OpenCode and DeepSeek Harness support, better
 setup diagnostics, and richer pre-share review. See the outcome-focused

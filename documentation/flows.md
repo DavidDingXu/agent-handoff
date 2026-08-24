@@ -18,11 +18,11 @@ Actor: a local user. Precondition: secret scan passed or was explicitly overridd
 
 1. The bundle is built in memory; no plaintext zip is written on the successful link path.
 2. AES-256-GCM generates a fresh key and nonce locally.
-3. The project-operated Worker is attempted first and returns a `#k=` capability link on success.
+3. The project-operated compatible endpoint is attempted first and returns a `#k=` capability link on success.
 4. If it is unavailable, anonymous provider uploads run concurrently until two replicas succeed or the short grace period ends; provider URLs and crypto metadata are encoded in `#h=`.
-5. If the Worker and all providers fail, the CLI writes a private zip and returns `fallback_zip`.
+5. If the default endpoint and all providers fail, the CLI writes a private zip and returns `fallback_zip`.
 
-Trust crossings: local process to the project Worker or public storage providers; full capability link to the user's chosen messaging channel. Storage services can observe network metadata but receive only ciphertext.
+Trust crossings: local process to the project endpoint or public storage providers; full capability link to the user's chosen messaging channel. Storage services can observe network metadata but receive only ciphertext.
 
 ## Import a file or link
 
@@ -40,6 +40,6 @@ Trust crossing: untrusted external artifact into local agent state. Prompt instr
 
 ## Self-hosted upload
 
-Actor: a client configured with `AGENT_HANDOFF_ENDPOINT`. Outcome: ciphertext stored in Worker KV or R2.
+Actor: a client configured with `AGENT_HANDOFF_ENDPOINT`. Outcome: ciphertext stored by a compatible hosted service.
 
-The Worker optionally verifies a bearer token, validates upload size and TTL, reserves quota, stores ciphertext, and returns a share URL. It never receives the `#k=` fragment. Failed commits release only quota actually reserved.
+The service accepts the generic `/v1/shares` contract, validates upload size and TTL, stores ciphertext, and returns a share URL. It never receives the `#k=` fragment. The optional bundled Worker stores blobs in KV or R2 and applies only configured size and retention bounds.

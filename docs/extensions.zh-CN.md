@@ -16,7 +16,7 @@ agent-handoff 不把“可扩展”等同于“所有东西都加载插件”。
 
 ### 文件服务 Provider
 
-这是普通用户最实用的扩展点，不需要安装或执行第三方插件。配置描述上传 URL、multipart/raw、header、表单字段，以及如何从 JSON/文本响应提取下载 URL。核心负责加密、HTTP 请求、URL 校验、失败隔离和 zip 回退。
+这是普通用户最实用的扩展点，不需要安装或执行第三方插件。厂商无关的 schema 只描述通用 HTTP 上传概念：URL、multipart/raw、header、表单字段，以及如何从 JSON/文本响应提取下载 URL；其中没有 Cloudflare 或内置 provider 的专用字段。核心负责加密、HTTP 请求、URL 校验、失败隔离和 zip 回退。
 
 社区可以贡献 provider 配置示例。示例必须说明：
 

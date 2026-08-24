@@ -17,8 +17,9 @@
  *   GET  /r                      static resolver for anonymous #h= links
  *
  * Bindings: R2 bucket SHARE_BUCKET and/or KV namespace SHARE_KV (KV caps
- * blobs at 25 MiB); Durable Object BudgetGate for quota + share metadata;
- * cron cleanup for expired shares.
+ * blobs at 25 MiB); Durable Object BudgetGate for share metadata; cron
+ * cleanup for expired shares. The class name is retained for deployment
+ * compatibility, but it does not enforce project-specific quotas.
  *
  * Links are short-lived by design: default TTL is 10 minutes, clients may
  * request 60s–24h (manifest field ttl_seconds). On KV the TTL is enforced
@@ -27,19 +28,17 @@
  */
 
 const SHARE_ID_BYTES = 12;
-const LIMITS = {
+const PLATFORM_LIMITS = {
   MAX_BLOB_BYTES: 32 * 1024 * 1024,       // 32 MiB on R2
   MAX_BLOB_BYTES_KV: 25 * 1024 * 1024,    // 25 MiB hard limit per KV value
   MAX_MANIFEST_BYTES: 4 * 1024 * 1024,
   MAX_REQUEST_BYTES: 40 * 1024 * 1024,
   MIN_TTL_SECONDS: 60,                    // KV expirationTtl floor
-  DEFAULT_TTL_SECONDS: 10 * 60,           // 10 minutes; enough to hand over a link
-  MAX_TTL_SECONDS: 24 * 3600,             // 1 day ceiling
-  MAX_DOWNLOADS_PER_SHARE: 10,
-  LIVE_BYTES_LIMIT: 512 * 1024 * 1024,       // 512 MiB across unexpired shares
-  DAILY_PUT_LIMIT: 800,                      // leaves headroom under KV free-tier writes
-  MONTHLY_PUT_LIMIT: 20000,
-  MONTHLY_GET_LIMIT: 1000000,
+};
+
+const DEFAULTS = {
+  DEFAULT_TTL_SECONDS: 10 * 60,
+  MAX_TTL_SECONDS: 24 * 3600,
 };
 
 // ---- blob storage (R2 or KV, auto-detected from bindings) ----
@@ -49,7 +48,7 @@ function blobStore(env) {
     const bucket = env.SHARE_BUCKET;
     return {
       mode: "r2",
-      maxBlobBytes: LIMITS.MAX_BLOB_BYTES,
+      maxBlobBytes: PLATFORM_LIMITS.MAX_BLOB_BYTES,
       async put(key, bytes, ttlSeconds) {
         // R2 has no native TTL; expiry is enforced via expiresAt + cron cleanup.
         void ttlSeconds;
@@ -71,7 +70,7 @@ function blobStore(env) {
     const kv = env.SHARE_KV;
     return {
       mode: "kv",
-      maxBlobBytes: LIMITS.MAX_BLOB_BYTES_KV,
+      maxBlobBytes: PLATFORM_LIMITS.MAX_BLOB_BYTES_KV,
       async put(key, bytes, ttlSeconds) {
         // KV enforces TTL natively (min 60s) — the blob disappears on its own.
         await kv.put(key, bytes, { expirationTtl: Math.max(60, ttlSeconds) });
@@ -89,10 +88,38 @@ function blobStore(env) {
   throw new Error("no blob storage bound: bind SHARE_BUCKET (R2) or SHARE_KV (KV)");
 }
 
-function clampTtl(requested) {
+function serviceLimits(env, store) {
+  const maxTtlSeconds = Math.max(
+    PLATFORM_LIMITS.MIN_TTL_SECONDS,
+    positiveInteger(env.SHARE_MAX_TTL_SECONDS, DEFAULTS.MAX_TTL_SECONDS),
+  );
+  const defaultTtlSeconds = Math.min(
+    maxTtlSeconds,
+    Math.max(
+      PLATFORM_LIMITS.MIN_TTL_SECONDS,
+      positiveInteger(env.SHARE_DEFAULT_TTL_SECONDS, DEFAULTS.DEFAULT_TTL_SECONDS),
+    ),
+  );
+  return {
+    minTtlSeconds: PLATFORM_LIMITS.MIN_TTL_SECONDS,
+    defaultTtlSeconds,
+    maxTtlSeconds,
+    maxBlobBytes: Math.min(
+      store.maxBlobBytes,
+      positiveInteger(env.SHARE_MAX_BLOB_BYTES, store.maxBlobBytes),
+    ),
+  };
+}
+
+function positiveInteger(value, fallback) {
+  const n = Number(value);
+  return Number.isSafeInteger(n) && n > 0 ? n : fallback;
+}
+
+function clampTtl(requested, limits) {
   const n = Number(requested);
-  if (!Number.isFinite(n) || n <= 0) return LIMITS.DEFAULT_TTL_SECONDS;
-  return Math.min(LIMITS.MAX_TTL_SECONDS, Math.max(LIMITS.MIN_TTL_SECONDS, Math.round(n)));
+  if (!Number.isFinite(n) || n <= 0) return limits.defaultTtlSeconds;
+  return Math.min(limits.maxTtlSeconds, Math.max(limits.minTtlSeconds, Math.round(n)));
 }
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
@@ -130,7 +157,7 @@ async function route(request, env, ctx) {
     }
     m = path.match(/^\/v1\/shares\/([A-Za-z0-9_-]+)\/blob$/);
     if (m && request.method === "GET") {
-      return await getBlob(request, env, m[1]);
+      return await getBlob(env, m[1]);
     }
     m = path.match(/^\/s\/([A-Za-z0-9_-]+)\.agent\.json$/);
     if (m && request.method === "GET") {
@@ -154,19 +181,15 @@ async function route(request, env, ctx) {
 
 function capabilities(env) {
   const store = blobStore(env);
+  const limits = serviceLimits(env, store);
   return {
-    schema: "agent-handoff.worker.v1",
+    schema: "agent-handoff.link-service.v1",
     service: "agent-handoff-link",
     storage: store.mode,
-    max_blob_bytes: store.maxBlobBytes,
-    min_ttl_seconds: LIMITS.MIN_TTL_SECONDS,
-    default_ttl_seconds: LIMITS.DEFAULT_TTL_SECONDS,
-    max_ttl_seconds: LIMITS.MAX_TTL_SECONDS,
-    max_downloads_per_share: LIMITS.MAX_DOWNLOADS_PER_SHARE,
-    max_live_bytes: LIMITS.LIVE_BYTES_LIMIT,
-    daily_upload_limit: LIMITS.DAILY_PUT_LIMIT,
-    monthly_upload_limit: LIMITS.MONTHLY_PUT_LIMIT,
-    quota_policy: "anonymous-small",
+    max_blob_bytes: limits.maxBlobBytes,
+    min_ttl_seconds: limits.minTtlSeconds,
+    default_ttl_seconds: limits.defaultTtlSeconds,
+    max_ttl_seconds: limits.maxTtlSeconds,
     auth_required: Boolean(env.SHARE_UPLOAD_TOKEN),
   };
 }
@@ -182,7 +205,7 @@ async function createShare(request, env) {
     return json(400, { error: "expected multipart/form-data" });
   }
   const contentLength = Number(request.headers.get("content-length") || 0);
-  if (contentLength > LIMITS.MAX_REQUEST_BYTES) {
+  if (contentLength > PLATFORM_LIMITS.MAX_REQUEST_BYTES) {
     return json(413, { error: "payload_too_large" });
   }
 
@@ -192,7 +215,7 @@ async function createShare(request, env) {
   if (typeof manifestText !== "string" || !(blob instanceof File)) {
     return json(400, { error: "missing manifest or blob" });
   }
-  if (manifestText.length > LIMITS.MAX_MANIFEST_BYTES) {
+  if (manifestText.length > PLATFORM_LIMITS.MAX_MANIFEST_BYTES) {
     return json(413, { error: "manifest_too_large" });
   }
 
@@ -214,16 +237,12 @@ async function createShare(request, env) {
   } catch (err) {
     return json(500, { error: "storage_unconfigured", message: String(err.message) });
   }
-  if (blob.size > store.maxBlobBytes) {
-    return json(413, { error: "blob_too_large", max_bytes: store.maxBlobBytes });
+  const limits = serviceLimits(env, store);
+  if (blob.size > limits.maxBlobBytes) {
+    return json(413, { error: "blob_too_large", max_bytes: limits.maxBlobBytes });
   }
-  const ttlSeconds = clampTtl(manifest.ttl_seconds);
-
-  const gate = budgetGate(env);
-  const reserved = await gate.reserve(blob.size + manifestText.length);
-  if (!reserved.ok) {
-    return json(reserved.status || 429, { error: reserved.error });
-  }
+  const ttlSeconds = clampTtl(manifest.ttl_seconds, limits);
+  const registry = shareRegistry(env);
 
   // Commit path: generate id, store blob, record share.
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -240,9 +259,8 @@ async function createShare(request, env) {
       manifest.bundle = manifest.bundle || {};
       manifest.bundle.bytes = blob.size;
       manifest.bundle.url = `${new URL(request.url).origin}/v1/shares/${id}/blob`;
-      manifest.service = { type: "worker", quota_policy: "anonymous-small" };
 
-      const committed = await gate.commit({
+      const committed = await registry.commit({
         id,
         objectKey,
         bytes: blob.size + manifestText.length,
@@ -315,8 +333,8 @@ function normalizeManifest(m) {
 // ---- download ----
 
 async function getManifest(env, id) {
-  const gate = budgetGate(env);
-  const share = await gate.getShare(id);
+  const registry = shareRegistry(env);
+  const share = await registry.getShare(id);
   if (!share) return json(404, { error: "not_found" });
   if (expired(share)) return json(410, { error: "expired" });
   return new Response(JSON.stringify(share.manifest, null, 2), {
@@ -325,24 +343,14 @@ async function getManifest(env, id) {
   });
 }
 
-async function getBlob(request, env, id) {
-  const gate = budgetGate(env);
-  const share = await gate.getShare(id);
+async function getBlob(env, id) {
+  const registry = shareRegistry(env);
+  const share = await registry.getShare(id);
   if (!share) return json(404, { error: "not_found" });
   if (expired(share)) return json(410, { error: "expired" });
-  if (share.downloads >= LIMITS.MAX_DOWNLOADS_PER_SHARE) {
-    return json(429, { error: "download_limit" });
-  }
   const store = blobStore(env);
   const obj = await store.get(share.objectKey);
   if (!obj) return json(404, { error: "not_found" });
-  const counted = await gate.countDownload(id);
-  if (!counted.ok) {
-    if (counted.error === "not_found") return json(404, { error: "not_found" });
-    if (counted.error === "download_limit") return json(429, { error: "download_limit" });
-    if (counted.error === "get_limit") return json(429, { error: "monthly_get_limit" });
-    return json(500, { error: "download_count_failed" });
-  }
   return new Response(obj.body, {
     status: 200,
     headers: {
@@ -459,8 +467,8 @@ codex plugin add agent-handoff@agent-handoff</code></pre>
 }
 
 async function getSharePage(request, env, id) {
-  const gate = budgetGate(env);
-  const share = await gate.getShare(id);
+  const registry = shareRegistry(env);
+  const share = await registry.getShare(id);
   if (!share) return json(404, { error: "not_found" });
   if (expired(share)) return json(410, { error: "expired" });
 
@@ -476,8 +484,8 @@ async function getSharePage(request, env, id) {
 }
 
 async function getAgentResource(env, id, kind) {
-  const gate = budgetGate(env);
-  const share = await gate.getShare(id);
+  const registry = shareRegistry(env);
+  const share = await registry.getShare(id);
   if (!share) return json(404, { error: "not_found" });
   if (expired(share)) return json(410, { error: "expired" });
   const req = new Request(`https://x/s/${id}`, { headers: { "user-agent": "curl" } });
@@ -628,15 +636,13 @@ function base64urlDecode(s) {
   return new Response(html, { status: 200, headers: { "content-type": "text/html; charset=utf-8" } });
 }
 
-// ---- budget gate (Durable Object) ----
+// ---- share registry (Durable Object) ----
 
-function budgetGate(env) {
+function shareRegistry(env) {
   const stub = env.SHARE_BUDGET_GATE.get(env.SHARE_BUDGET_GATE.idFromName("global"));
   return {
-    reserve: (bytes) => stub.fetch("https://do/reserve", { method: "POST", body: JSON.stringify({ bytes }) }).then(r => r.json()),
     commit: (share) => stub.fetch("https://do/commit", { method: "POST", body: JSON.stringify(share) }).then(r => r.json()),
     getShare: (id) => stub.fetch(`https://do/share?id=${encodeURIComponent(id)}`).then(r => r.json()),
-    countDownload: (id) => stub.fetch(`https://do/download?id=${encodeURIComponent(id)}`, { method: "POST" }).then(r => r.json()),
     cleanup: () => stub.fetch("https://do/cleanup", { method: "POST" }).then(r => r.json()),
   };
 }
@@ -651,42 +657,10 @@ export class BudgetGate {
   async fetch(request) {
     const url = new URL(request.url);
     const path = url.pathname;
-    if (path === "/reserve" && request.method === "POST") return this.reserve(request);
     if (path === "/commit" && request.method === "POST") return this.commit(request);
     if (path === "/share" && request.method === "GET") return this.getShare(url);
-    if (path === "/download" && request.method === "POST") return this.countDownload(url);
     if (path === "/cleanup" && request.method === "POST") return this.cleanup();
     return json(404, { error: "not_found" });
-  }
-
-  async budget() {
-    let b = await this.storage.get("budget");
-    if (!b) b = { month: monthKey(), day: dayKey(), liveBytes: 0, puts: 0, dailyPuts: 0, gets: 0 };
-    if (b.month !== monthKey()) {
-      b = { month: monthKey(), day: dayKey(), liveBytes: b.liveBytes || 0, puts: 0, dailyPuts: 0, gets: 0 };
-    } else if (b.day !== dayKey()) {
-      b.day = dayKey();
-      b.dailyPuts = 0;
-    }
-    b.dailyPuts = b.dailyPuts || 0;
-    return b;
-  }
-
-  async saveBudget(b) { await this.storage.put("budget", b); }
-
-  async reserve(request) {
-    const { bytes } = await request.json();
-    const b = await this.budget();
-    if (b.liveBytes + bytes > LIMITS.LIVE_BYTES_LIMIT) {
-      return json(507, { ok: false, error: "live_bytes_limit", status: 507 });
-    }
-    if (b.puts + 1 > LIMITS.MONTHLY_PUT_LIMIT) {
-      return json(429, { ok: false, error: "monthly_put_limit", status: 429 });
-    }
-    if (b.dailyPuts + 1 > LIMITS.DAILY_PUT_LIMIT) {
-      return json(429, { ok: false, error: "daily_put_limit", status: 429 });
-    }
-    return json(200, { ok: true });
   }
 
   async commit(request) {
@@ -694,26 +668,11 @@ export class BudgetGate {
     if (await this.storage.get(`share:${share.id}`)) {
       return json(409, { ok: false, error: "share_exists" });
     }
-    const b = await this.budget();
-    if (b.liveBytes + share.bytes > LIMITS.LIVE_BYTES_LIMIT) {
-      return json(507, { ok: false, error: "live_bytes_limit", status: 507 });
-    }
-    if (b.puts + 1 > LIMITS.MONTHLY_PUT_LIMIT) {
-      return json(429, { ok: false, error: "monthly_put_limit", status: 429 });
-    }
-    if (b.dailyPuts + 1 > LIMITS.DAILY_PUT_LIMIT) {
-      return json(429, { ok: false, error: "daily_put_limit", status: 429 });
-    }
-    b.liveBytes += share.bytes;
-    b.puts += 1;
-    b.dailyPuts += 1;
-    await this.saveBudget(b);
     await this.storage.put(`share:${share.id}`, {
       id: share.id,
       objectKey: share.objectKey,
       bytes: share.bytes,
       blobBytes: share.blobBytes,
-      downloads: 0,
       expiresAt: share.expiresAt,
       manifest: share.manifest,
       createdAt: new Date().toISOString(),
@@ -727,27 +686,8 @@ export class BudgetGate {
     return json(200, share || null);
   }
 
-  async countDownload(url) {
-    const id = url.searchParams.get("id");
-    const share = await this.storage.get(`share:${id}`);
-    if (!share) return json(200, { ok: false, error: "not_found" });
-    if (share.downloads >= LIMITS.MAX_DOWNLOADS_PER_SHARE) {
-      return json(200, { ok: false, error: "download_limit" });
-    }
-    const b = await this.budget();
-    if (b.gets + 1 > LIMITS.MONTHLY_GET_LIMIT) {
-      return json(200, { ok: false, error: "get_limit" });
-    }
-    b.gets += 1;
-    await this.saveBudget(b);
-    share.downloads = (share.downloads || 0) + 1;
-    await this.storage.put(`share:${id}`, share);
-    return json(200, { ok: true });
-  }
-
   async cleanup() {
     let removed = 0;
-    let releasedBytes = 0;
     let store;
     try {
       store = blobStore(this.env);
@@ -771,23 +711,17 @@ export class BudgetGate {
           continue;
         }
         await this.storage.delete(key);
-        releasedBytes += Math.max(0, Number(share.bytes) || 0);
         removed++;
       }
       if (entries.size < options.limit) break;
     }
 
-    if (releasedBytes > 0) {
-      const b = await this.budget();
-      b.liveBytes = Math.max(0, b.liveBytes - releasedBytes);
-      await this.saveBudget(b);
-    }
-    return json(200, { ok: true, removed, released_bytes: releasedBytes });
+    return json(200, { ok: true, removed });
   }
 }
 
 async function cleanupExpired(env) {
-  await budgetGate(env).cleanup();
+  await shareRegistry(env).cleanup();
 }
 
 // ---- utils ----
@@ -806,15 +740,6 @@ function corsHeaders() {
 
 function expired(share) {
   return Boolean(share && share.expiresAt && new Date(share.expiresAt).getTime() < Date.now());
-}
-
-function monthKey() {
-  const d = new Date();
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
-function dayKey() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function randomBase64URL(nBytes) {

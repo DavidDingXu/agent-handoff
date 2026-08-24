@@ -16,7 +16,7 @@ agent-handoff does not equate extensibility with loading plugins everywhere. Pre
 
 ### File providers
 
-This is the most useful user extension and requires no third-party executable. Configuration describes the upload URL, multipart/raw body, headers, form fields, and how to extract a download URL from a JSON or text response. The core owns encryption, HTTP, URL validation, failure isolation, and zip fallback.
+This is the most useful user extension and requires no third-party executable. Its vendor-neutral schema describes only generic HTTP upload concepts: URL, multipart/raw body, headers, form fields, and extraction of a download URL from JSON or text. It contains no Cloudflare or built-in-provider fields. The core owns encryption, HTTP, URL validation, failure isolation, and zip fallback.
 
 Community provider examples should document:
 
