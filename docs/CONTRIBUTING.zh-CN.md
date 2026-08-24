@@ -49,7 +49,7 @@ internal/claude/            Claude 适配器：读会话/index、还原、校验
 internal/neutral/           智能体中立转录（跨智能体桥梁）
 internal/session/           共享的 jsonl 迭代/分析工具
 internal/safety/            导出前密钥扫描
-internal/link/              AES-256-GCM + Worker、中继、配置化 Provider
+internal/link/              AES-256-GCM + 兼容链接服务、中继、配置化 Provider
 internal/images/            图片资源收集
 internal/ledger/            导入去重账本
 internal/idgen/             UUIDv7/v4、标题、路径

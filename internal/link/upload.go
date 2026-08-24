@@ -20,7 +20,7 @@ import (
 // Explicit --endpoint or AGENT_HANDOFF_ENDPOINT values always take precedence.
 var DefaultEndpoint = "https://agent-handoff-link.798148655.workers.dev"
 
-// DefaultEndpointEnv is the env var overriding the default worker endpoint.
+// DefaultEndpointEnv is the env var overriding the default hosted endpoint.
 const DefaultEndpointEnv = "AGENT_HANDOFF_ENDPOINT"
 
 // TokenEnv is the env var carrying the upload bearer token.
@@ -28,7 +28,7 @@ const TokenEnv = "AGENT_HANDOFF_TOKEN"
 
 // UploadOptions configures an upload.
 type UploadOptions struct {
-	Endpoint   string // worker origin, e.g. https://share.example.com
+	Endpoint   string // compatible service origin, e.g. https://share.example.com
 	Token      string // bearer token; empty for anonymous
 	TTLSeconds int    // requested link lifetime; 0 → server default (10 min)
 	Client     *http.Client
@@ -41,7 +41,7 @@ type UploadResult struct {
 	ExpiresAt   string `json:"expires_at,omitempty"`
 }
 
-// ResolveEndpoint resolves the worker endpoint: flag > env > DefaultEndpoint.
+// ResolveEndpoint resolves the hosted endpoint: flag > env > DefaultEndpoint.
 func ResolveEndpoint(flagValue string) string {
 	if v := strings.TrimSpace(flagValue); v != "" {
 		return strings.TrimRight(v, "/")
@@ -66,7 +66,7 @@ func ResolveToken(flagValue string) string {
 	return strings.TrimSpace(os.Getenv(TokenEnv))
 }
 
-// Upload encrypts the payload and uploads it to the worker. It returns the
+// Upload encrypts the payload and uploads it to a compatible service. It returns the
 // final share link (with the #k= fragment) and the link manifest.
 func Upload(payload []byte, threadID, title string, opts UploadOptions) (shareURL string, m *Manifest, err error) {
 	enc, err := Encrypt(payload)

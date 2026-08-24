@@ -48,7 +48,7 @@ internal/claude/            Claude adapter: read session/index, restore, verify
 internal/neutral/           agent-neutral transcript (cross-agent bridge)
 internal/session/           shared jsonl iteration/analysis utilities
 internal/safety/            pre-export secret scan
-internal/link/              AES-256-GCM + Worker, relay, configured providers
+internal/link/              AES-256-GCM + compatible link services and providers
 internal/images/            image asset collection
 internal/ledger/            import duplicate ledger
 internal/idgen/             UUIDv7/v4, titles, paths
@@ -67,7 +67,7 @@ skills/agent-handoff/         agent skill (SKILL.md) bundled with the plugin
 
 - Unit tests live next to their package (`foo_test.go`).
 - Cross-package behavior goes in `internal/integration_test` with synthetic agent homes built in temp dirs — never touch the developer's real `~/.codex` or `~/.claude`.
-- Crypto/worker tests use an in-process fake worker (`httptest`), no network.
+- Compatible-service crypto tests use an in-process HTTP server (`httptest`), no network.
 
 ## Release process (maintainers)
 

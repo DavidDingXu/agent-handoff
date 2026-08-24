@@ -12,7 +12,7 @@
 | Anonymous provider failover | Failed/corrupt replicas fall through; unsafe hosts and expired links fail | `internal/link/relay_test.go` | Existing unit tests |
 | Link plaintext handling | In-memory zip path and private fallback permissions | `internal/bundle/zip_test.go`, `internal/cli/share_test.go` | Existing unit tests |
 | Import safety | Duplicate ledger, backups, append-only state, and verification | adapter, ledger, integration tests | Existing unit/integration tests |
-| Worker quotas and cleanup | Commit-time limits, rollover, download counts, expiry cleanup | `deploy/worker/src/index.test.js` | Existing Node tests |
+| Optional Worker policy and cleanup | Configured TTL/size, repeat downloads, legacy metadata, expiry cleanup | `deploy/worker/src/index.test.js` | Existing Node tests |
 | Public provider availability | At least one anonymous provider completes an encrypted round trip | Scheduled `provider-health.yml` guarded live test | Existing operational test |
 | Plugin packaging | Fresh Codex and Claude Code homes install the local marketplace at the manifest version | CI plugin smoke job | Existing integration test |
 | Dependency vulnerabilities | Go vulnerability and npm audit checks | Release audit; Dependabot | Manual release check plus automation |

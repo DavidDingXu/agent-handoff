@@ -1,12 +1,19 @@
 name = "agent-handoff-link"
 main = "src/index.js"
-compatibility_date = "2025-01-01"
+compatibility_date = "2026-08-24"
 
 # First-time Workers accounts must open Workers & Pages in the Cloudflare
 # dashboard once to initialize their workers.dev subdomain (API error 10063).
 
-# Blob storage for encrypted share bundles — bind ONE of the two below.
-# The worker auto-detects which is present at runtime.
+# Retention and payload policy. These are product behavior, not account quotas;
+# Cloudflare applies the account's own request/storage limits independently.
+[vars]
+SHARE_DEFAULT_TTL_SECONDS = "600"
+SHARE_MAX_TTL_SECONDS = "86400"
+SHARE_MAX_BLOB_BYTES = "26214400"
+
+# Blob storage for encrypted share bundles — bind ONE of the two below. The
+# Worker auto-detects which is present and never exceeds its platform hard cap.
 
 # Option A (no credit card required): Workers KV.
 # Free tier: 1 GB storage, 1k writes/day, 100k reads/day — plenty for
@@ -26,7 +33,8 @@ id = "<your-kv-namespace-id>"
 # binding = "SHARE_BUCKET"
 # bucket_name = "agent-handoff"
 
-# Durable Object for share metadata + quota budgeting.
+# Durable Object for share metadata. The historical class name is retained so
+# deployments upgrade without invalidating active links.
 [[durable_objects.bindings]]
 name = "SHARE_BUDGET_GATE"
 class_name = "BudgetGate"

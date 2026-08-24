@@ -101,7 +101,7 @@ _Claude Code 加载 Skill 后，由用户选择导出永久 zip 或生成端到�
 
 > 你：「生成分享链接」
 
-无需账号、token 或部署，智能体会直接返回一条端到端加密的 HTTPS 链接。默认先使用项目运营的 Worker（默认 10 分钟，可通过 `--ttl` 延长到 24 小时）；不可用时自动尝试匿名供应商（默认 24 小时，可配置到 7 天，但供应商可能提前删除副本）。解密能力始终只在 URL fragment 里，发送时**必须带完整链接**。所有免费服务都属于尽力而为；必须永久交付时请使用 zip。详见 [docs/link-service.zh-CN.md](docs/link-service.zh-CN.md)。
+无需账号、token 或部署，智能体会直接返回一条端到端加密的 HTTPS 链接。默认先使用项目运营的兼容服务（当前采用可选 Worker 实现），默认 10 分钟，可通过 `--ttl` 延长到 24 小时；不可用时自动尝试匿名供应商（默认 24 小时，可配置到 7 天，但供应商可能提前删除副本）。解密能力始终只在 URL fragment 里，发送时**必须带完整链接**。所有免费服务都属于尽力而为；必须永久交付时请使用 zip。详见 [docs/link-service.zh-CN.md](docs/link-service.zh-CN.md)。
 
 ### 使用自己的文件服务
 
@@ -197,7 +197,7 @@ make lint      # golangci-lint
 make build     # bin/agent-handoff
 ```
 
-CI 在 Ubuntu/macOS/Windows 上带 `-race` 跑测试。架构：`internal/bundle`（容器格式）、`internal/{codex,claude}`（智能体适配器）、`internal/neutral`（跨智能体转录）、`internal/link`（端到端加密 + Worker 和配置化 Provider）、`internal/safety`（密钥扫描）、`internal/cli`。新增智能体还要实现原生恢复、中立转换、宿主探测和跨智能体测试矩阵，详见 [新增其他智能体](docs/adding-agent.zh-CN.md)。
+CI 在 Ubuntu/macOS/Windows 上带 `-race` 跑测试。架构：`internal/bundle`（容器格式）、`internal/{codex,claude}`（智能体适配器）、`internal/neutral`（跨智能体转录）、`internal/link`（端到端加密 + 兼容 hosted endpoint 和配置化 Provider）、`internal/safety`（密钥扫描）、`internal/cli`。新增智能体还要实现原生恢复、中立转换、宿主探测和跨智能体测试矩阵，详见 [新增其他智能体](docs/adding-agent.zh-CN.md)。
 
 后续已明确规划 OpenCode、DeepSeek Harness 原生支持，以及更好的安装诊断和分享前预览，
 详见面向用户结果的[路线图](docs/ROADMAP.zh-CN.md)。

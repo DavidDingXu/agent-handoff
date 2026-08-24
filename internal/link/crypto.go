@@ -1,6 +1,6 @@
 // Package link implements encrypted link handoff: a share zip is encrypted
-// with AES-256-GCM, uploaded to a share service (Cloudflare Worker), and the
-// key travels in the URL fragment (#k=...), never reaching the server.
+// with AES-256-GCM, uploaded to a compatible link service or file provider,
+// and the key travels in the URL fragment, never reaching the storage service.
 package link
 
 import (

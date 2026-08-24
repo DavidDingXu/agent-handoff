@@ -192,9 +192,9 @@ func TestManifestValidate(t *testing.T) {
 	}
 }
 
-// fakeWorker simulates the upload + download endpoints of the Cloudflare
-// Worker enough to exercise Upload and Download end to end.
-func fakeWorker(t *testing.T) *httptest.Server {
+// fakeHostedService simulates the generic upload and download contract enough
+// to exercise Upload and Download end to end.
+func fakeHostedService(t *testing.T) *httptest.Server {
 	t.Helper()
 	var blob []byte
 	var manifest *Manifest
@@ -255,7 +255,7 @@ func fakeWorker(t *testing.T) *httptest.Server {
 }
 
 func TestUploadDownloadRoundTrip(t *testing.T) {
-	srv := fakeWorker(t)
+	srv := fakeHostedService(t)
 	defer srv.Close()
 
 	payload := []byte("this is the share zip payload, much larger than a block")
@@ -291,7 +291,7 @@ func TestUploadDownloadRoundTrip(t *testing.T) {
 }
 
 func TestDownloadRejectsWrongKey(t *testing.T) {
-	srv := fakeWorker(t)
+	srv := fakeHostedService(t)
 	defer srv.Close()
 
 	shareURL, _, err := Upload([]byte("payload"), "t", "T", UploadOptions{

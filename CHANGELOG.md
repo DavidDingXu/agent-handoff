@@ -5,6 +5,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-08-24
+
+### Changed
+
+- The optional project Worker now enforces only deployment-configured TTL and
+  encrypted-blob size bounds. Project download counts, upload quotas, and
+  live-byte accounting were removed; hosting-platform limits remain in force.
+- Link manifests and the hosted-service client no longer expose Worker-specific
+  metadata. Declarative providers remain a vendor-neutral HTTP contract, with
+  the built-in routing pool and every supported config field now documented.
+- Legacy Worker quota metadata and old per-share download counters are ignored,
+  so existing deployments can upgrade without invalidating active links.
+
 ## [0.4.3] - 2026-08-24
 
 ### Fixed

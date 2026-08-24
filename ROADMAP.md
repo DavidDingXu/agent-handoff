@@ -20,7 +20,7 @@ fixed feature checklist. Dates are planning windows, not release promises.
 **Outcome:** enable a new Codex or Claude Code user to install the plugin and
 complete a file or encrypted-link handoff without reading implementation docs.
 
-Planned work:
+Delivered foundation:
 
 - Ship declarative HTTP provider configuration for users who already have an
   object store, enterprise file platform, or domestic file service.
@@ -28,10 +28,13 @@ Planned work:
   best-effort defaults, with a local zip as the final fallback.
 - Add a real end-to-end usage capture, a light architecture diagram, and a
   short troubleshooting path to the primary README.
-- Add [`doctor`, `config validate`, and provider connectivity checks](https://github.com/DavidDingXu/agent-handoff/issues/11) so setup
-  failures produce an actionable diagnosis instead of a generic upload error.
 - Simplify the public Worker policy around two operational controls only: blob
   size and expiry cleanup, both managed through deployment configuration.
+
+Remaining work in this phase:
+
+- Add [`doctor`, `config validate`, and provider connectivity checks](https://github.com/DavidDingXu/agent-handoff/issues/11) so setup
+  failures produce an actionable diagnosis instead of a generic upload error.
 
 Success signals:
 

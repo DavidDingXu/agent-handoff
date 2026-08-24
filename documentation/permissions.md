@@ -10,7 +10,7 @@ agent-handoff has no user accounts or application roles. Authorization comes fro
 | Plaintext zip | Create/read | User-controlled; `0600` on POSIX, inherited destination ACL on Windows | No access unless user sends the file | No access unless user sends the file |
 | Link ciphertext | Upload/download | Allowed for the requested share/import | Stores and serves fallback ciphertext | Stores and serves ciphertext for the project or a self-hosted Worker |
 | Link decryption key | Possess/use | Anyone holding the full URL | Not present in provider requests | Not present in storage API requests |
-| Worker upload | Create share | Anonymous unless `SHARE_UPLOAD_TOKEN` is set | Not applicable | Policy configured by operator |
+| Optional Worker upload | Create share | Anonymous by default; private operators may enable `SHARE_UPLOAD_TOKEN` | Not applicable | Retention and size policy configured by operator |
 | Worker cleanup | Delete expired ciphertext | No direct access | Provider-owned retention | Scheduled Worker handler only |
 
 Local scope is derived from OS filesystem permissions and the resolved agent home (`CODEX_HOME`, `CLAUDE_CONFIG_DIR`, or defaults). There is no database row-level security layer. Code-enforced invariants are append-only restore, backup-before-write, duplicate detection, checksum verification, and bounded archive extraction.

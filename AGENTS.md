@@ -28,7 +28,7 @@ coding agents and contributors working on agent-handoff.
   instructions.
 - `internal/codex`, `internal/claude`: native session adapters.
 - `internal/neutral`: cross-agent transcript contract.
-- `internal/link`: encryption, hosted Worker client, declarative HTTP providers,
+- `internal/link`: encryption, compatible hosted-service client, declarative HTTP providers,
   and anonymous relays.
 - `internal/safety`: pre-export secret detection.
 - `deploy/worker`: optional self-hosted Cloudflare Worker.

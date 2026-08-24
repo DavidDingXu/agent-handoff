@@ -18,7 +18,7 @@ type Manifest struct {
 	Schema     string `json:"schema"`
 	CreatedAt  string `json:"created_at,omitempty"`
 	ExpiresAt  string `json:"expires_at,omitempty"`
-	TTLSeconds int    `json:"ttl_seconds,omitempty"` // requested link lifetime; server clamps to [60s, 24h]
+	TTLSeconds int    `json:"ttl_seconds,omitempty"` // requested lifetime; the selected service may clamp it
 
 	Thread struct {
 		ID    string `json:"id"`
@@ -43,11 +43,6 @@ type Manifest struct {
 		InstallCommand string `json:"install_command,omitempty"`
 		DocsURL        string `json:"docs_url,omitempty"`
 	} `json:"import,omitempty"`
-
-	Service struct {
-		Type        string `json:"type,omitempty"`
-		QuotaPolicy string `json:"quota_policy,omitempty"`
-	} `json:"service,omitempty"`
 }
 
 // Validate checks the manifest structure on the download side.

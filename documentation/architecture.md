@@ -6,7 +6,7 @@
 
 agent-handoff exports one local Codex or Claude Code session into a versioned zip bundle, optionally encrypts and uploads that bundle, and imports it as a new native session. It transfers visible conversation data and selected metadata. It does not transfer repository files, credentials, hidden model state, permissions, memories, or uncommitted changes.
 
-The CLI is a Go static binary. A bundled Skill lets Codex and Claude Code drive the CLI conversationally. The project-operated Cloudflare Worker is the zero-configuration link service; anonymous temporary-file providers are its automatic fallback. Teams can select their own endpoint or configure existing HTTP upload providers without loading third-party code.
+The CLI is a Go static binary. A bundled Skill lets Codex and Claude Code drive the CLI conversationally. A project-operated compatible endpoint is the first zero-configuration route; anonymous temporary-file providers are its automatic fallback. The bundled Cloudflare Worker is one optional endpoint implementation. Teams can select another compatible endpoint or configure existing HTTP upload providers without loading third-party code.
 
 ## Components
 
@@ -15,7 +15,7 @@ The CLI is a Go static binary. A bundled Skill lets Codex and Claude Code drive 
 | `internal/codex`, `internal/claude` | Read and append native agent session state |
 | `internal/bundle`, `internal/neutral` | Versioned archive and cross-agent transcript |
 | `internal/safety` | High-confidence secret scan before export |
-| `internal/link` | AES-256-GCM, Worker/configured-provider upload, download validation and failover |
+| `internal/link` | AES-256-GCM, compatible-endpoint/configured-provider upload, download validation and failover |
 | `internal/ledger` | Per-agent-home duplicate import records |
 | `internal/cli` | User-facing command contract and host detection |
 | `skills/agent-handoff` | Agent workflow, confirmations, and platform binary resolution |
