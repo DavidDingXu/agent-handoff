@@ -38,9 +38,10 @@ func TestFromCodexSession(t *testing.T) {
 	var messages []Entry
 	var tools []Entry
 	for _, e := range tr.Entries {
-		if e.Kind == KindMessage {
+		switch e.Kind {
+		case KindMessage:
 			messages = append(messages, e)
-		} else if e.Kind == KindTool {
+		case KindTool:
 			tools = append(tools, e)
 		}
 	}

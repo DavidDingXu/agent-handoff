@@ -80,7 +80,7 @@ func latestThreadWhere(home, where, arg string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	orderBy := "id desc"
 	if cols, err := SQLiteColumns(db, "threads"); err == nil {
@@ -142,11 +142,11 @@ func AppendSessionIndex(home string, entry map[string]any) error {
 	if err != nil {
 		return fmt.Errorf("open session index: %w", err)
 	}
-	defer f.Close()
 	if _, err := f.Write(append(data, '\n')); err != nil {
+		_ = f.Close()
 		return fmt.Errorf("append session index: %w", err)
 	}
-	return nil
+	return f.Close()
 }
 
 func newestIndexEntry(entries []map[string]any) (string, error) {
@@ -181,7 +181,7 @@ func SQLiteColumns(db *sql.DB, table string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var cols []string
 	for rows.Next() {
 		var cid int

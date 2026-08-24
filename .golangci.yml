@@ -17,6 +17,10 @@ linters:
       # Deployment fixtures and worker JS are intentionally self-contained.
       - path: deploy/.*
         linters: [all]
+      # Test response writers and fixture builders intentionally ignore writes
+      # after assertions; production paths remain fully checked.
+      - path: _test\.go$
+        linters: [errcheck]
 
 issues:
   max-issues-per-linter: 0

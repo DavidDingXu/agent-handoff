@@ -27,7 +27,7 @@ func upsertThreadRow(home string, in RestoreInput, newID, title, targetSession, 
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	cols, err := SQLiteColumns(db, "threads")
 	if err != nil {
@@ -72,7 +72,7 @@ func createThreadsTable(dbPath string) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS threads (
 		id TEXT PRIMARY KEY,
 		title TEXT,

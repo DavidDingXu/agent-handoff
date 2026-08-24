@@ -165,14 +165,16 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	out, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
-	_, err = out.ReadFrom(in)
-	return err
+	if _, err := out.ReadFrom(in); err != nil {
+		_ = out.Close()
+		return err
+	}
+	return out.Close()
 }
 
 func writeFileExclusive(path string, data []byte) error {
@@ -180,9 +182,11 @@ func writeFileExclusive(path string, data []byte) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	_, err = f.Write(data)
-	return err
+	if _, err := f.Write(data); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 func countMessages(data []byte) int {

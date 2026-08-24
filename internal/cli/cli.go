@@ -4,7 +4,6 @@ package cli
 
 import (
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -71,10 +70,6 @@ func targetFlag(fs *flag.FlagSet) *string {
 	return fs.String("target", "", "import target agent: codex or claude (defaults to the current agent)")
 }
 
-func homeFlag(fs *flag.FlagSet, agent string) *string {
-	return fs.String("home", "", agent+" home (defaults to CODEX_HOME/CLAUDE_CONFIG_DIR)")
-}
-
 // detectSource picks the default source agent: Claude when CLAUDE_CONFIG_DIR
 // is set or the cwd is inside a Claude session context, else Codex.
 func detectSource(explicit string) (string, error) {
@@ -121,17 +116,7 @@ func absolutePath(p string) string {
 	return abs
 }
 
-func defaultCWD() (string, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Abs(wd)
-}
-
 // isURL reports whether the source argument is a share link.
 func isURL(s string) bool {
 	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")
 }
-
-var errPrinted = errors.New("agent-handoff: error already printed to stdout")

@@ -22,18 +22,22 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 
 func TestUploadRelayFallsBackAndCreatesTwoReplicas(t *testing.T) {
 	var uploads atomic.Int32
+	failureSeen := make(chan struct{})
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /tempsh", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		w.Write([]byte("unavailable"))
+		close(failureSeen)
 	})
 	mux.HandleFunc("POST /tmpfiles", func(w http.ResponseWriter, r *http.Request) {
+		<-failureSeen
 		assertRelayUpload(t, r, "file")
 		uploads.Add(1)
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"success","data":{"url":"https://tmpfiles.org/a/file.enc"}}`))
 	})
 	mux.HandleFunc("POST /uguu", func(w http.ResponseWriter, r *http.Request) {
+		<-failureSeen
 		assertRelayUpload(t, r, "files[]")
 		uploads.Add(1)
 		w.Header().Set("Content-Type", "application/json")
@@ -61,9 +65,6 @@ func TestUploadRelayFallsBackAndCreatesTwoReplicas(t *testing.T) {
 	}
 	if got := strings.Join(res.Providers, ","); got != "tmpfiles.org,uguu.se" {
 		t.Errorf("providers = %q", got)
-	}
-	if len(res.ProviderErrors) != 1 || !strings.Contains(res.ProviderErrors[0], "temp.sh") {
-		t.Errorf("provider errors = %#v", res.ProviderErrors)
 	}
 	m, cleanURL, err := ParseRelayLink(res.ShareURL)
 	if err != nil {
@@ -122,6 +123,9 @@ func TestUploadRelayReturnsSingleReplicaWhenOthersFail(t *testing.T) {
 	}
 	if len(res.Providers) != 1 || res.Providers[0] != "uguu.se" {
 		t.Errorf("providers = %#v", res.Providers)
+	}
+	if len(res.ProviderErrors) != 2 {
+		t.Errorf("provider errors = %#v, want both failed providers", res.ProviderErrors)
 	}
 }
 

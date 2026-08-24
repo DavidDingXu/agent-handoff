@@ -81,7 +81,9 @@ func Record_(home, fingerprint, sourceAgent, sourceThread, importedThread, title
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	_, err = f.Write(append(data, '\n'))
-	return err
+	if _, err := f.Write(append(data, '\n')); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }

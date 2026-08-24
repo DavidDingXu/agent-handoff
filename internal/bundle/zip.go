@@ -38,11 +38,11 @@ func WriteZip(path string, in WriterInput) error {
 		return err
 	}
 	if err := f.Chmod(0o600); err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 	if err := writeZip(f, in); err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 	return f.Close()
@@ -147,7 +147,7 @@ func ReadZip(path string) (*ReadResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrNotShareFile, err)
 	}
-	defer zr.Close()
+	defer func() { _ = zr.Close() }()
 
 	files, err := readZipFiles(zr.File)
 	if err != nil {
@@ -317,7 +317,7 @@ func readZipEntry(zf *zip.File, maxBytes uint64) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	return readLimitedZipEntry(rc, zf.Name, maxBytes)
 }
 

@@ -257,7 +257,7 @@ func TestSessionFromNeutral(t *testing.T) {
 			t.Errorf("synthesized session missing %q", want)
 		}
 	}
-	if strings.Contains(out, `", "`) || strings.Contains(out, `", "`) {
+	if strings.Contains(out, `", "`) {
 		t.Error("synthesized session should be compact json lines")
 	}
 }

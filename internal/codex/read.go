@@ -88,7 +88,7 @@ func ReadThreadRow(home, threadID string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	cols, err := SQLiteColumns(db, "threads")
 	if err != nil {
@@ -103,7 +103,7 @@ func ReadThreadRow(home, threadID string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	if !rows.Next() {
 		return nil, fmt.Errorf("thread %s not found in %s", threadID, StateSQLiteFile)
 	}

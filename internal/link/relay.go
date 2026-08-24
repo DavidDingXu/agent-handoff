@@ -270,7 +270,7 @@ func uploadRelayReplica(ctx context.Context, client *http.Client, provider relay
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return "", err
@@ -294,7 +294,7 @@ func uploadFilebinReplica(ctx context.Context, client *http.Client, filename str
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return "", err
@@ -545,7 +545,7 @@ func fetchRelayBlob(client *http.Client, replica RelayReplica, expectedBytes int
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		data, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 		return nil, fmt.Errorf("server returned %d: %s", resp.StatusCode, truncateBody(data))
