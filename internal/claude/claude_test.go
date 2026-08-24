@@ -179,8 +179,17 @@ func TestReadIndexMissingFile(t *testing.T) {
 }
 
 func TestProjectDirName(t *testing.T) {
-	if got := ProjectDirName("/Users/foo/bar"); got != "-Users-foo-bar" {
-		t.Errorf("ProjectDirName = %q", got)
+	for _, tc := range []struct {
+		path string
+		want string
+	}{
+		{path: "/Users/foo/bar", want: "-Users-foo-bar"},
+		{path: `C:\Users\foo\bar`, want: "C--Users-foo-bar"},
+		{path: "C:/Users/foo/bar", want: "C--Users-foo-bar"},
+	} {
+		if got := ProjectDirName(tc.path); got != tc.want {
+			t.Errorf("ProjectDirName(%q) = %q, want %q", tc.path, got, tc.want)
+		}
 	}
 }
 

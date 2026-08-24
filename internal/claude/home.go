@@ -41,10 +41,10 @@ func ResolveHome(flagHome string) (string, error) {
 	return DefaultHome()
 }
 
-// ProjectDirName converts a cwd into Claude's project directory name
-// (every path separator becomes '-': /Users/foo/bar -> -Users-foo-bar).
+// ProjectDirName converts a cwd into Claude's project directory name. Claude
+// replaces both path separators and the Windows drive colon with '-'.
 func ProjectDirName(cwd string) string {
-	return strings.ReplaceAll(filepath.Clean(cwd), string(filepath.Separator), "-")
+	return strings.NewReplacer("/", "-", `\`, "-", ":", "-").Replace(filepath.Clean(cwd))
 }
 
 // ResolveSession maps "current" (or empty) to a real session id. Priority:
