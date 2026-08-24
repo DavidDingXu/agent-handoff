@@ -34,6 +34,16 @@ func TestSkillInteractiveContract(t *testing.T) {
 		"--config <file>",
 		"Do not ask the user which link provider",
 		"Never ask the user to paste a provider token",
+		"If no native question tool is available",
+		"default to zip and continue immediately",
+		"Do not render a numbered text menu",
+		"分享链接：",
+		"```text",
+		"<share_url>",
+		"有效期：<expires_at>",
+		"The fenced block must contain the complete `share_url` and nothing else",
+		"Never put `share_url` in an ordinary paragraph",
+		"wrap it in a Markdown link",
 	}
 	for _, want := range required {
 		if !strings.Contains(skill, want) {
