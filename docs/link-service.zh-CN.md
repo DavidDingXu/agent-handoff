@@ -2,7 +2,7 @@
 
 [English](link-service.md) | 简体中文
 
-`agent-handoff share --format link` 把捆绑包变成一条可以随处粘贴的 URL。捆绑包在**你的机器上**用 AES-256-GCM 加密。零配置时先使用项目运营的 Worker，不可用时自动尝试匿名临时文件服务；传 `--endpoint` 时只走你自建的 Cloudflare Worker。
+`agent-handoff share --format link` 把捆绑包变成一条可以随处粘贴的 URL。捆绑包在**你的机器上**用 AES-256-GCM 加密。零配置时先使用项目运营的服务，不可用时自动尝试匿名临时文件服务；高级用户可以通过声明式配置接入已有 HTTP 文件服务，不绑定 Cloudflare。
 
 ## 威胁模型
 
@@ -36,104 +36,56 @@
 }
 ```
 
-CLI 只接受受支持供应商精确域名下的 HTTPS URL，并在下载前拒绝重复供应商、过期或超限 manifest；它不会请求 resolver URL。可以用 `AGENT_HANDOFF_RESOLVER` 替换内置解析页，但必须是 HTTPS，并提供同样只在浏览器本地读取 fragment 的静态页面。
+CLI 对内置供应商只接受精确受支持域名；对用户配置的 provider 只接受公共 HTTPS URL。下载前会拒绝非法 provider 标识、重复供应商、过期或超限 manifest；它不会请求 resolver URL。可以用 `AGENT_HANDOFF_RESOLVER` 替换内置解析页，但必须是 HTTPS，并提供同样只在浏览器本地读取 fragment 的静态页面。
 
-## 自建模式
+## 自定义 Provider
 
-设置 `AGENT_HANDOFF_ENDPOINT` 或传 `--endpoint` 后，CLI 会绕过匿名供应商，使用下面的 Worker 协议。
+已有国内对象存储、企业文件平台或普通文件上传 API 时，可以用一个声明式 JSON 文件接入，不执行第三方程序。默认配置路径：
 
-### 分享生命周期
+- macOS：`~/Library/Application Support/agent-handoff/config.json`
+- Linux：`${XDG_CONFIG_HOME:-~/.config}/agent-handoff/config.json`
+- Windows：`%AppData%\agent-handoff\config.json`
 
-```
-发送方                                    worker（Cloudflare）
-──────                                    ──────────────────
-1. 构建 zip 捆绑包
-2. AES-256-GCM 加密    ── 密文 ────────> POST /v1/shares（multipart）
-3. 收到 share_url                        密文存 R2/KV，manifest 存 DO
-4. 把 #k=<key> 拼到 share_url            （服务端永远见不到密钥）
-
-接收方
-──────
-5. GET /v1/shares/:id          → 链接 manifest（JSON）
-6. GET /v1/shares/:id/blob     → 密文（校验大小 + sha256）
-7. 用 fragment 里的密钥解密      → zip → 走正常导入路径
-```
-
-worker 强制的限制：每个 blob 最大 32 MiB（KV 模式 25 MiB）、链接默认有效期 10 分钟（可通过 `ttl_seconds` 请求 60 秒 – 24 小时；发送方 CLI 参数为 `--ttl <秒>`）、每个分享最多 10 次下载、在线字节总量 4 GiB，外加 BudgetGate Durable Object 控制的月度上传/下载配额。KV 模式下 TTL 由 KV 原生强制执行（密文到点自动消失）；R2 模式下通过 `expires_at` 加每小时一次的 cron 清理过期分享。
-
-### HTTP API
-
-| 路由 | 方法 | 用途 |
-| --- | --- | --- |
-| `/v1/capabilities` | GET | 服务限制，以及上传是否需要 token |
-| `/v1/shares` | POST | 上传（multipart 字段：`share_id`、`manifest`、文件 `blob`）→ `201` 返回 `share_url`、`manifest_url`、`expires_at` |
-| `/v1/shares/:id` | GET | 链接 manifest JSON |
-| `/v1/shares/:id/blob` | GET | 加密捆绑包字节 |
-| `/s/:id` | GET | 人类可读的分享页（导入指引） |
-| `/s/:id.agent.md` | GET | 智能体交接 markdown |
-| `/s/:id.agent.json` | GET | 智能体交接 JSON |
-| `/r` | GET | 匿名 `#h=` 链接的静态解析页；不使用存储绑定 |
-
-是否要求上传 bearer token（`Authorization: Bearer …`）取决于部署配置；CLI 从 `--token` 或 `AGENT_HANDOFF_TOKEN` 读取。
-
-### 自建链接 manifest
+也可以用 `--config <file>` 为单次分享指定其他配置。multipart 示例：
 
 ```json
 {
-  "schema": "agent-handoff.link.v1",
-  "thread": { "id": "0192…", "title": "fix flaky retry test" },
-  "bundle": { "url": "https://share.example.com/v1/shares/Wi5x…/blob", "sha256": "…", "bytes": 48213 },
-  "crypto": { "alg": "AES-256-GCM", "nonce": "…", "key_ref": "url-fragment:k" },
-  "ttl_seconds": 600,
-  "expires_at": "2026-08-21T09:51:12Z"
+  "providers": [{
+    "name": "my-service",
+    "upload_url": "https://files.example.com/api/upload",
+    "upload_type": "multipart",
+    "file_field": "file",
+    "headers": { "Authorization": "Bearer ${MY_FILE_TOKEN}" },
+    "form_fields": { "expire": "{ttl_seconds}" },
+    "response_type": "json",
+    "url_json_pointer": "/data/url"
+  }]
 }
 ```
 
-客户端的 `Validate` 会强制校验 schema、算法、nonce 存在性与 `key_ref` —— manifest 本身永远不含密钥。
+直接上传二进制并从纯文本响应读取 URL：
 
-### 部署你自己的实例
-
-worker 是单文件（`deploy/worker/src/index.js`，无构建步骤），使用一个 Durable Object 加一个 blob 存储：**Workers KV**（无需绑卡；免费额度 1 GB 存储 / 每天 1k 写 / 100k 读 —— 对 10 分钟链接绰绰有余）或 **R2**（需要绑卡；blob 最大 32 MiB）。运行时自动探测绑定的是哪个。
-
-方案 A —— KV，不用绑卡：
-
-```sh
-cd deploy/worker
-npm ci
-npx wrangler login
-cp wrangler.toml.example wrangler.toml
-npx wrangler kv namespace create SHARE_KV   # 把返回的 id 填进 wrangler.toml
-npx wrangler secret put SHARE_UPLOAD_TOKEN  # 可选：要求上传 token
-npx wrangler deploy
+```json
+{
+  "providers": [{
+    "name": "raw-store",
+    "upload_url": "https://files.example.com/upload/{filename}",
+    "upload_type": "raw",
+    "response_type": "text"
+  }]
+}
 ```
 
-如果该 Cloudflare 账号从未使用过 Workers，执行 `wrangler login` 后要先在 Cloudflare Dashboard 打开一次 **Workers & Pages**，创建或确认该账号的 `workers.dev` 子域名。这是 Dashboard 中的一次性账号初始化；未完成时，`wrangler deploy` 会报 API 错误 `10063`。可以运行 `npx wrangler whoami`，确认 Dashboard 与 Wrangler 使用的是同一个账号。
+`upload_type` 只接受 `multipart` 或 `raw`。响应可以是 `text`，也可以是 `json` 并用 RFC 6901 JSON Pointer 指向下载 URL；数组路径例如 `/files/0/url`。URL、header 和表单值可引用 `{filename}`、`{bytes}`、`{sha256}`、`{ttl_seconds}`，也可用 `${ENV_NAME}` 读取本机环境变量。token 不应直接写进配置。
 
-方案 B —— R2，需绑卡：
+provider 返回的下载 URL 必须是公共 HTTPS，并允许接收方无需鉴权用 `GET` 取得完全相同的密文字节。配置文件采用严格 JSON，未知字段会报错。需要多步登录、动态签名或自定义下载请求的服务暂不属于第一版声明式合同，可通过 Issue 提议新的通用字段，不能注入 shell 命令。
 
-```sh
-npx wrangler r2 bucket create agent-handoff   # 把 wrangler.toml 里的 KV 块换成 R2 块
-npx wrangler deploy
-```
-
-默认地址是 `<worker-name>.<your-subdomain>.workers.dev`，不需要自有域名。然后让客户端指向你的实例：
-
-```sh
-export AGENT_HANDOFF_ENDPOINT=https://agent-handoff-link.<your-subdomain>.workers.dev
-export AGENT_HANDOFF_TOKEN=<与-SHARE_UPLOAD_TOKEN-相同的值>
-curl -fsS "$AGENT_HANDOFF_ENDPOINT/v1/capabilities"
-agent-handoff share --format link
-```
-
-如果没有设置可选的 Worker secret，就不要配置 `AGENT_HANDOFF_TOKEN`。`wrangler.toml` 含账号专属 namespace id，应只保留在本机；仓库已将它加入 Git 忽略列表。
-
-默认配置按团队规模 + 免费额度设计；公开实例请先调整 `index.js` 里的 `LIMITS`。这个 worker 刻意保持简单可审计（约 600 行，零依赖）。
+配置文件存在时即表示显式选择自定义 provider：CLI 不再尝试项目 Worker 或四家匿名供应商。多个 provider 并发上传，最多记录两个成功副本；全部失败时返回本地 zip。若希望分享链接本身也不使用默认 `workers.dev` resolver，可同时配置你信任的 `AGENT_HANDOFF_RESOLVER`；CLI 导入本来就不会请求 resolver。
 
 ## CLI 集成
 
-- 未配置 endpoint 时，CLI 使用项目运营的 Worker 并生成 `#k=` 链接；不可用时再由匿名供应商池生成 `#h=` 链接。
-- `--endpoint URL` / `AGENT_HANDOFF_ENDPOINT` —— 使用自建 worker 并生成 `#k=` 链接。
-- `--token TOKEN` / `AGENT_HANDOFF_TOKEN` —— 上传 bearer token。
-- `AGENT_HANDOFF_RESOLVER` —— 匿名链接的可选 HTTPS 解析页。
+- 默认使用项目运营的 Worker 并生成 `#k=` 链接；不可用时由 Filebin、tmpfiles、Uguu、temp.sh 生成 `#h=` 链接。
+- 默认配置文件或 `--config FILE` —— 显式使用一个或多个自定义 HTTP provider 并生成 `#h=` 链接。
+- `AGENT_HANDOFF_RESOLVER` —— 中继链接的可选 HTTPS 解析页。
 - 当前模式下所有上传都失败时，CLI 会返回本地 zip（`status: "fallback_zip"`），分享不会凭空消失。
 - `import <url>` 接受完整链接（含 fragment），下载、校验、解密后走正常导入路径 —— 包括干跑/`--execute` 区分与重复检测。

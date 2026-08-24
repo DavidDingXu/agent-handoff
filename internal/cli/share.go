@@ -26,6 +26,7 @@ func cmdShare(args []string) error {
 	endpoint := fs.String("endpoint", "", "optional self-hosted share service endpoint for --format link")
 	token := fs.String("token", "", "share service bearer token")
 	ttl := fs.Int("ttl", 0, "link lifetime in seconds (anonymous fallback: 60-604800, default 86400; hosted/self-hosted worker: 60-86400, default 600)")
+	config := fs.String("config", "", "provider config path (defaults to the platform user config directory)")
 	includeSecrets := fs.Bool("include-secrets", false, "proceed even when the secret scan finds high-confidence secrets")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -96,11 +97,39 @@ func cmdShare(args []string) error {
 		return printJSON(result)
 
 	case "link":
+		providerConfig, _, err := link.ResolveProviderConfig(*config)
+		if err != nil {
+			return err
+		}
+		if providerConfig != nil && link.HasExplicitEndpoint(*endpoint) {
+			return fmt.Errorf("--config cannot be combined with --endpoint or %s", link.DefaultEndpointEnv)
+		}
 		ep := link.ResolveEndpoint(*endpoint)
 		explicitEndpoint := link.HasExplicitEndpoint(*endpoint)
 		payload, err := bundle.WriteZipBytes(writerInput)
 		if err != nil {
 			return err
+		}
+
+		if providerConfig != nil {
+			res, relayErr := link.UploadRelay(payload, link.RelayUploadOptions{
+				TTLSeconds:          *ttl,
+				ConfiguredProviders: providerConfig,
+			})
+			if relayErr != nil {
+				return writeZipFallback(result, zipPath, writerInput, relayErr.Error())
+			}
+			result["status"] = "ok"
+			result["safety"] = map[string]any{"status": safety.Status(findings), "findings": findings}
+			result["share_url"] = res.ShareURL
+			result["expires_at"] = res.ExpiresAt
+			result["providers"] = res.Providers
+			result["replica_count"] = len(res.Providers)
+			if len(res.ProviderErrors) > 0 {
+				result["provider_warnings"] = res.ProviderErrors
+			}
+			result["note"] = "the encrypted bundle was uploaded by explicitly configured providers; the key and replica addresses live only in the #h= fragment — send the full link"
+			return printJSON(result)
 		}
 
 		var serviceWarning string

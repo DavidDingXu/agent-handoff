@@ -2,7 +2,7 @@
 
 [English] | [简体中文](link-service.zh-CN.md)
 
-`agent-handoff share --format link` turns a bundle into a URL you can paste anywhere. The bundle is encrypted **on your machine** with AES-256-GCM. With no configuration, the CLI uses the project-operated Worker and automatically falls back to anonymous temporary-file providers. Passing `--endpoint` selects only your self-hosted Worker instead.
+`agent-handoff share --format link` turns a bundle into a URL you can paste anywhere. The bundle is encrypted **on your machine** with AES-256-GCM. With no configuration, the CLI uses the project-operated service and automatically falls back to anonymous temporary-file providers. Advanced users can connect an existing HTTP file service through declarative configuration without depending on Cloudflare.
 
 ## Threat model
 
@@ -36,104 +36,56 @@ The resulting URL uses the static `/r` resolver page and carries a compact manif
 }
 ```
 
-The CLI accepts only HTTPS URLs on the exact supported provider hosts, rejects duplicate/expired/oversized manifests before downloading, and never fetches the resolver URL. `AGENT_HANDOFF_RESOLVER` may replace the built-in resolver page; it must be HTTPS and serve the same static fragment-reading UI.
+For built-in providers, the CLI accepts HTTPS URLs only on the exact supported hosts. User-configured providers may return public HTTPS URLs. Before download, the CLI rejects malformed provider identifiers and duplicate, expired, or oversized manifests; it never fetches the resolver URL. `AGENT_HANDOFF_RESOLVER` may replace the built-in resolver page; it must be HTTPS and serve the same static fragment-reading UI.
 
-## Self-hosted mode
+## Custom providers
 
-Set `AGENT_HANDOFF_ENDPOINT` or pass `--endpoint` to bypass anonymous providers and use the Worker protocol below.
+Connect an existing domestic object store, enterprise file platform, or ordinary upload API through declarative JSON; no third-party program is executed. Default config paths are:
 
-### Share lifecycle
+- macOS: `~/Library/Application Support/agent-handoff/config.json`
+- Linux: `${XDG_CONFIG_HOME:-~/.config}/agent-handoff/config.json`
+- Windows: `%AppData%\agent-handoff\config.json`
 
-```
-sender                                    worker (Cloudflare)
-──────                                    ──────────────────
-1. build zip bundle
-2. AES-256-GCM encrypt  ── ciphertext ──> POST /v1/shares (multipart)
-3. receive share_url                     store blob in R2/KV, manifest in DO
-4. append #k=<key> to share_url          (server never sees key)
-
-receiver
-────────
-5. GET /v1/shares/:id          → link manifest (JSON)
-6. GET /v1/shares/:id/blob     → ciphertext (size + sha256 checked)
-7. decrypt with key from fragment → zip → normal import path
-```
-
-Limits enforced by the worker: 32 MiB per blob (25 MiB on KV), link TTL of 10 minutes by default (request 60 s – 24 h via `ttl_seconds`; the sender CLI flag is `--ttl <seconds>`), 10 downloads per share, 4 GiB live bytes, plus monthly put/get quotas via the BudgetGate Durable Object. On KV the TTL is enforced natively (the blob self-destructs); on R2 it is enforced via `expires_at` plus an hourly cron that deletes expired shares.
-
-### HTTP API
-
-| Route | Method | Purpose |
-| --- | --- | --- |
-| `/v1/capabilities` | GET | Service limits and whether uploads require a token |
-| `/v1/shares` | POST | Upload (multipart fields: `share_id`, `manifest`, file `blob`) → `201` with `share_url`, `manifest_url`, `expires_at` |
-| `/v1/shares/:id` | GET | Link manifest JSON |
-| `/v1/shares/:id/blob` | GET | Encrypted bundle bytes |
-| `/s/:id` | GET | Human share page (import instructions) |
-| `/s/:id.agent.md` | GET | Agent handoff markdown |
-| `/s/:id.agent.json` | GET | Agent handoff JSON |
-| `/r` | GET | Static resolver page for anonymous `#h=` links; does not use storage bindings |
-
-Uploads may require a bearer token (`Authorization: Bearer …`) depending on deployment; the CLI sends one from `--token` or `AGENT_HANDOFF_TOKEN`.
-
-### Self-hosted link manifest
+Use `--config <file>` to select another config for one share. Multipart example:
 
 ```json
 {
-  "schema": "agent-handoff.link.v1",
-  "thread": { "id": "0192…", "title": "fix flaky retry test" },
-  "bundle": { "url": "https://share.example.com/v1/shares/Wi5x…/blob", "sha256": "…", "bytes": 48213 },
-  "crypto": { "alg": "AES-256-GCM", "nonce": "…", "key_ref": "url-fragment:k" },
-  "ttl_seconds": 600,
-  "expires_at": "2026-08-21T09:51:12Z"
+  "providers": [{
+    "name": "my-service",
+    "upload_url": "https://files.example.com/api/upload",
+    "upload_type": "multipart",
+    "file_field": "file",
+    "headers": { "Authorization": "Bearer ${MY_FILE_TOKEN}" },
+    "form_fields": { "expire": "{ttl_seconds}" },
+    "response_type": "json",
+    "url_json_pointer": "/data/url"
+  }]
 }
 ```
 
-`Validate` on the client side enforces the schema, algorithm, nonce presence, and `key_ref` — the manifest never contains the key itself.
+Raw-byte upload with a plain-text URL response:
 
-### Deploy your own
-
-The worker is a single file (`deploy/worker/src/index.js`, no build step) using a Durable Object plus a blob store: **Workers KV** (no credit card required; free tier 1 GB storage / 1k writes / 100k reads per day — fine for 10-minute links) or **R2** (requires a payment card; blobs up to 32 MiB). It auto-detects whichever binding is present.
-
-Option A — KV, no card:
-
-```sh
-cd deploy/worker
-npm ci
-npx wrangler login
-cp wrangler.toml.example wrangler.toml
-npx wrangler kv namespace create SHARE_KV   # put the printed id into wrangler.toml
-npx wrangler secret put SHARE_UPLOAD_TOKEN  # optional: require an upload token
-npx wrangler deploy
+```json
+{
+  "providers": [{
+    "name": "raw-store",
+    "upload_url": "https://files.example.com/upload/{filename}",
+    "upload_type": "raw",
+    "response_type": "text"
+  }]
+}
 ```
 
-On a Cloudflare account that has never used Workers, open **Workers & Pages** in the Cloudflare dashboard once after `wrangler login` and create or confirm the account's `workers.dev` subdomain. Cloudflare performs this one-time account initialization from the dashboard; otherwise `wrangler deploy` fails with API error `10063`. Use `npx wrangler whoami` to confirm that the dashboard and Wrangler are using the same account.
+`upload_type` is `multipart` or `raw`. Responses may be `text`, or `json` with an RFC 6901 JSON Pointer to the download URL; arrays use paths such as `/files/0/url`. URLs, headers, and form values may reference `{filename}`, `{bytes}`, `{sha256}`, `{ttl_seconds}`, and local environment variables as `${ENV_NAME}`. Do not put tokens directly in the config.
 
-Option B — R2, card on file:
+The returned download URL must be public HTTPS and allow an unauthenticated `GET` of the exact ciphertext bytes. Config parsing is strict and rejects unknown fields. Services requiring multi-step login, dynamic request signing, or custom download requests are outside the first declarative contract; propose reusable fields through an issue rather than injecting shell commands.
 
-```sh
-npx wrangler r2 bucket create agent-handoff   # swap the KV block for the R2 block in wrangler.toml
-npx wrangler deploy
-```
-
-The default URL is `<worker-name>.<your-subdomain>.workers.dev` — no custom domain needed. Then point clients at your instance:
-
-```sh
-export AGENT_HANDOFF_ENDPOINT=https://agent-handoff-link.<your-subdomain>.workers.dev
-export AGENT_HANDOFF_TOKEN=<the-same-value-stored-in-SHARE_UPLOAD_TOKEN>
-curl -fsS "$AGENT_HANDOFF_ENDPOINT/v1/capabilities"
-agent-handoff share --format link
-```
-
-If you omit the optional Worker secret, leave `AGENT_HANDOFF_TOKEN` unset. Keep `wrangler.toml` local: it contains your account-specific namespace id and is ignored by Git.
-
-The stock deployment is sized for a team on the free tier; adjust `LIMITS` in `index.js` before running a public instance. The worker is intentionally simple to audit (~600 lines, no dependencies).
+The presence of a config explicitly selects custom-provider mode: the CLI does not try the project Worker or the four anonymous providers. Multiple providers upload concurrently and up to two successful replicas are recorded. If every provider fails, the CLI returns a local zip. To keep the visible link off the default `workers.dev` resolver as well, configure a trusted `AGENT_HANDOFF_RESOLVER`; CLI import never requests the resolver.
 
 ## CLI integration
 
-- With no endpoint, the CLI uses the project-operated Worker and emits a `#k=` link; if it is unavailable, the anonymous provider pool emits a `#h=` link.
-- `--endpoint URL` / `AGENT_HANDOFF_ENDPOINT` — use a self-hosted worker and emit a `#k=` link.
-- `--token TOKEN` / `AGENT_HANDOFF_TOKEN` — bearer token for uploads.
-- `AGENT_HANDOFF_RESOLVER` — optional HTTPS resolver page for anonymous links.
+- By default, the project-operated Worker emits a `#k=` link; if it is unavailable, Filebin, tmpfiles, Uguu, and temp.sh emit a `#h=` link.
+- The default config file or `--config FILE` — explicitly use one or more custom HTTP providers and emit a `#h=` link.
+- `AGENT_HANDOFF_RESOLVER` — optional HTTPS resolver page for relay links.
 - When every applicable upload fails, the CLI returns the local zip (`status: "fallback_zip"`), so a share never silently disappears.
 - `import <url>` accepts a full link (fragment included), downloads, verifies, decrypts, and runs the normal import path — including the dry-run/`--execute` split and duplicate detection.

@@ -46,7 +46,7 @@ func usage() {
 Usage:
   agent-handoff share [--source codex|claude] [--thread current] [--format zip|link]
                     [--out FILE] [--endpoint URL] [--token TOKEN] [--ttl SECONDS]
-                    [--include-secrets]
+                    [--config FILE] [--include-secrets]
   agent-handoff preview FILE.agent-handoff.zip
   agent-handoff import FILE.agent-handoff.zip|URL [--source codex|claude] [--target codex|claude]
                  [--cwd DIR] [--execute] [--allow-duplicate]

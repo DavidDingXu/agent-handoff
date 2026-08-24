@@ -28,12 +28,14 @@ coding agents and contributors working on agent-handoff.
   instructions.
 - `internal/codex`, `internal/claude`: native session adapters.
 - `internal/neutral`: cross-agent transcript contract.
-- `internal/link`: encryption, hosted Worker client, and anonymous relays.
+- `internal/link`: encryption, hosted Worker client, declarative HTTP providers,
+  and anonymous relays.
 - `internal/safety`: pre-export secret detection.
 - `deploy/worker`: optional self-hosted Cloudflare Worker.
 - `skills/agent-handoff`: user-facing workflow shared by Codex and Claude Code.
 
-See `docs/adding-agent.md` before adding another source or target agent.
+See `docs/extensions.md` for extension boundaries and `docs/adding-agent.md`
+before adding another source or target agent.
 
 ## Change rules
 
@@ -83,4 +85,3 @@ exact missing check in the pull request.
   a long-lived release branch.
 - When changing the released version, keep plugin manifests, CLI version,
   changelog, bundled binaries, checksums, and release metadata consistent.
-

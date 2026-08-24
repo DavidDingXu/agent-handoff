@@ -48,7 +48,7 @@ internal/claude/            Claude adapter: read session/index, restore, verify
 internal/neutral/           agent-neutral transcript (cross-agent bridge)
 internal/session/           shared jsonl iteration/analysis utilities
 internal/safety/            pre-export secret scan
-internal/link/              AES-256-GCM link crypto + worker client
+internal/link/              AES-256-GCM + Worker, relay, configured providers
 internal/images/            image asset collection
 internal/ledger/            import duplicate ledger
 internal/idgen/             UUIDv7/v4, titles, paths
@@ -59,6 +59,7 @@ skills/agent-handoff/         agent skill (SKILL.md) bundled with the plugin
 ### Extension points
 
 - **New source/target agent**: follow [docs/adding-agent.md](docs/adding-agent.md). It covers native read/restore, neutral conversion, CLI and host integration, bundle compatibility, and the required N x N test matrix.
+- **Custom file provider**: use declarative `config.json`; no Go change is needed for multipart/raw services covered by the current schema. New generic fields require tests and a security review. See [docs/extensions.md](docs/extensions.md) and [docs/link-service.md](docs/link-service.md#custom-providers).
 - **New scan rule**: add to `internal/safety/scan.go` `rules` (mind ordering — specific patterns before generic ones) with a test.
 - **Bundle format changes**: additive fields are minor; anything incompatible bumps `format_version` and needs a reader path for the old version (see v1 compat in `internal/bundle/zip.go`).
 
@@ -75,3 +76,6 @@ Tags `v*` trigger the release workflow: tests run, then goreleaser builds the ma
 ## Reporting issues
 
 Open an issue with: agent-handoff version (`agent-handoff version`), OS, the command you ran, and the JSON output (redact anything sensitive). For security issues, see [SECURITY.md](SECURITY.md) — do not open public issues for vulnerabilities.
+
+Feature priorities and planned agent integrations are tracked in the
+[roadmap](ROADMAP.md).

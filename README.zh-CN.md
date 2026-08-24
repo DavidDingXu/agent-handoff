@@ -28,10 +28,18 @@ codex plugin add agent-handoff@agent-handoff
 ## 特性
 
 - **四象限交接** —— codex→codex、codex→claude、claude→codex、claude→claude。同智能体导入保留原生事件结构与内容，只重写创建新任务所需的身份字段；跨智能体导入走中立转录语义路径，保留可见对话与工具证据。
-- **零配置加密链接** —— `--format link` 在本机用 AES-256-GCM 加密，再把密文上传到项目运营的免费服务。该服务不可用时，CLI 自动尝试匿名多供应商中继；全部上传失败则保留本地 zip。团队也可用 `--endpoint` 切到自己的 Worker。详见 [docs/link-service.zh-CN.md](docs/link-service.zh-CN.md)。
+- **零配置加密链接** —— `--format link` 在本机用 AES-256-GCM 加密，再把密文上传到项目运营的免费服务。该服务不可用时，CLI 自动尝试匿名多供应商中继；全部上传失败则保留本地 zip。团队也可通过配置接入自己的文件服务，不绑定 Cloudflare。详见 [docs/link-service.zh-CN.md](docs/link-service.zh-CN.md)。
 - **导出前密钥扫描** —— 六条高置信规则（OpenAI/Anthropic 密钥、AWS 密钥、GitHub token、私钥块、bearer JWT），命中即阻断导出，除非你显式确认。发现项总是上报，展示时已脱敏。
 - **绝不乱动你的数据** —— 导入只追加一个新任务；已有线程、索引、数据库行一律不碰；每次写入前自动备份。
 - **单一静态二进制** —— 纯 Go（无 CGO 的 sqlite），覆盖 macOS/Linux amd64/arm64 与 Windows amd64；输出 JSON，人和智能体都好读。
+
+## 架构
+
+![agent-handoff 架构](documentation/architecture-diagram.png)
+
+核心负责加密、捆绑包校验和原生任务只追加导入。用户通过声明式配置扩展文件上传；新增
+Agent 暂时以经过审查的源码适配器接入，等第三个真实实现验证安全、跨平台的插件合同后
+再抽象。详见[扩展与定制](docs/extensions.zh-CN.md)。
 
 ## 为什么不直接写一份交接摘要？
 
@@ -71,6 +79,13 @@ make install                  # → $(go env GOPATH)/bin/agent-handoff
 
 装好插件后，所有操作都是自然语言 —— 智能体会调用内置的 agent-handoff 技能完成。
 
+下方截图来自 Claude Code 内真实运行的 agent-handoff Skill，不是单独执行 CLI
+命令的效果图。画面展示了原生的「导出文件 / 生成链接」选择。
+
+![Claude Code 真实运行 agent-handoff Skill](documentation/claude-skill-share.png)
+
+_Claude Code 加载 Skill 后，由用户选择导出永久 zip 或生成端到端加密链接。_
+
 ### 分享当前任务
 
 > 你：「分享当前任务」
@@ -83,50 +98,29 @@ make install                  # → $(go env GOPATH)/bin/agent-handoff
 
 无需账号、token 或部署，智能体会直接返回一条端到端加密的 HTTPS 链接。默认先使用项目运营的 Worker（默认 10 分钟，可通过 `--ttl` 延长到 24 小时）；不可用时自动尝试匿名供应商（默认 24 小时，可配置到 7 天，但供应商可能提前删除副本）。解密能力始终只在 URL fragment 里，发送时**必须带完整链接**。所有免费服务都属于尽力而为；必须永久交付时请使用 zip。详见 [docs/link-service.zh-CN.md](docs/link-service.zh-CN.md)。
 
-### 使用自己的链接服务
+### 使用自己的文件服务
 
-内置服务无需任何配置。需要自己控制存储、有效期、额度和可选上传 token 时，可以
-部署仓库自带的 Worker：
+内置服务无需任何配置。已有国内对象存储、企业文件平台或其他文件服务时，在系统配置
+目录的 `agent-handoff/config.json` 里声明 HTTP provider：
 
-```sh
-cd deploy/worker
-npm ci
-npx wrangler login
-cp wrangler.toml.example wrangler.toml
-npx wrangler kv namespace create SHARE_KV
-# 把命令输出的 namespace id 填入 wrangler.toml，然后执行：
-npx wrangler deploy
+```json
+{
+  "providers": [{
+    "name": "my-service",
+    "upload_url": "https://files.example.com/api/upload",
+    "upload_type": "multipart",
+    "file_field": "file",
+    "headers": { "Authorization": "Bearer ${MY_FILE_TOKEN}" },
+    "response_type": "json",
+    "url_json_pointer": "/data/url"
+  }]
+}
 ```
 
-Cloudflare 账号第一次使用 Workers 时，先在控制台打开一次 **Workers 和 Pages**，
-创建或确认 `workers.dev` 子域名。需要限制上传时，可选执行
-`npx wrangler secret put SHARE_UPLOAD_TOKEN`。
-
-只对一次分享指定自己的服务：
-
-```sh
-agent-handoff share --thread current --format link \
-  --endpoint https://agent-handoff-link.<你的子域名>.workers.dev \
-  --token <可选上传-token>
-```
-
-或者为当前 shell 及其中启动的智能体统一配置：
-
-```sh
-# macOS/Linux；需要长期生效时把这两行加入 shell 配置文件
-export AGENT_HANDOFF_ENDPOINT=https://agent-handoff-link.<你的子域名>.workers.dev
-export AGENT_HANDOFF_TOKEN=<可选上传-token>
-```
-
-```powershell
-# Windows PowerShell；Worker 未设置上传 secret 时省略 token 这一行
-[Environment]::SetEnvironmentVariable("AGENT_HANDOFF_ENDPOINT", "https://agent-handoff-link.<你的子域名>.workers.dev", "User")
-[Environment]::SetEnvironmentVariable("AGENT_HANDOFF_TOKEN", "<可选上传-token>", "User")
-```
-
-设置持久环境变量后重启智能体。显式 endpoint 只使用你的 Worker，不会回退到匿名
-供应商。`wrangler.toml` 包含账号专用 namespace id，只保留在本地，Git 已忽略。
-完整部署与协议说明见 [链接服务文档](docs/link-service.zh-CN.md#部署你自己的实例)。
+token 只放在本机环境变量里，不写进配置或会话。agent-handoff 上传的仍是本机加密后的
+密文；接收方无需任何该文件服务的配置。自定义 provider 全部失败时返回本地 zip，
+不会静默上传到其他公共服务。字段、配置路径和 raw/multipart 示例见
+[自定义 Provider 文档](docs/link-service.zh-CN.md#自定义-provider)。
 
 ### 接收方导入
 
@@ -154,13 +148,13 @@ export AGENT_HANDOFF_TOKEN=<可选上传-token>
 
 主要参数（运行 `agent-handoff` 不带参数查看完整列表）：
 
-- `share`：`--source codex|claude`、`--thread <id>|current`、`--format zip|link`、`--out FILE`、`--endpoint URL`、`--token TOKEN`、`--ttl 秒数`、`--include-secrets`
+- `share`：`--source codex|claude`、`--thread <id>|current`、`--format zip|link`、`--out FILE`、`--config FILE`、`--ttl 秒数`、`--include-secrets`
 - `import`：`--target codex|claude`、`--cwd DIR`、`--execute`、`--allow-duplicate`、`--home DIR`
 - `verify`：`--thread ID`、`--source codex|claude`、`--cwd DIR`
 
 源/目标智能体从 `CODEX_THREAD_ID` / `CLAUDE_SESSION_ID` 之类的环境变量自动探测，默认 codex。智能体主目录从 `CODEX_HOME` / `CLAUDE_CONFIG_DIR` 或 `~/.codex` / `~/.claude` 解析。
 
-环境变量：`AGENT_HANDOFF_ENDPOINT`（可选的自建 worker 地址）、`AGENT_HANDOFF_TOKEN`（对应的上传 bearer token）、`AGENT_HANDOFF_RESOLVER`（匿名链接的可选静态解析页）。
+环境变量：`AGENT_HANDOFF_RESOLVER`（中继链接的可选静态解析页）；provider 的鉴权环境变量由用户自己的 `config.json` 引用。
 
 ## 工作原理
 
@@ -198,6 +192,9 @@ make lint      # golangci-lint
 make build     # bin/agent-handoff
 ```
 
-CI 在 Ubuntu/macOS/Windows 上带 `-race` 跑测试。架构：`internal/bundle`（容器格式）、`internal/{codex,claude}`（智能体适配器）、`internal/neutral`（跨智能体转录）、`internal/link`（端到端加密 + worker 客户端）、`internal/safety`（密钥扫描）、`internal/cli`。新增智能体还要实现原生恢复、中立转换、宿主探测和跨智能体测试矩阵，详见 [新增其他智能体](docs/adding-agent.zh-CN.md)。
+CI 在 Ubuntu/macOS/Windows 上带 `-race` 跑测试。架构：`internal/bundle`（容器格式）、`internal/{codex,claude}`（智能体适配器）、`internal/neutral`（跨智能体转录）、`internal/link`（端到端加密 + Worker 和配置化 Provider）、`internal/safety`（密钥扫描）、`internal/cli`。新增智能体还要实现原生恢复、中立转换、宿主探测和跨智能体测试矩阵，详见 [新增其他智能体](docs/adding-agent.zh-CN.md)。
+
+后续已明确规划 OpenCode、DeepSeek Harness 原生支持，以及更好的安装诊断和分享前预览，
+详见面向用户结果的[路线图](docs/ROADMAP.zh-CN.md)。
 
 欢迎贡献，见 [CONTRIBUTING.zh-CN.md](docs/CONTRIBUTING.zh-CN.md)（[English](CONTRIBUTING.md)）。License：Apache-2.0。

@@ -56,10 +56,12 @@ When the user wants to share the current session/task:
 
 When the user asks for a link / URL / 链接 instead of a file:
 
-1. Run: `<binary> share --thread current --format link`. No endpoint, account, or token is required. The project-operated service is the default and anonymous providers are automatic fallbacks. When `AGENT_HANDOFF_ENDPOINT` / `--endpoint` is present, the CLI deliberately uses only that self-hosted Worker.
+1. Run: `<binary> share --thread current --format link`. No endpoint, account, or token is required. The project-operated service is the default and Filebin, tmpfiles, Uguu, and temp.sh are automatic fallbacks. When the platform user configuration at `agent-handoff/config.json` contains custom HTTP providers, the CLI uses only those providers; `--config <file>` selects another config file for one share.
+   - Provider selection is local configuration, not a per-share interaction. Do not ask the user which link provider to use. Existing provider configuration is applied automatically; an explicit user request to use another config may be translated to `--config <file>`.
+   - Configured providers upload ciphertext only. Credentials are referenced from environment variables inside the local config. Never ask the user to paste a provider token into the conversation.
 2. On success output has `share_url` and `expires_at`. Anonymous fallback mode also has `providers`, `replica_count`, and possibly `provider_warnings`; a single provider warning is not a failed share when `status` is `ok`.
 3. Present the link and exact expiry. Tell the user: the link is end-to-end encrypted; the capability lives in the URL fragment (`#h=` for anonymous multi-provider links or `#k=` for hosted/self-hosted links); storage services cannot read the content; send the FULL link. The project Worker defaults to 10 minutes and accepts `--ttl <seconds>` for 60–86400. Anonymous fallback links default to 24 hours and accept 60–604800, but a provider may delete its replica sooner. Always trust the returned `expires_at`, not a hard-coded duration.
-4. If `status` is `fallback_zip`, every applicable upload failed, so a local zip was kept instead — present the `fallback` reason and the `path`.
+4. If `status` is `fallback_zip`, every applicable upload failed, so a local zip was kept instead — present the `fallback` reason and the `path`. Explicit configured-provider mode does not silently fall back to other third-party services.
 
 ## Import a shared task
 

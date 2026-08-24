@@ -49,7 +49,7 @@ internal/claude/            Claude 适配器：读会话/index、还原、校验
 internal/neutral/           智能体中立转录（跨智能体桥梁）
 internal/session/           共享的 jsonl 迭代/分析工具
 internal/safety/            导出前密钥扫描
-internal/link/              AES-256-GCM 链接加密 + worker 客户端
+internal/link/              AES-256-GCM + Worker、中继、配置化 Provider
 internal/images/            图片资源收集
 internal/ledger/            导入去重账本
 internal/idgen/             UUIDv7/v4、标题、路径
@@ -60,6 +60,7 @@ skills/agent-handoff/         智能体技能（SKILL.md），随插件分发
 ### 扩展点
 
 - **新增源/目标智能体**：按 [新增其他智能体](adding-agent.zh-CN.md) 执行，其中明确了原生读取/恢复、中立转换、CLI 与宿主接入、捆绑包兼容性和必须覆盖的 N x N 测试矩阵。
+- **自定义文件 Provider**：当前 schema 能表达的 multipart/raw 服务只需写 `config.json`，无需改 Go。新增通用字段必须补测试并经过安全审查，详见[扩展与定制](extensions.zh-CN.md)和[链接服务](link-service.zh-CN.md#自定义-provider)。
 - **新扫描规则**：加到 `internal/safety/scan.go` 的 `rules`（注意顺序 —— 特定模式放通用模式前面）并补测试。
 - **捆绑包格式变更**：增量字段算次版本；不兼容变更必须升 `format_version`，并为旧版本保留读取路径（参考 `internal/bundle/zip.go` 的 v1 兼容）。
 
@@ -76,3 +77,5 @@ skills/agent-handoff/         智能体技能（SKILL.md），随插件分发
 ## 提交 issue
 
 请附上：agent-handoff 版本（`agent-handoff version`）、操作系统、执行的命令、JSON 输出（敏感内容自行脱敏）。安全问题见 [SECURITY.zh-CN.md](SECURITY.zh-CN.md) —— 漏洞不要开公开 issue。
+
+功能优先级和后续 Agent 接入计划见[路线图](ROADMAP.zh-CN.md)。
