@@ -1,0 +1,29 @@
+name: Provider health
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.7"
+          cache: true
+
+      - name: Encrypted provider round trip
+        env:
+          AGENT_HANDOFF_LIVE_PROVIDER_TEST: "1"
+        run: go test ./internal/link -run TestLiveAnonymousProviders -count=1 -v
+
+      - name: Resolver page
+        run: curl --fail --silent --show-error --max-time 20 https://agent-handoff-link.798148655.workers.dev/r | grep -q "Agent Handoff"

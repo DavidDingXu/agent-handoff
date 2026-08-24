@@ -1,0 +1,42 @@
+name = "agent-handoff-link"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# First-time Workers accounts must open Workers & Pages in the Cloudflare
+# dashboard once to initialize their workers.dev subdomain (API error 10063).
+
+# Blob storage for encrypted share bundles — bind ONE of the two below.
+# The worker auto-detects which is present at runtime.
+
+# Option A (no credit card required): Workers KV.
+# Free tier: 1 GB storage, 1k writes/day, 100k reads/day — plenty for
+# short-lived links (default TTL is 10 minutes). KV enforces the TTL natively.
+# Create with:
+#   wrangler kv namespace create SHARE_KV
+#   wrangler kv namespace create SHARE_KV_PREVIEW   # only if `wrangler dev` complains
+[[kv_namespaces]]
+binding = "SHARE_KV"
+id = "<your-kv-namespace-id>"
+
+# Option B (requires a payment card on file): R2 bucket, blobs up to 32 MiB.
+# TTL is enforced via manifest expires_at + hourly cron cleanup.
+# Create with:
+#   wrangler r2 bucket create agent-handoff
+# [[r2_buckets]]
+# binding = "SHARE_BUCKET"
+# bucket_name = "agent-handoff"
+
+# Durable Object for share metadata + quota budgeting.
+[[durable_objects.bindings]]
+name = "SHARE_BUDGET_GATE"
+class_name = "BudgetGate"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["BudgetGate"]
+
+# Optional: require a bearer token for uploads.
+# Set with: wrangler secret put SHARE_UPLOAD_TOKEN
+
+[triggers]
+crons = ["0 * * * *"]

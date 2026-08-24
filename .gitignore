@@ -1,0 +1,20 @@
+# Compiled artifacts
+dist/
+bin/local/
+*.test
+
+# macOS
+.DS_Store
+
+# Local share outputs
+*.agent-handoff.zip
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# Worker
+deploy/worker/node_modules/
+deploy/worker/.wrangler/
+deploy/worker/wrangler.toml

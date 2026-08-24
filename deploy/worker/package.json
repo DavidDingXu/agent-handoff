@@ -1,0 +1,14 @@
+{
+  "name": "agent-handoff-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check src/index.js && node --test src/*.test.js",
+    "test": "node --test src/*.test.js",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

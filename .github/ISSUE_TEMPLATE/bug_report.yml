@@ -1,0 +1,62 @@
+name: Bug report
+description: Report a reproducible agent-handoff problem
+title: "[Bug]: "
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not paste unredacted session files, share links, API keys, or exported bundles. Use GitHub's private vulnerability reporting for security issues.
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Agent
+      options:
+        - Codex
+        - Claude Code
+        - Both
+        - Standalone CLI
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Output of `agent-handoff version` plus your Codex or Claude Code version.
+      placeholder: agent-handoff v0.3.0; Codex 0.x or Claude Code 2.x
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      placeholder: macOS 15 arm64, Windows 11 amd64, Ubuntu 24.04 amd64
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction
+      description: Minimal steps using synthetic or redacted data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Paste redacted JSON output or errors. Remove paths, tokens, links, and conversation content.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed secrets, full share links, private paths, and conversation content.
+          required: true

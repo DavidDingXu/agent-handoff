@@ -1,0 +1,17 @@
+{"timestamp":"2026-08-01T10:00:00.000Z","type":"session_meta","payload":{"id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001","timestamp":"2026-08-01T10:00:00.000Z","cwd":"/src/project","cli_version":"0.1.0","source":"vscode"}}
+{"timestamp":"2026-08-01T10:00:00.000Z","type":"turn_context","payload":{"cwd":"/src/project"}}
+{"timestamp":"2026-08-01T10:00:01.000Z","type":"event_msg","payload":{"type":"task_started","turn_id":"t1"}}
+{"timestamp":"2026-08-01T10:00:02.000Z","type":"event_msg","payload":{"type":"user_message","message":"Fix the login bug"}}
+{"timestamp":"2026-08-01T10:00:02.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Fix the login bug"}]}}
+{"timestamp":"2026-08-01T10:00:03.000Z","type":"response_item","payload":{"type":"reasoning","summary":[]}}
+{"timestamp":"2026-08-01T10:00:04.000Z","type":"response_item","payload":{"type":"function_call","name":"shell","namespace":"shell","call_id":"call_1","arguments":"{\"command\":[\"grep\",\"-r\",\"login\"]}"}}
+{"timestamp":"2026-08-01T10:00:05.000Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call_1","output":"auth.go:42: bug here","status":"completed"}}
+{"timestamp":"2026-08-01T10:00:06.000Z","type":"event_msg","payload":{"type":"agent_message","message":"Found the bug in auth.go:42."}}
+{"timestamp":"2026-08-01T10:00:06.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Found the bug in auth.go:42."}]}}
+{"timestamp":"2026-08-01T10:00:07.000Z","type":"event_msg","payload":{"type":"task_complete"}}
+{"timestamp":"2026-08-01T10:01:00.000Z","type":"event_msg","payload":{"type":"task_started","turn_id":"t2"}}
+{"timestamp":"2026-08-01T10:01:01.000Z","type":"event_msg","payload":{"type":"user_message","message":"Also add tests"}}
+{"timestamp":"2026-08-01T10:01:01.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Also add tests"}]}}
+{"timestamp":"2026-08-01T10:01:02.000Z","type":"event_msg","payload":{"type":"agent_message","message":"Tests added."}}
+{"timestamp":"2026-08-01T10:01:02.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Tests added."}]}}
+{"timestamp":"2026-08-01T10:01:03.000Z","type":"event_msg","payload":{"type":"task_complete"}}
