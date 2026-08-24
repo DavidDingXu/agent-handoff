@@ -5,6 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-08-24
+
+### Fixed
+
+- Codex modes without `request_user_input` now preserve the file-or-link choice
+  through a concise plain-text prompt instead of silently selecting zip.
+- Skill and bundled-binary resolution is now explicitly silent so users do not
+  see plugin cache, alias-expansion, or platform-detection narration.
+
 ## [0.4.1] - 2026-08-24
 
 ### Fixed

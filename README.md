@@ -89,10 +89,11 @@ CLI demonstration.
 _Claude Code loads the Skill and asks whether to export a permanent zip or create an encrypted link._
 
 The native choice appears whenever the current agent mode exposes its question
-tool. Codex modes without `request_user_input` default an unspecified share to
-the recommended zip instead of printing a fake text menu; say **"create a share
-link"** when you want a URL. Successful links are always printed verbatim in a
-copyable code block, including the required `#h=` or `#k=` fragment.
+tool. Codex modes without `request_user_input` show the same file-or-link choice
+as a concise text question and wait for the reply; they never silently choose a
+format or imitate a native numbered form. Successful links are always printed
+verbatim in a copyable code block, including the required `#h=` or `#k=`
+fragment.
 
 ### Share the current task
 
