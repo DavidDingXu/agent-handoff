@@ -25,7 +25,7 @@ func cmdShare(args []string) error {
 	format := fs.String("format", "zip", "export format: zip or link")
 	endpoint := fs.String("endpoint", "", "optional self-hosted share service endpoint for --format link")
 	token := fs.String("token", "", "share service bearer token")
-	ttl := fs.Int("ttl", 0, "link lifetime in seconds (anonymous: 60-3600; self-hosted: 60-86400; default 600)")
+	ttl := fs.Int("ttl", 0, "link lifetime in seconds (anonymous fallback: 60-604800, default 86400; hosted/self-hosted worker: 60-86400, default 600)")
 	includeSecrets := fs.Bool("include-secrets", false, "proceed even when the secret scan finds high-confidence secrets")
 	if err := fs.Parse(args); err != nil {
 		return err

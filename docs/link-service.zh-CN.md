@@ -15,9 +15,9 @@
 
 未配置 endpoint 时，CLI 先把密文上传到项目运营的 `agent-handoff-link.798148655.workers.dev`。它不需要账号或 token，默认 10 分钟失效，每条链接最多下载 10 次；公共池每天最多 800 次分享、每月 2 万次，同时存活密文不超过 512 MiB。额度耗尽时 CLI 会自动切到后备池。
 
-项目服务不可用时，CLI 只加密一次，并发上传到最多两家供应商；候选池包括 [Filebin](https://filebin.net/api)、[file.io](https://www.file.io/developers)、[tmpfiles.org](https://tmpfiles.org/api)、[Uguu](https://uguu.se/api) 和 [temp.sh](https://temp.sh/)。单家失败不会阻断分享；导入时依次尝试链接里记录的副本，直到大小、SHA-256 和 AES-GCM 校验全部通过。如果全部上传失败，CLI 会保留本地 zip 并返回 `fallback_zip`。
+项目服务不可用时，CLI 只加密一次，并发上传到最多两家供应商；候选池包括 [Filebin](https://filebin.net/api)、[tmpfiles.org](https://tmpfiles.org/api)、[Uguu](https://uguu.se/api) 和 [temp.sh](https://temp.sh/)。单家失败不会阻断分享；导入时依次尝试链接里记录的副本，直到大小、SHA-256 和 AES-GCM 校验全部通过。如果全部上传失败，CLI 会保留本地 zip 并返回 `fallback_zip`。
 
-匿名链接默认 10 分钟，`--ttl` 限制为 60 秒–1 小时。供应商可能保存得更久，但 CLI 到逻辑过期时间后会拒绝导入。这些免费服务都属于尽力而为，限制和可用性可能随时变化；必须保证交付时应使用 zip 或自建 endpoint。
+匿名后备链接默认 24 小时，`--ttl` 限制为 60 秒–7 天。各供应商可能采用更短的保留策略，因此某个副本可能早于链接的逻辑有效期消失；CLI 会继续尝试其他副本，并在逻辑到期后拒绝整条链接。这些免费服务都属于尽力而为，限制和可用性可能随时变化；必须保证交付时应使用 zip 或自建 endpoint。
 
 生成的 URL 指向静态 `/r` resolver，并在 `#h=` 中携带紧凑 manifest：
 
@@ -99,11 +99,11 @@ worker 是单文件（`deploy/worker/src/index.js`，无构建步骤），使用
 
 ```sh
 cd deploy/worker
-npm install
+npm ci
 npx wrangler login
 cp wrangler.toml.example wrangler.toml
 npx wrangler kv namespace create SHARE_KV   # 把返回的 id 填进 wrangler.toml
-npx wrangler secret put SHARE_UPLOAD_TOKEN  # 建议设置：要求上传 token
+npx wrangler secret put SHARE_UPLOAD_TOKEN  # 可选：要求上传 token
 npx wrangler deploy
 ```
 

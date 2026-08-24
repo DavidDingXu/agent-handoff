@@ -44,7 +44,7 @@ Use the tool that actually exists in the current host; never call the other host
 When the user wants to share the current session/task:
 
 1. If the user did NOT already specify a format (they just said 分享/导出/share), ask with the current host's question tool using:
-   logical question key `share_format` (Codex `id` only), `header: "分享方式"`, `question: "以哪种方式分享当前任务？"`, options `导出文件 (Recommended)` / `生成链接`, with descriptions `生成 .zip 文件，通过 IM/邮件发送，永久有效` / `免配置的端到端加密链接，默认 10 分钟有效`.
+   logical question key `share_format` (Codex `id` only), `header: "分享方式"`, `question: "以哪种方式分享当前任务？"`, options `导出文件 (Recommended)` / `生成链接`, with descriptions `生成 .zip 文件，通过 IM/邮件发送，永久有效` / `免配置的端到端加密链接；有效期以结果为准`.
    If the user already said 链接/URL → link; said 文件/zip/发给对方文件 → zip. Do not ask again.
 2. Run: `<binary> share --thread current` (add `--format link` for a link; from the current workspace directory; the zip is created there).
 3. Output fields: `path` is the ABSOLUTE path of the generated `.agent-handoff.zip`; `source_cwd` is the ORIGINAL task's working directory on the sender's machine (a metadata field, NOT the zip location — do not confuse them); `message_count`/`image_count` are already counted, do not recount.
@@ -58,7 +58,7 @@ When the user asks for a link / URL / 链接 instead of a file:
 
 1. Run: `<binary> share --thread current --format link`. No endpoint, account, or token is required. The project-operated service is the default and anonymous providers are automatic fallbacks. When `AGENT_HANDOFF_ENDPOINT` / `--endpoint` is present, the CLI deliberately uses only that self-hosted Worker.
 2. On success output has `share_url` and `expires_at`. Anonymous fallback mode also has `providers`, `replica_count`, and possibly `provider_warnings`; a single provider warning is not a failed share when `status` is `ok`.
-3. Present the link and exact expiry. Tell the user: the link is end-to-end encrypted; the capability lives in the URL fragment (`#h=` for anonymous multi-provider links or `#k=` for self-hosted links); storage services cannot read the content; send the FULL link immediately. Anonymous links default to 10 minutes and accept `--ttl <seconds>` for 60–3600. Self-hosted links accept 60–86400.
+3. Present the link and exact expiry. Tell the user: the link is end-to-end encrypted; the capability lives in the URL fragment (`#h=` for anonymous multi-provider links or `#k=` for hosted/self-hosted links); storage services cannot read the content; send the FULL link. The project Worker defaults to 10 minutes and accepts `--ttl <seconds>` for 60–86400. Anonymous fallback links default to 24 hours and accept 60–604800, but a provider may delete its replica sooner. Always trust the returned `expires_at`, not a hard-coded duration.
 4. If `status` is `fallback_zip`, every applicable upload failed, so a local zip was kept instead — present the `fallback` reason and the `path`.
 
 ## Import a shared task

@@ -23,7 +23,7 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 func TestUploadRelayFallsBackAndCreatesTwoReplicas(t *testing.T) {
 	var uploads atomic.Int32
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /fileio", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /tempsh", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		w.Write([]byte("unavailable"))
 	})
@@ -43,7 +43,7 @@ func TestUploadRelayFallsBackAndCreatesTwoReplicas(t *testing.T) {
 	defer srv.Close()
 
 	providers := []relayProvider{
-		{name: "file.io", endpoint: srv.URL + "/fileio", field: "file", parseReply: parseFileIOReply},
+		{name: "temp.sh", endpoint: srv.URL + "/tempsh", field: "file", parseReply: parseTempSHReply},
 		{name: "tmpfiles.org", endpoint: srv.URL + "/tmpfiles", field: "file", parseReply: parseTmpFilesReply},
 		{name: "uguu.se", endpoint: srv.URL + "/uguu", field: "files[]", parseReply: parseUguuReply},
 	}
@@ -62,7 +62,7 @@ func TestUploadRelayFallsBackAndCreatesTwoReplicas(t *testing.T) {
 	if got := strings.Join(res.Providers, ","); got != "tmpfiles.org,uguu.se" {
 		t.Errorf("providers = %q", got)
 	}
-	if len(res.ProviderErrors) != 1 || !strings.Contains(res.ProviderErrors[0], "file.io") {
+	if len(res.ProviderErrors) != 1 || !strings.Contains(res.ProviderErrors[0], "temp.sh") {
 		t.Errorf("provider errors = %#v", res.ProviderErrors)
 	}
 	m, cleanURL, err := ParseRelayLink(res.ShareURL)
@@ -110,7 +110,7 @@ func TestUploadRelayReturnsSingleReplicaWhenOthersFail(t *testing.T) {
 	providers := []relayProvider{
 		{name: "tmpfiles.org", endpoint: srv.URL + "/fail", field: "file", parseReply: parseTmpFilesReply},
 		{name: "uguu.se", endpoint: srv.URL + "/ok", field: "files[]", parseReply: parseUguuReply},
-		{name: "file.io", endpoint: srv.URL + "/fail", field: "file", parseReply: parseFileIOReply},
+		{name: "temp.sh", endpoint: srv.URL + "/fail", field: "file", parseReply: parseTempSHReply},
 	}
 	res, err := UploadRelay([]byte("payload"), RelayUploadOptions{
 		ResolverURL: "https://resolver.example/r",
@@ -241,7 +241,6 @@ func TestRelayProviderReplyParsers(t *testing.T) {
 		body any
 		want string
 	}{
-		{"file.io", parseFileIOReply, map[string]any{"success": true, "link": "https://file.io/key"}, "https://file.io/key"},
 		{"tmpfiles.org", parseTmpFilesReply, map[string]any{"status": "success", "data": map[string]any{"url": "https://tmpfiles.org/a/f.enc"}}, "https://tmpfiles.org/dl/a/f.enc"},
 		{"uguu.se", parseUguuReply, map[string]any{"success": true, "files": []map[string]any{{"url": "https://d.uguu.se/f.enc"}}}, "https://d.uguu.se/f.enc"},
 	}
@@ -257,6 +256,15 @@ func TestRelayProviderReplyParsers(t *testing.T) {
 	got, err := parseTempSHReply([]byte("https://temp.sh/abc/f.enc\n"))
 	if err != nil || got != "https://temp.sh/abc/f.enc" {
 		t.Fatalf("temp.sh parser got %q, %v", got, err)
+	}
+}
+
+func TestRelayTTLDefaultsAndClamps(t *testing.T) {
+	if got := clampRelayTTL(0); got != 24*60*60 {
+		t.Errorf("default TTL = %d, want 86400", got)
+	}
+	if got := clampRelayTTL(30 * 24 * 60 * 60); got != 7*24*60*60 {
+		t.Errorf("maximum TTL = %d, want 604800", got)
 	}
 }
 

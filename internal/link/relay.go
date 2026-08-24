@@ -23,9 +23,9 @@ const (
 	RelayVersion        = 1
 	RelayFragmentParam  = "h"
 	ResolverEnv         = "AGENT_HANDOFF_RESOLVER"
-	RelayDefaultTTL     = 10 * 60
+	RelayDefaultTTL     = 24 * 60 * 60
 	RelayMinTTL         = 60
-	RelayMaxTTL         = 60 * 60
+	RelayMaxTTL         = 7 * 24 * 60 * 60
 	RelayMaxBlobBytes   = 64 << 20
 	RelayTargetReplicas = 2
 	RelayMaxReplicas    = 3
@@ -114,7 +114,7 @@ func UploadRelay(payload []byte, opts RelayUploadOptions) (*RelayUploadResult, e
 
 	providers := opts.providers
 	if len(providers) == 0 {
-		providers = defaultRelayProviders(ttl)
+		providers = defaultRelayProviders()
 	}
 	client := opts.Client
 	if client == nil {
@@ -215,7 +215,7 @@ func relayProviderErrorMessages(outcomes []relayUploadOutcome) []string {
 	return messages
 }
 
-func defaultRelayProviders(ttl int) []relayProvider {
+func defaultRelayProviders() []relayProvider {
 	return []relayProvider{
 		{
 			name:   "filebin.net",
@@ -238,12 +238,6 @@ func defaultRelayProviders(ttl int) []relayProvider {
 			endpoint:   "https://temp.sh/upload",
 			field:      "file",
 			parseReply: parseTempSHReply,
-		},
-		{
-			name:       "file.io",
-			endpoint:   "https://file.io/?expires=" + url.QueryEscape(relayDuration(ttl)),
-			field:      "file",
-			parseReply: parseFileIOReply,
 		},
 	}
 }
@@ -311,20 +305,6 @@ func uploadFilebinReplica(ctx context.Context, client *http.Client, filename str
 	return endpoint, nil
 }
 
-func parseFileIOReply(data []byte) (string, error) {
-	var out struct {
-		Success bool   `json:"success"`
-		Link    string `json:"link"`
-	}
-	if err := json.Unmarshal(data, &out); err != nil {
-		return "", fmt.Errorf("invalid response: %w", err)
-	}
-	if !out.Success || strings.TrimSpace(out.Link) == "" {
-		return "", errors.New("response missing link")
-	}
-	return out.Link, nil
-}
-
 func parseTmpFilesReply(data []byte) (string, error) {
 	var out struct {
 		Status string `json:"status"`
@@ -366,13 +346,6 @@ func parseUguuReply(data []byte) (string, error) {
 
 func parseTempSHReply(data []byte) (string, error) {
 	return strings.TrimSpace(string(data)), nil
-}
-
-func relayDuration(seconds int) string {
-	if seconds%60 == 0 {
-		return fmt.Sprintf("%dm", seconds/60)
-	}
-	return fmt.Sprintf("%ds", seconds)
 }
 
 func clampRelayTTL(requested int) int {
@@ -501,10 +474,6 @@ func validateRelayReplica(replica RelayReplica) error {
 	case "filebin.net":
 		if host != "filebin.net" || strings.Count(strings.Trim(u.Path, "/"), "/") != 1 {
 			return errors.New("filebin.net replica has an unexpected url")
-		}
-	case "file.io":
-		if host != "file.io" && host != "www.file.io" {
-			return fmt.Errorf("file.io replica has unexpected host %q", host)
 		}
 	case "tmpfiles.org":
 		if host != "tmpfiles.org" || !strings.HasPrefix(u.Path, "/dl/") {

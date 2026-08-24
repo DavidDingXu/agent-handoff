@@ -15,9 +15,9 @@
 
 With no endpoint configured, the CLI first uploads ciphertext to the project-operated Worker at `agent-handoff-link.798148655.workers.dev`. It requires no account or token, defaults to a 10-minute lifetime, limits each link to 10 downloads, and caps the public pool at 800 uploads per day, 20,000 per month, and 512 MiB of live ciphertext. It is a best-effort free service; when its budget is exhausted the CLI moves to the fallback pool.
 
-If the project service is unavailable, the CLI encrypts once and concurrently uploads the same ciphertext to up to two providers selected from [Filebin](https://filebin.net/api), [file.io](https://www.file.io/developers), [tmpfiles.org](https://tmpfiles.org/api), [Uguu](https://uguu.se/api), and [temp.sh](https://temp.sh/). Provider failures are isolated: import tries each recorded replica until one passes size, SHA-256, and AES-GCM checks. If every upload fails, the CLI keeps and returns the local zip as `fallback_zip`.
+If the project service is unavailable, the CLI encrypts once and concurrently uploads the same ciphertext to up to two providers selected from [Filebin](https://filebin.net/api), [tmpfiles.org](https://tmpfiles.org/api), [Uguu](https://uguu.se/api), and [temp.sh](https://temp.sh/). Provider failures are isolated: import tries each recorded replica until one passes size, SHA-256, and AES-GCM checks. If every upload fails, the CLI keeps and returns the local zip as `fallback_zip`.
 
-Anonymous links default to 10 minutes and clamp `--ttl` to 60 seconds–1 hour. Provider retention may be longer, but the CLI rejects the link after its logical expiry. These free services are best-effort and can change limits or availability without notice; use a zip or self-hosted endpoint when delivery must be guaranteed.
+Anonymous fallback links default to 24 hours and clamp `--ttl` to 60 seconds–7 days. Providers have their own retention policies, so a recorded replica may disappear before the link's logical expiry. The CLI tries every replica and rejects the whole link after its logical expiry. These free services are best-effort and can change limits or availability without notice; use a zip or self-hosted endpoint when delivery must be guaranteed.
 
 The resulting URL uses the static `/r` resolver page and carries a compact manifest in `#h=`:
 
@@ -99,11 +99,11 @@ Option A — KV, no card:
 
 ```sh
 cd deploy/worker
-npm install
+npm ci
 npx wrangler login
 cp wrangler.toml.example wrangler.toml
 npx wrangler kv namespace create SHARE_KV   # put the printed id into wrangler.toml
-npx wrangler secret put SHARE_UPLOAD_TOKEN  # recommended: require an upload token
+npx wrangler secret put SHARE_UPLOAD_TOKEN  # optional: require an upload token
 npx wrangler deploy
 ```
 

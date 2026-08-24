@@ -81,7 +81,53 @@ The agent produces `fix-flaky-retry-test.agent-handoff.zip` and shows a card: ti
 
 > You: “create a share link” / 「生成分享链接」
 
-The agent returns an end-to-end encrypted HTTPS link without an account, token, or deployment. The project-operated service is used first; anonymous providers are automatic fallbacks. The decryption capability stays in the URL fragment, so always send the **full link**. Links live ~10 minutes by default and the hosted service is best-effort. For team-controlled storage and up to 24 h, configure `AGENT_HANDOFF_ENDPOINT` or pass `--endpoint` for a self-hosted Worker. See [docs/link-service.md](docs/link-service.md).
+The agent returns an end-to-end encrypted HTTPS link without an account, token, or deployment. The project-operated Worker is used first (10 minutes by default, up to 24 hours with `--ttl`). If it is unavailable, anonymous providers are automatic fallbacks (24 hours by default, configurable up to 7 days; a provider may delete its copy sooner). The decryption capability stays in the URL fragment, so always send the **full link**. Every service is best-effort; use a zip when delivery must be permanent. See [docs/link-service.md](docs/link-service.md).
+
+### Use your own link service
+
+The built-in service needs no configuration. Use your own Worker when you want
+your storage, lifetime, budget, and optional upload token under your control:
+
+```sh
+cd deploy/worker
+npm ci
+npx wrangler login
+cp wrangler.toml.example wrangler.toml
+npx wrangler kv namespace create SHARE_KV
+# Paste the printed namespace id into wrangler.toml, then:
+npx wrangler deploy
+```
+
+For a Cloudflare account using Workers for the first time, open **Workers &
+Pages** in the dashboard once to create or confirm its `workers.dev` subdomain.
+Optionally protect uploads with `npx wrangler secret put SHARE_UPLOAD_TOKEN`.
+
+Select your service for one share:
+
+```sh
+agent-handoff share --thread current --format link \
+  --endpoint https://agent-handoff-link.<your-subdomain>.workers.dev \
+  --token <optional-upload-token>
+```
+
+Or configure it for the current shell and every agent invocation:
+
+```sh
+# macOS/Linux; add these exports to your shell profile to persist them
+export AGENT_HANDOFF_ENDPOINT=https://agent-handoff-link.<your-subdomain>.workers.dev
+export AGENT_HANDOFF_TOKEN=<optional-upload-token>
+```
+
+```powershell
+# Windows PowerShell; omit the token line when the Worker has no upload secret
+[Environment]::SetEnvironmentVariable("AGENT_HANDOFF_ENDPOINT", "https://agent-handoff-link.<your-subdomain>.workers.dev", "User")
+[Environment]::SetEnvironmentVariable("AGENT_HANDOFF_TOKEN", "<optional-upload-token>", "User")
+```
+
+Restart the agent after setting persistent environment variables. An explicit
+endpoint uses only your Worker and never falls back to anonymous providers.
+Keep `wrangler.toml` local; it is ignored by Git. Full deployment and protocol
+details: [docs/link-service.md](docs/link-service.md#deploy-your-own).
 
 ### Import on the receiving side
 
@@ -153,6 +199,6 @@ make lint      # golangci-lint
 make build     # bin/agent-handoff
 ```
 
-CI runs tests with `-race` on Ubuntu/macOS/Windows. Architecture: `internal/bundle` (container format), `internal/{codex,claude}` (agent adapters), `internal/neutral` (cross-agent transcript), `internal/link` (E2E crypto + worker client), `internal/safety` (secret scan), `internal/cli`. Adding an agent = one adapter package + one entry in `bundle.SupportedAgents`.
+CI runs tests with `-race` on Ubuntu/macOS/Windows. Architecture: `internal/bundle` (container format), `internal/{codex,claude}` (agent adapters), `internal/neutral` (cross-agent transcript), `internal/link` (E2E crypto + worker client), `internal/safety` (secret scan), `internal/cli`. Adding another agent also requires native restore, neutral conversion, host detection, and the cross-agent test matrix; see [docs/adding-agent.md](docs/adding-agent.md).
 
 Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) ([中文](docs/CONTRIBUTING.zh-CN.md)). Apache-2.0 licensed.

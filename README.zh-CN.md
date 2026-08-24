@@ -81,7 +81,52 @@ make install                  # → $(go env GOPATH)/bin/agent-handoff
 
 > 你：「生成分享链接」
 
-无需账号、token 或部署，智能体会直接返回一条端到端加密的 HTTPS 链接。默认先使用项目运营的免费服务，不可用时自动尝试匿名供应商；解密能力始终只在 URL fragment 里，发送时**必须带完整链接**。链接默认约 10 分钟失效，托管服务属于尽力而为。团队需要自主管控或最长 24 小时时，可配置 `AGENT_HANDOFF_ENDPOINT`（或传 `--endpoint`）切到自建 Worker，见 [docs/link-service.zh-CN.md](docs/link-service.zh-CN.md)。
+无需账号、token 或部署，智能体会直接返回一条端到端加密的 HTTPS 链接。默认先使用项目运营的 Worker（默认 10 分钟，可通过 `--ttl` 延长到 24 小时）；不可用时自动尝试匿名供应商（默认 24 小时，可配置到 7 天，但供应商可能提前删除副本）。解密能力始终只在 URL fragment 里，发送时**必须带完整链接**。所有免费服务都属于尽力而为；必须永久交付时请使用 zip。详见 [docs/link-service.zh-CN.md](docs/link-service.zh-CN.md)。
+
+### 使用自己的链接服务
+
+内置服务无需任何配置。需要自己控制存储、有效期、额度和可选上传 token 时，可以
+部署仓库自带的 Worker：
+
+```sh
+cd deploy/worker
+npm ci
+npx wrangler login
+cp wrangler.toml.example wrangler.toml
+npx wrangler kv namespace create SHARE_KV
+# 把命令输出的 namespace id 填入 wrangler.toml，然后执行：
+npx wrangler deploy
+```
+
+Cloudflare 账号第一次使用 Workers 时，先在控制台打开一次 **Workers 和 Pages**，
+创建或确认 `workers.dev` 子域名。需要限制上传时，可选执行
+`npx wrangler secret put SHARE_UPLOAD_TOKEN`。
+
+只对一次分享指定自己的服务：
+
+```sh
+agent-handoff share --thread current --format link \
+  --endpoint https://agent-handoff-link.<你的子域名>.workers.dev \
+  --token <可选上传-token>
+```
+
+或者为当前 shell 及其中启动的智能体统一配置：
+
+```sh
+# macOS/Linux；需要长期生效时把这两行加入 shell 配置文件
+export AGENT_HANDOFF_ENDPOINT=https://agent-handoff-link.<你的子域名>.workers.dev
+export AGENT_HANDOFF_TOKEN=<可选上传-token>
+```
+
+```powershell
+# Windows PowerShell；Worker 未设置上传 secret 时省略 token 这一行
+[Environment]::SetEnvironmentVariable("AGENT_HANDOFF_ENDPOINT", "https://agent-handoff-link.<你的子域名>.workers.dev", "User")
+[Environment]::SetEnvironmentVariable("AGENT_HANDOFF_TOKEN", "<可选上传-token>", "User")
+```
+
+设置持久环境变量后重启智能体。显式 endpoint 只使用你的 Worker，不会回退到匿名
+供应商。`wrangler.toml` 包含账号专用 namespace id，只保留在本地，Git 已忽略。
+完整部署与协议说明见 [链接服务文档](docs/link-service.zh-CN.md#部署你自己的实例)。
 
 ### 接收方导入
 
@@ -153,6 +198,6 @@ make lint      # golangci-lint
 make build     # bin/agent-handoff
 ```
 
-CI 在 Ubuntu/macOS/Windows 上带 `-race` 跑测试。架构：`internal/bundle`（容器格式）、`internal/{codex,claude}`（智能体适配器）、`internal/neutral`（跨智能体转录）、`internal/link`（端到端加密 + worker 客户端）、`internal/safety`（密钥扫描）、`internal/cli`。新增一个智能体 = 一个适配器包 + `bundle.SupportedAgents` 里一个条目。
+CI 在 Ubuntu/macOS/Windows 上带 `-race` 跑测试。架构：`internal/bundle`（容器格式）、`internal/{codex,claude}`（智能体适配器）、`internal/neutral`（跨智能体转录）、`internal/link`（端到端加密 + worker 客户端）、`internal/safety`（密钥扫描）、`internal/cli`。新增智能体还要实现原生恢复、中立转换、宿主探测和跨智能体测试矩阵，详见 [新增其他智能体](docs/adding-agent.zh-CN.md)。
 
 欢迎贡献，见 [CONTRIBUTING.zh-CN.md](docs/CONTRIBUTING.zh-CN.md)（[English](CONTRIBUTING.md)）。License：Apache-2.0。

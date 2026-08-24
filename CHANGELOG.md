@@ -24,6 +24,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - CI runs Worker behavior tests and uses platform-neutral Go build and smoke commands.
 - Import defaults to the current Codex or Claude Code host instead of the bundle's source agent, so conversational cross-agent imports take the correct restore path.
 - Link mode builds the plaintext zip in memory and writes a private `0600` archive only when file mode is selected or every upload provider fails.
+- Anonymous fallback links now default to 24 hours and support up to 7 days, while keeping provider retention best-effort.
+- Added repository guidance, a complete third-party agent adapter guide, and direct self-hosted endpoint setup for macOS, Linux, and Windows.
 - Anonymous provider uploads run concurrently and return after a short replica grace period, so one slow provider no longer blocks later healthy providers.
 - Codex rollout paths use platform-native separators on Windows; POSIX-only permission assertions no longer misclassify inherited Windows ACLs as public files.
 

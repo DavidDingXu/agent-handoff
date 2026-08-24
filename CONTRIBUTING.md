@@ -4,6 +4,8 @@
 
 Thanks for your interest in improving agent-handoff. This document covers the workflow, expectations, and architecture map you need to contribute effectively.
 
+Read [AGENTS.md](AGENTS.md) before changing code. It is the repository-wide contract for coding agents and contributors.
+
 ## Ground rules
 
 - **Be conservative with user data.** agent-handoff reads and writes real agent state (`~/.codex`, `~/.claude`). Import must remain append-only; existing threads, indexes, and database rows are never modified. Every write path keeps a backup.
@@ -56,7 +58,7 @@ skills/agent-handoff/         agent skill (SKILL.md) bundled with the plugin
 
 ### Extension points
 
-- **New source/target agent**: add `internal/<agent>/` implementing read (session + metadata → bundle parts) and restore (bundle → native session), register in `bundle.SupportedAgents`, and extend `internal/cli`. The v2 bundle layout is per-agent directories, so no format change is needed.
+- **New source/target agent**: follow [docs/adding-agent.md](docs/adding-agent.md). It covers native read/restore, neutral conversion, CLI and host integration, bundle compatibility, and the required N x N test matrix.
 - **New scan rule**: add to `internal/safety/scan.go` `rules` (mind ordering — specific patterns before generic ones) with a test.
 - **Bundle format changes**: additive fields are minor; anything incompatible bumps `format_version` and needs a reader path for the old version (see v1 compat in `internal/bundle/zip.go`).
 
