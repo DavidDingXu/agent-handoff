@@ -86,6 +86,11 @@ make install                  # → $(go env GOPATH)/bin/agent-handoff
 
 _Claude Code 加载 Skill 后，由用户选择导出永久 zip 或生成端到端加密链接。_
 
+当前 Agent 模式提供原生提问工具时会显示上面的选择组件。Codex 某些模式不提供
+`request_user_input`，此时未指定分享方式会直接采用推荐的 zip，不再输出一个假的文本
+菜单；需要 URL 时直接说**「生成分享链接」**。链接生成成功后会原样放在独立代码块中，
+包含不可缺少的 `#h=` 或 `#k=` fragment，可直接完整复制给对方。
+
 ### 分享当前任务
 
 > 你：「分享当前任务」

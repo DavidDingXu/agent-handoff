@@ -32,19 +32,25 @@ Detect platform with `uname -s` + `uname -m` (macOS: `darwin` + `arm64`/`x86_64`
 
 ## Interactive questions across agents
 
-For every choice or confirmation in this skill, use the question tool exposed by the current host:
+For every choice or confirmation in this skill, use the question tool exposed by the current host when that tool is actually available in the current mode:
 
 - Codex: call `request_user_input` with `{"questions":[{"id":"<stable_id>","header":"<header>","question":"<question>","options":[{"label":"<label>","description":"<description>"}]}]}`.
 - Claude Code: call `AskUserQuestion` with `{"questions":[{"header":"<header>","question":"<question>","multiSelect":false,"options":[{"label":"<label>","description":"<description>"}]}]}`. Claude's schema has no `id`; do not include one.
 
-Use the tool that actually exists in the current host; never call the other host's tool name. Do not replace a supported question tool with a plain-text question.
+Use the tool that actually exists in the current host; never call the other host's tool name and never claim to have called an unavailable tool. Do not replace a supported question tool with a plain-text question.
+
+If no native question tool is available:
+
+- For the optional share-format choice only, default to zip and continue immediately. Do not render a numbered text menu or wait for the user to type a choice. Briefly say that zip was used by default and that the user can explicitly say "生成分享链接" next time.
+- For secret warnings, import confirmation, or duplicate import confirmation, do not choose on the user's behalf. Ask one concise plain-text confirmation question and wait for an explicit answer; do not imitate a native form with a numbered menu.
 
 ## Share the current task
 
 When the user wants to share the current session/task:
 
-1. If the user did NOT already specify a format (they just said 分享/导出/share), ask with the current host's question tool using:
+1. If the user did NOT already specify a format (they just said 分享/导出/share), ask with the current host's question tool when available, using:
    logical question key `share_format` (Codex `id` only), `header: "分享方式"`, `question: "以哪种方式分享当前任务？"`, options `导出文件 (Recommended)` / `生成链接`, with descriptions `生成 .zip 文件，通过 IM/邮件发送，永久有效` / `免配置的端到端加密链接；有效期以结果为准`.
+   If the current mode exposes no native question tool, default to zip as specified above; do not print the two choices as ordinary chat text.
    If the user already said 链接/URL → link; said 文件/zip/发给对方文件 → zip. Do not ask again.
 2. Run: `<binary> share --thread current` (add `--format link` for a link; from the current workspace directory; the zip is created there).
 3. Output fields: `path` is the ABSOLUTE path of the generated `.agent-handoff.zip`; `source_cwd` is the ORIGINAL task's working directory on the sender's machine (a metadata field, NOT the zip location — do not confuse them); `message_count`/`image_count` are already counted, do not recount.
@@ -60,7 +66,19 @@ When the user asks for a link / URL / 链接 instead of a file:
    - Provider selection is local configuration, not a per-share interaction. Do not ask the user which link provider to use. Existing provider configuration is applied automatically; an explicit user request to use another config may be translated to `--config <file>`.
    - Configured providers upload ciphertext only. Credentials are referenced from environment variables inside the local config. Never ask the user to paste a provider token into the conversation.
 2. On success output has `share_url` and `expires_at`. Anonymous fallback mode also has `providers`, `replica_count`, and possibly `provider_warnings`; a single provider warning is not a failed share when `status` is `ok`.
-3. Present the link and exact expiry. Tell the user: the link is end-to-end encrypted; the capability lives in the URL fragment (`#h=` for anonymous multi-provider links or `#k=` for hosted/self-hosted links); storage services cannot read the content; send the FULL link. The project Worker defaults to 10 minutes and accepts `--ttl <seconds>` for 60–86400. Anonymous fallback links default to 24 hours and accept 60–604800, but a provider may delete its replica sooner. Always trust the returned `expires_at`, not a hard-coded duration.
+3. Present the successful result with this exact leading structure, substituting the returned values without changing them:
+
+   ````markdown
+   分享链接：
+
+   ```text
+   <share_url>
+   ```
+
+   有效期：<expires_at>
+   ````
+
+   The fenced block must contain the complete `share_url` and nothing else so the user can copy and send it directly. Never put `share_url` in an ordinary paragraph, wrap it in a Markdown link, replace it with the task title, shorten it, or omit its fragment. Then tell the user: the link is end-to-end encrypted; the capability lives in the URL fragment (`#h=` for anonymous multi-provider links or `#k=` for hosted/self-hosted links); storage services cannot read the content; send the FULL link. The project Worker defaults to 10 minutes and accepts `--ttl <seconds>` for 60–86400. Anonymous fallback links default to 24 hours and accept 60–604800, but a provider may delete its replica sooner. Always trust the returned `expires_at`, not a hard-coded duration.
 4. If `status` is `fallback_zip`, every applicable upload failed, so a local zip was kept instead — present the `fallback` reason and the `path`. Explicit configured-provider mode does not silently fall back to other third-party services.
 
 ## Import a shared task

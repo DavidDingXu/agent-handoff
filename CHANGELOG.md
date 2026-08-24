@@ -5,6 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-08-24
+
+### Fixed
+
+- Codex modes without `request_user_input` now use the documented zip default
+  instead of presenting a non-interactive numbered menu.
+- Link shares now require the full `share_url` to be printed verbatim in a
+  copyable code block rather than hidden behind a task-title Markdown link.
+
 ## [0.4.0] - 2026-08-24
 
 ### Added
