@@ -7,7 +7,7 @@ agent-handoff has no user accounts or application roles. Authorization comes fro
 | Local Codex/Claude history | Read selected session | Allowed after explicit share request | No access | No access |
 | Existing local sessions | Modify/delete | Never allowed | No access | No access |
 | New imported session | Append | Allowed only with `import --execute` after preview confirmation | No access | No access |
-| Plaintext zip | Create/read | User-controlled; created `0600` | No access unless user sends the file | No access unless user sends the file |
+| Plaintext zip | Create/read | User-controlled; `0600` on POSIX, inherited destination ACL on Windows | No access unless user sends the file | No access unless user sends the file |
 | Link ciphertext | Upload/download | Allowed for the requested share/import | Stores and serves fallback ciphertext | Stores and serves ciphertext for the project or a self-hosted Worker |
 | Link decryption key | Possess/use | Anyone holding the full URL | Not present in provider requests | Not present in storage API requests |
 | Worker upload | Create share | Anonymous unless `SHARE_UPLOAD_TOKEN` is set | Not applicable | Policy configured by operator |

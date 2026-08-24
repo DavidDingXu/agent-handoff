@@ -4,6 +4,7 @@ package idgen
 import (
 	"encoding/hex"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -69,6 +70,10 @@ func NowRFC3339() string {
 func RolloutPath(home, threadID string, t time.Time) string {
 	stamp := t.Format("2006-01-02T15-04-05")
 	name := fmt.Sprintf("rollout-%s-%s.jsonl", stamp, threadID)
-	return fmt.Sprintf("%s/%s/%04d/%02d/%02d/%s",
-		home, "sessions", t.Year(), int(t.Month()), t.Day(), name)
+	return filepath.Join(home, "sessions",
+		fmt.Sprintf("%04d", t.Year()),
+		fmt.Sprintf("%02d", int(t.Month())),
+		fmt.Sprintf("%02d", t.Day()),
+		name,
+	)
 }

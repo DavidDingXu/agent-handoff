@@ -22,7 +22,7 @@ The CLI is a Go static binary. A bundled Skill lets Codex and Claude Code drive 
 ## Trust boundaries
 
 - Local agent homes contain private transcripts. The CLI reads them only for an explicit share and writes only when import is confirmed with `--execute`.
-- A zip file contains plaintext conversation data. Files are written with `0600` permissions; transport remains the user's responsibility.
+- A zip file contains plaintext conversation data. Files are written with `0600` on POSIX systems and inherit the destination directory's user ACL on Windows; transport remains the user's responsibility.
 - Link payloads are encrypted before network access. Providers receive ciphertext plus network metadata such as IP, time, and size.
 - URL fragments contain the decryption capability. They are absent from HTTP requests, but browser code on a resolver page can read its own fragment. CLI import never fetches the resolver.
 - Imported bundles and URLs are untrusted. Checksums, size limits, supported-agent checks, HTTPS restrictions, and append-only restore behavior are enforced in code rather than prompts.

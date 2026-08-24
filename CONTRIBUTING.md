@@ -20,12 +20,20 @@ make lint      # golangci-lint (errcheck, govet, staticcheck, unused, misspell, 
 make build     # bin/agent-handoff
 ```
 
-1. Fork, create a topic branch from `main`.
+1. Fork, create a topic branch from `main`. Use `feat/<name>` for features, `fix/<name>` for fixes, and `docs/<name>` for documentation.
 2. Make your change. Add or extend tests — the integration suite (`internal/integration_test`) covers the four-quadrant round trips and the link handoff; cross-agent or format changes must update it.
 3. Ensure `make test lint` is green locally. CI runs the matrix (Ubuntu/macOS/Windows, `-race`) plus lint and worker syntax checks.
 4. Open a pull request with a clear description: what changed, why, and how you verified it.
 
 Commit messages follow the repo history: `type: summary` (feat / fix / test / build / docs / refactor). Keep the subject line under ~72 characters.
+
+## Branch and release policy
+
+- `main` is the only long-lived branch and must remain releasable.
+- All normal changes enter through a pull request from a short-lived `feat/*`, `fix/*`, or `docs/*` branch.
+- Required CI checks must pass before merge. Maintainers may merge without a second approval while the project has only one active maintainer.
+- Force pushes and branch deletion are disabled for `main`.
+- Releases are immutable `v*` tags cut from a green `main`; there is no long-lived release branch.
 
 ## Architecture map
 

@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/DavidDingXu/agent-handoff/internal/bundle"
@@ -34,6 +35,9 @@ func TestAddZipFallbackReturnsExistingArtifact(t *testing.T) {
 }
 
 func TestWriteZipFallbackCreatesPrivateArtifact(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows uses inherited ACLs rather than POSIX mode bits")
+	}
 	path := filepath.Join(t.TempDir(), "task.agent-handoff.zip")
 	result := map[string]any{"title": "Task"}
 	in := bundle.WriterInput{Manifest: &bundle.Manifest{

@@ -21,12 +21,20 @@ make lint      # golangci-lint（errcheck、govet、staticcheck、unused、missp
 make build     # bin/agent-handoff
 ```
 
-1. Fork，从 `main` 拉主题分支。
+1. Fork，从 `main` 拉主题分支。功能使用 `feat/<名称>`，修复使用 `fix/<名称>`，文档使用 `docs/<名称>`。
 2. 完成改动，补测试 —— 集成测试套件（`internal/integration_test`）覆盖四象限往返与链接交接；跨智能体或格式改动必须同步更新。
 3. 本地确保 `make test lint` 全绿。CI 会跑完整矩阵（Ubuntu/macOS/Windows，`-race`）加 lint 和 worker 语法检查。
 4. 提交 PR，写清楚：改了什么、为什么、怎么验证的。
 
 提交信息沿用仓库历史格式：`type: summary`（feat / fix / test / build / docs / refactor），主题行 72 字符以内。
+
+## 分支与发布策略
+
+- `main` 是唯一长期分支，必须始终处于可发布状态。
+- 日常改动从短期 `feat/*`、`fix/*` 或 `docs/*` 分支通过 Pull Request 合入。
+- 合并前必须通过全部必需 CI。项目只有一名活跃维护者时，不强制第二人批准，避免维护者被锁死。
+- `main` 禁止强推和删除。
+- 发布从已通过 CI 的 `main` 创建不可变 `v*` 标签，不维护长期 `release` 分支。
 
 ## 架构地图
 
@@ -65,4 +73,4 @@ skills/agent-handoff/         智能体技能（SKILL.md），随插件分发
 
 ## 提交 issue
 
-请附上：agent-handoff 版本（`agent-handoff version`）、操作系统、执行的命令、JSON 输出（敏感内容自行脱敏）。安全问题见 [SECURITY.zh-CN.md](../SECURITY.zh-CN.md) —— 漏洞不要开公开 issue。
+请附上：agent-handoff 版本（`agent-handoff version`）、操作系统、执行的命令、JSON 输出（敏感内容自行脱敏）。安全问题见 [SECURITY.zh-CN.md](SECURITY.zh-CN.md) —— 漏洞不要开公开 issue。

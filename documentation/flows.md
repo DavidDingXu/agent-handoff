@@ -8,7 +8,7 @@ Actor: a local Codex or Claude Code user. Precondition: the requested native ses
 2. The CLI detects or validates the source agent and resolves its local home.
 3. The adapter reads the selected session and metadata without modifying them.
 4. The secret scanner checks visible session content. A finding stops export unless the user explicitly confirms and the Skill reruns with `--include-secrets`.
-5. The bundle writer records checksums and writes the archive with `0600` permissions.
+5. The bundle writer records checksums and writes the archive with `0600` on POSIX systems or the destination directory's inherited user ACL on Windows.
 
 Trust crossing: local agent history to a user-controlled file. No network request occurs.
 

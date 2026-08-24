@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -143,6 +144,9 @@ func TestWriteZipBytesRoundTrip(t *testing.T) {
 }
 
 func TestWriteZipUsesPrivatePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows uses inherited ACLs rather than POSIX mode bits")
+	}
 	path := writeTestZip(t, AgentCodex)
 	info, err := os.Stat(path)
 	if err != nil {
