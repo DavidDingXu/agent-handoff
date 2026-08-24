@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent Handoff Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" integrity="sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/" crossorigin="anonymous"></script>
+<style>
+  *{box-sizing:border-box} body{margin:0;background:#f8fafc;color:#0f172a;font-family:"JetBrains Mono",monospace;letter-spacing:0}
+  .container{width:1400px;min-height:900px;margin:0 auto;padding:34px;background:#f8fafc}
+  header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px}
+  .title-row{display:flex;align-items:center;gap:12px}.dot{width:9px;height:9px;border-radius:50%;background:#059669;box-shadow:0 0 0 4px #d1fae5}
+  h1{font-size:22px;line-height:1.3;margin:0;color:#0f172a;font-weight:700}.subtitle{margin:7px 0 0;color:#475569;font-size:11px}
+  .toolbar{display:flex;align-items:center;gap:8px}.toolbar-actions{display:none;gap:6px}.toolbar.open .toolbar-actions{display:flex}
+  button{height:30px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#334155;padding:0 10px;font:500 10px "JetBrains Mono";cursor:pointer}
+  .toolbar-toggle{width:32px;padding:0;font-size:16px}.diagram{border:1px solid #cbd5e1;border-radius:8px;overflow:hidden;background:#fff}
+  svg{display:block;width:100%;height:auto}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
+  .card{border:1px solid #dbe4ee;border-radius:8px;background:#fff;padding:15px 17px;min-height:105px}.card-header{display:flex;align-items:center;gap:9px}
+  .card-dot{width:7px;height:7px;border-radius:50%}.card h3{font-size:11px;margin:0;color:#0f172a}.card ul{list-style:none;padding:0;margin:11px 0 0;color:#475569;font-size:9px;line-height:1.75}
+  footer{margin-top:14px;color:#64748b;font-size:8px;text-align:right}@media print{.toolbar{display:none!important}}
+</style>
+<script>if(new URLSearchParams(location.search).has("static")){document.documentElement.classList.add("static-export")}</script>
+<style>.static-export .toolbar{display:none}</style>
+</head>
+<body>
+<div class="container" id="report-container">
+  <header>
+    <div><div class="title-row"><span class="dot"></span><h1>Agent Handoff Architecture</h1></div><p class="subtitle">Portable native tasks · encrypted links · declarative provider configuration</p></div>
+    <div class="toolbar"><div class="toolbar-actions"><button onclick="copyAsImage()">Copy PNG</button><button onclick="downloadPNG()">PNG</button><button onclick="downloadPDF()">PDF</button></div><button class="toolbar-toggle" onclick="document.querySelector('.toolbar').classList.toggle('open')">⋯</button></div>
+  </header>
+  <div class="diagram">
+  <svg viewBox="0 0 1330 620" role="img" aria-label="Agent Handoff architecture">
+    <defs>
+      <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#e2e8f0" stroke-width="0.5"/></pattern>
+      <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#64748b"/></marker>
+      <marker id="arrowGreen" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#059669"/></marker>
+    </defs>
+    <rect width="1330" height="620" fill="#fff"/><rect width="1330" height="620" fill="url(#grid)"/>
+
+    <!-- Connections render behind boxes. -->
+    <g fill="none" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)">
+      <path d="M180 120H250"/><path d="M400 120H470"/><path d="M620 120H690"/>
+      <path d="M845 120H915"/><path d="M1065 120H1135"/>
+      <path d="M770 155V245H840"/><path d="M770 155V355H840"/>
+      <path d="M1010 275H1090V205H1135"/><path d="M1010 385H1090V205"/>
+    </g>
+    <path d="M550 155V535H1135" fill="none" stroke="#059669" stroke-width="1.8" marker-end="url(#arrowGreen)"/>
+
+    <g font-family="JetBrains Mono,monospace" text-anchor="middle">
+      <text x="85" y="52" fill="#64748b" font-size="9">SENDER</text>
+      <rect x="30" y="80" width="150" height="75" rx="6" fill="#ecfeff" stroke="#0891b2" stroke-width="1.5"/>
+      <text x="105" y="108" fill="#0f172a" font-size="12" font-weight="600">Codex / Claude</text><text x="105" y="129" fill="#475569" font-size="9">native task</text>
+
+      <rect x="250" y="80" width="150" height="75" rx="6" fill="#ecfeff" stroke="#0891b2" stroke-width="1.5"/>
+      <text x="325" y="108" fill="#0f172a" font-size="12" font-weight="600">Handoff Skill</text><text x="325" y="129" fill="#475569" font-size="9">native questions</text>
+
+      <rect x="470" y="80" width="150" height="75" rx="6" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+      <text x="545" y="108" fill="#0f172a" font-size="12" font-weight="600">Agent Adapter</text><text x="545" y="129" fill="#475569" font-size="9">read + normalize</text>
+
+      <rect x="690" y="80" width="155" height="75" rx="6" fill="#fff1f2" stroke="#e11d48" stroke-width="1.5"/>
+      <text x="767" y="106" fill="#0f172a" font-size="12" font-weight="600">Safety + Bundle</text><text x="767" y="128" fill="#475569" font-size="9">scan · zip · checksum</text>
+
+      <rect x="915" y="80" width="150" height="75" rx="6" fill="#fff1f2" stroke="#e11d48" stroke-width="1.5"/>
+      <text x="990" y="106" fill="#0f172a" font-size="12" font-weight="600">AES-256-GCM</text><text x="990" y="128" fill="#475569" font-size="9">key stays in fragment</text>
+
+      <text x="1210" y="52" fill="#64748b" font-size="9">RECEIVER</text>
+      <rect x="1135" y="80" width="165" height="75" rx="6" fill="#ecfeff" stroke="#0891b2" stroke-width="1.5"/>
+      <text x="1217" y="106" fill="#0f172a" font-size="12" font-weight="600">Preview + Import</text><text x="1217" y="128" fill="#475569" font-size="9">new native task</text>
+
+      <text x="760" y="208" fill="#64748b" font-size="9">LINK ROUTES (default or configured)</text>
+      <rect x="840" y="235" width="170" height="80" rx="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"/>
+      <text x="925" y="263" fill="#0f172a" font-size="11" font-weight="600">Zero config</text><text x="925" y="284" fill="#b45309" font-size="8">public service → 4 fallbacks</text><text x="925" y="299" fill="#475569" font-size="8">best effort</text>
+
+      <rect x="840" y="345" width="170" height="80" rx="6" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+      <text x="925" y="373" fill="#0f172a" font-size="11" font-weight="600">Provider config</text><text x="925" y="394" fill="#c2410c" font-size="8">declarative HTTP upload</text><text x="925" y="409" fill="#475569" font-size="8">no third-party code</text>
+
+      <rect x="840" y="455" width="170" height="80" rx="6" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="4,4"/>
+      <text x="925" y="483" fill="#0f172a" font-size="11" font-weight="600">Future extension</text><text x="925" y="504" fill="#6d28d9" font-size="8">third agent adapter</text><text x="925" y="519" fill="#475569" font-size="8">prove interface first</text>
+
+      <rect x="1135" y="495" width="165" height="75" rx="6" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+      <text x="1217" y="523" fill="#0f172a" font-size="11" font-weight="600">Zip fallback</text><text x="1217" y="545" fill="#475569" font-size="8">private local artifact</text>
+
+      <text x="555" y="555" fill="#047857" font-size="8">all upload paths fail</text>
+    </g>
+  </svg>
+  </div>
+  <div class="summary">
+    <div class="card"><div class="card-header"><span class="card-dot" style="background:#34d399"></span><h3>Stable core</h3></div><ul><li>• secret scan before network access</li><li>• versioned bundle + checksum</li><li>• append-only native import</li></ul></div>
+    <div class="card"><div class="card-header"><span class="card-dot" style="background:#fb923c"></span><h3>Primary extension</h3></div><ul><li>• config.json describes HTTP uploads</li><li>• credentials stay in environment variables</li><li>• receiver needs no provider configuration</li></ul></div>
+    <div class="card"><div class="card-header"><span class="card-dot" style="background:#a78bfa"></span><h3>Future plugin candidate</h3></div><ul><li>• agent adapters vary substantially</li><li>• third implementation proves the interface</li><li>• N x N compatibility remains mandatory</li></ul></div>
+  </div>
+  <footer>agent-handoff · architecture source · 2026-08-24</footer>
+</div>
+<script>
+function capture(){
+  const target=document.getElementById("report-container");
+  const rect=target.getBoundingClientRect();
+  return html2canvas(document.body,{x:Math.max(0,rect.left-32),y:Math.max(0,rect.top-32),width:rect.width+64,height:rect.height+64,scale:2,backgroundColor:"#f8fafc",ignoreElements:e=>e.classList&&e.classList.contains("toolbar")});
+}
+async function copyAsImage(){
+  const canvas=await capture();
+  canvas.toBlob(async blob=>navigator.clipboard.write([new ClipboardItem({"image/png":blob})]),"image/png");
+}
+async function downloadPNG(){
+  const canvas=await capture();
+  const link=document.createElement("a");
+  link.download="agent-handoff-architecture.png";
+  link.href=canvas.toDataURL("image/png");
+  link.click();
+}
+async function downloadPDF(){
+  const canvas=await capture();
+  const {jsPDF}=window.jspdf;
+  const pdf=new jsPDF({orientation:"landscape",unit:"px",format:[canvas.width,canvas.height]});
+  pdf.addImage(canvas.toDataURL("image/png"),"PNG",0,0,canvas.width,canvas.height);
+  pdf.save("agent-handoff-architecture.pdf");
+}
+</script>
+</body>
+</html>

@@ -30,6 +30,10 @@ func TestSkillInteractiveContract(t *testing.T) {
 		"生成链接",
 		"Do not ask again",
 		"not plain text",
+		"agent-handoff/config.json",
+		"--config <file>",
+		"Do not ask the user which link provider",
+		"Never ask the user to paste a provider token",
 	}
 	for _, want := range required {
 		if !strings.Contains(skill, want) {

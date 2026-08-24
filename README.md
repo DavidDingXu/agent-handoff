@@ -28,10 +28,19 @@ Restart the agent, then say **“share the current task”** / **「分享当前
 ## Highlights
 
 - **Four-quadrant handoff** — codex→codex, codex→claude, claude→codex, claude→claude. Same-agent imports preserve native events and content while rewriting the identity fields required for a new task; cross-agent imports are semantic via an agent-neutral transcript.
-- **Zero-config encrypted links** — `--format link` encrypts locally with AES-256-GCM and uploads ciphertext to the project-operated free service. If that service is unavailable, the CLI automatically tries an anonymous multi-provider relay; if every upload fails, it keeps a local zip. Teams can select their own Worker with `--endpoint`. See [docs/link-service.md](docs/link-service.md).
+- **Zero-config encrypted links** — `--format link` encrypts locally with AES-256-GCM and uploads ciphertext to the project-operated free service. If that service is unavailable, the CLI automatically tries an anonymous multi-provider relay; if every upload fails, it keeps a local zip. Teams can connect their own file service through configuration without depending on Cloudflare. See [docs/link-service.md](docs/link-service.md).
 - **Secret scan before export** — six high-confidence rules (OpenAI/Anthropic keys, AWS keys, GitHub tokens, private key blocks, bearer JWTs) block a share until you explicitly confirm. Findings are always reported, redacted for display.
 - **Never touches your data** — import appends one new task and nothing else. Existing threads, indexes, and database rows are never modified; automatic backups are taken before every write.
 - **One static binary** — pure Go (CGO-free sqlite), builds for macOS/Linux on amd64/arm64 and Windows amd64. JSON output for agents and humans alike.
+
+## Architecture
+
+![agent-handoff architecture](documentation/architecture-diagram.png)
+
+The core owns encryption, bundle validation, and append-only native import.
+Users extend file uploads through declarative configuration; new agent adapters
+remain reviewed source integrations until a third implementation proves a safe
+cross-platform plugin contract. See [extensions and customization](docs/extensions.md).
 
 ## Why not just write a handoff note?
 
@@ -71,6 +80,14 @@ make install                  # → $(go env GOPATH)/bin/agent-handoff
 
 Once the plugin is installed, everything is conversational — your agent drives the bundled agent-handoff skill.
 
+The screenshot below comes from the real agent-handoff Skill running inside
+Claude Code. It shows the native file-or-link question rather than a standalone
+CLI demonstration.
+
+![Claude Code running the agent-handoff Skill](documentation/claude-skill-share.png)
+
+_Claude Code loads the Skill and asks whether to export a permanent zip or create an encrypted link._
+
 ### Share the current task
 
 > You: “share the current task” / 「分享当前任务」
@@ -83,51 +100,32 @@ The agent produces `fix-flaky-retry-test.agent-handoff.zip` and shows a card: ti
 
 The agent returns an end-to-end encrypted HTTPS link without an account, token, or deployment. The project-operated Worker is used first (10 minutes by default, up to 24 hours with `--ttl`). If it is unavailable, anonymous providers are automatic fallbacks (24 hours by default, configurable up to 7 days; a provider may delete its copy sooner). The decryption capability stays in the URL fragment, so always send the **full link**. Every service is best-effort; use a zip when delivery must be permanent. See [docs/link-service.md](docs/link-service.md).
 
-### Use your own link service
+### Use your own file service
 
-The built-in service needs no configuration. Use your own Worker when you want
-your storage, lifetime, budget, and optional upload token under your control:
+The built-in service needs no configuration. To use an existing domestic object
+store, enterprise file platform, or another file service, declare an HTTP
+provider in the platform config directory at `agent-handoff/config.json`:
 
-```sh
-cd deploy/worker
-npm ci
-npx wrangler login
-cp wrangler.toml.example wrangler.toml
-npx wrangler kv namespace create SHARE_KV
-# Paste the printed namespace id into wrangler.toml, then:
-npx wrangler deploy
+```json
+{
+  "providers": [{
+    "name": "my-service",
+    "upload_url": "https://files.example.com/api/upload",
+    "upload_type": "multipart",
+    "file_field": "file",
+    "headers": { "Authorization": "Bearer ${MY_FILE_TOKEN}" },
+    "response_type": "json",
+    "url_json_pointer": "/data/url"
+  }]
+}
 ```
 
-For a Cloudflare account using Workers for the first time, open **Workers &
-Pages** in the dashboard once to create or confirm its `workers.dev` subdomain.
-Optionally protect uploads with `npx wrangler secret put SHARE_UPLOAD_TOKEN`.
-
-Select your service for one share:
-
-```sh
-agent-handoff share --thread current --format link \
-  --endpoint https://agent-handoff-link.<your-subdomain>.workers.dev \
-  --token <optional-upload-token>
-```
-
-Or configure it for the current shell and every agent invocation:
-
-```sh
-# macOS/Linux; add these exports to your shell profile to persist them
-export AGENT_HANDOFF_ENDPOINT=https://agent-handoff-link.<your-subdomain>.workers.dev
-export AGENT_HANDOFF_TOKEN=<optional-upload-token>
-```
-
-```powershell
-# Windows PowerShell; omit the token line when the Worker has no upload secret
-[Environment]::SetEnvironmentVariable("AGENT_HANDOFF_ENDPOINT", "https://agent-handoff-link.<your-subdomain>.workers.dev", "User")
-[Environment]::SetEnvironmentVariable("AGENT_HANDOFF_TOKEN", "<optional-upload-token>", "User")
-```
-
-Restart the agent after setting persistent environment variables. An explicit
-endpoint uses only your Worker and never falls back to anonymous providers.
-Keep `wrangler.toml` local; it is ignored by Git. Full deployment and protocol
-details: [docs/link-service.md](docs/link-service.md#deploy-your-own).
+Keep tokens in local environment variables, not in the config or conversation.
+agent-handoff still uploads only locally encrypted ciphertext, and the receiver
+needs no configuration for that file service. If every configured provider
+fails, the CLI returns a local zip and does not silently upload elsewhere. See
+[custom providers](docs/link-service.md#custom-providers) for config paths,
+fields, and raw/multipart examples.
 
 ### Import on the receiving side
 
@@ -155,13 +153,13 @@ Prefer the CLI directly? The Commands section below is what every conversation a
 
 Key flags (see `agent-handoff` with no arguments for the full list):
 
-- `share`: `--source codex|claude`, `--thread <id>|current`, `--format zip|link`, `--out FILE`, `--endpoint URL`, `--token TOKEN`, `--ttl SECONDS`, `--include-secrets`
+- `share`: `--source codex|claude`, `--thread <id>|current`, `--format zip|link`, `--out FILE`, `--config FILE`, `--ttl SECONDS`, `--include-secrets`
 - `import`: `--target codex|claude`, `--cwd DIR`, `--execute`, `--allow-duplicate`, `--home DIR`
 - `verify`: `--thread ID`, `--source codex|claude`, `--cwd DIR`
 
 Source/target agents are auto-detected from `CODEX_THREAD_ID` / `CLAUDE_SESSION_ID`-style environment variables, defaulting to codex. Homes resolve from `CODEX_HOME` / `CLAUDE_CONFIG_DIR` or `~/.codex` / `~/.claude`.
 
-Environment: `AGENT_HANDOFF_ENDPOINT` (optional self-hosted worker origin), `AGENT_HANDOFF_TOKEN` (its upload bearer token), `AGENT_HANDOFF_RESOLVER` (optional static resolver page for anonymous links).
+Environment: `AGENT_HANDOFF_RESOLVER` (optional static resolver page for relay links); provider credential variables are referenced by the user's own `config.json`.
 
 ## How it works
 
@@ -199,6 +197,10 @@ make lint      # golangci-lint
 make build     # bin/agent-handoff
 ```
 
-CI runs tests with `-race` on Ubuntu/macOS/Windows. Architecture: `internal/bundle` (container format), `internal/{codex,claude}` (agent adapters), `internal/neutral` (cross-agent transcript), `internal/link` (E2E crypto + worker client), `internal/safety` (secret scan), `internal/cli`. Adding another agent also requires native restore, neutral conversion, host detection, and the cross-agent test matrix; see [docs/adding-agent.md](docs/adding-agent.md).
+CI runs tests with `-race` on Ubuntu/macOS/Windows. Architecture: `internal/bundle` (container format), `internal/{codex,claude}` (agent adapters), `internal/neutral` (cross-agent transcript), `internal/link` (E2E crypto + Worker and configured providers), `internal/safety` (secret scan), `internal/cli`. Adding another agent also requires native restore, neutral conversion, host detection, and the cross-agent test matrix; see [docs/adding-agent.md](docs/adding-agent.md).
+
+Planned work includes native OpenCode and DeepSeek Harness support, better
+setup diagnostics, and richer pre-share review. See the outcome-focused
+[roadmap](ROADMAP.md).
 
 Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) ([中文](docs/CONTRIBUTING.zh-CN.md)). Apache-2.0 licensed.

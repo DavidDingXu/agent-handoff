@@ -56,10 +56,11 @@ type RelayManifest struct {
 
 // RelayUploadOptions configures zero-configuration anonymous uploads.
 type RelayUploadOptions struct {
-	TTLSeconds  int
-	ResolverURL string
-	Client      *http.Client
-	providers   []relayProvider
+	TTLSeconds          int
+	ResolverURL         string
+	Client              *http.Client
+	ConfiguredProviders *ProviderConfig
+	providers           []relayProvider
 }
 
 // RelayUploadResult reports the generated link and provider-level outcome.
@@ -113,6 +114,9 @@ func UploadRelay(payload []byte, opts RelayUploadOptions) (*RelayUploadResult, e
 	}
 
 	providers := opts.providers
+	if len(providers) == 0 && opts.ConfiguredProviders != nil {
+		providers = configuredRelayProviders(opts.ConfiguredProviders, ttl)
+	}
 	if len(providers) == 0 {
 		providers = defaultRelayProviders()
 	}
@@ -488,7 +492,12 @@ func validateRelayReplica(replica RelayReplica) error {
 			return fmt.Errorf("temp.sh replica has unexpected host %q", host)
 		}
 	default:
-		return fmt.Errorf("unsupported relay provider %q", replica.Provider)
+		if err := validateConfiguredProviderID(replica.Provider); err != nil {
+			return fmt.Errorf("unsupported relay provider %q", replica.Provider)
+		}
+		if _, err := validatePublicHTTPSURL(replica.URL, "configured provider replica"); err != nil {
+			return err
+		}
 	}
 	return nil
 }

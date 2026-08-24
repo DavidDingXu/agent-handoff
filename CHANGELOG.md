@@ -5,6 +5,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-24
+
+### Added
+
+- Declarative HTTP provider configuration through the platform user
+  `agent-handoff/config.json` or `share --config FILE`. Multipart and raw
+  uploads support environment-backed headers, form fields, text/JSON response
+  parsing, public HTTPS validation, concurrent replicas, and local zip fallback
+  without executing third-party provider code.
+- Bilingual extension guidance and an outcome-focused roadmap covering
+  OpenCode, DeepSeek Harness, setup diagnostics, richer share review, and the
+  acceptance contract for future native agent adapters.
+- A light, source-controlled architecture diagram for the README and project
+  documentation.
+- A high-resolution screenshot captured from the real Claude Code Skill flow,
+  including the native file-or-link choice.
+
 ## [0.3.1] - 2026-08-24
 
 ### Fixed
