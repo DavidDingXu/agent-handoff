@@ -7,7 +7,7 @@ description: Share the current task as a portable file or encrypted link, or imp
 
 Share a coding-agent task with someone else, or receive a shared task and continue it as a new native task. Same-agent handoff preserves native event structure and content with a fresh task identity; cross-agent handoff (Codex ↔ Claude Code) preserves the full visible conversation and tool evidence via a neutral format.
 
-The skill drives the `agent-handoff` CLI bundled in this plugin (`bin/`). Never mention internal implementation details to the user.
+The skill drives the `agent-handoff` CLI bundled in this plugin (`bin/`). Never mention internal implementation details to the user. Do not announce that this skill was loaded or name the CLI; start with the requested choice or final result.
 
 ## Install for another agent (self-install)
 
@@ -28,7 +28,7 @@ The CLI binary is bundled in this plugin at `bin/<platform>/agent-handoff`. Reso
 - Linux amd64: `../../bin/linux-amd64/agent-handoff`
 - Windows amd64: `../../bin/windows-amd64/agent-handoff.exe`
 
-Detect platform with `uname -s` + `uname -m` (macOS: `darwin` + `arm64`/`x86_64`) or on Windows use the `windows-amd64` path directly. If the binary is missing, tell the user to reinstall the plugin; do not improvise another path.
+Detect platform with `uname -s` + `uname -m` (macOS: `darwin` + `arm64`/`x86_64`) or on Windows use the `windows-amd64` path directly. Resolve this silently before any user-facing progress update. Never narrate reading `SKILL.md`, expanding a skill alias, locating the plugin cache, or determining the platform. If the binary is missing, tell the user to reinstall the plugin; do not improvise another path.
 
 ## Interactive questions across agents
 
@@ -41,7 +41,7 @@ Use the tool that actually exists in the current host; never call the other host
 
 If no native question tool is available:
 
-- For the optional share-format choice only, default to zip and continue immediately. Do not render a numbered text menu or wait for the user to type a choice. Briefly say that zip was used by default and that the user can explicitly say "生成分享链接" next time.
+- For the share-format choice, ask one concise plain-text question with exactly these two labeled choices and wait for the user: `导出文件（推荐）` — `生成 .zip 文件，通过 IM/邮件发送，永久有效`; `生成链接` — `免配置的端到端加密链接，有效期以结果为准`. Do not choose a share format on the user's behalf, continue before the reply, or imitate a native form with a numbered menu. Accept either label or an unambiguous reply such as `文件` / `zip` / `链接` / `URL`.
 - For secret warnings, import confirmation, or duplicate import confirmation, do not choose on the user's behalf. Ask one concise plain-text confirmation question and wait for an explicit answer; do not imitate a native form with a numbered menu.
 
 ## Share the current task
@@ -50,7 +50,7 @@ When the user wants to share the current session/task:
 
 1. If the user did NOT already specify a format (they just said 分享/导出/share), ask with the current host's question tool when available, using:
    logical question key `share_format` (Codex `id` only), `header: "分享方式"`, `question: "以哪种方式分享当前任务？"`, options `导出文件 (Recommended)` / `生成链接`, with descriptions `生成 .zip 文件，通过 IM/邮件发送，永久有效` / `免配置的端到端加密链接；有效期以结果为准`.
-   If the current mode exposes no native question tool, default to zip as specified above; do not print the two choices as ordinary chat text.
+   If the current mode exposes no native question tool, show the concise plain-text choices specified above and wait; do not run the share command before the user chooses.
    If the user already said 链接/URL → link; said 文件/zip/发给对方文件 → zip. Do not ask again.
 2. Run: `<binary> share --thread current` (add `--format link` for a link; from the current workspace directory; the zip is created there).
 3. Output fields: `path` is the ABSOLUTE path of the generated `.agent-handoff.zip`; `source_cwd` is the ORIGINAL task's working directory on the sender's machine (a metadata field, NOT the zip location — do not confuse them); `message_count`/`image_count` are already counted, do not recount.
