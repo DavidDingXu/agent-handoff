@@ -5,6 +5,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-08-24
+
+### Fixed
+
+- Claude Code imports now encode Windows drive-letter paths using Claude's
+  `C--Users-...` project-directory convention, so both same-agent and
+  Codex-to-Claude imports work on Windows.
+- Added black-box CLI coverage for all four Codex/Claude Code handoff
+  directions and a contract test for native Codex/Claude question tools.
+
 ## [0.3.0] - 2026-08-24
 
 ### Added
