@@ -46,6 +46,13 @@ func TestCLIShareImportVerifyFourQuadrants(t *testing.T) {
 			if imported["status"] != "ok" {
 				t.Fatalf("import result = %#v", imported)
 			}
+			wantTitle := "[Handoff] Login bug fix"
+			if tc.source == "claude" {
+				wantTitle = "[Handoff] Fix the login bug"
+			}
+			if imported["title"] != wantTitle {
+				t.Fatalf("imported title = %v, want stable handoff prefix", imported["title"])
+			}
 			wantCrossAgent := tc.source != tc.target
 			if got, _ := imported["cross_agent"].(bool); got != wantCrossAgent {
 				t.Fatalf("cross_agent = %v, want %v (result %#v)", got, wantCrossAgent, imported)

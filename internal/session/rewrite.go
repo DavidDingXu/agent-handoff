@@ -39,6 +39,7 @@ func RewriteForImport(content []byte, rw ImportRewrite) []byte {
 			if payload != nil {
 				payload["cwd"] = rw.TargetCWD
 				if typ == "session_meta" && rw.TargetID != "" {
+					detachCodexHistory(payload)
 					payload["id"] = rw.TargetID
 					payload["session_id"] = rw.TargetID
 					// The desktop task list sorts/groups by these timestamps;
@@ -64,4 +65,34 @@ func RewriteForImport(content []byte, rw ImportRewrite) []byte {
 		out = append(out, rewritten)
 	})
 	return []byte(strings.Join(out, "\n") + "\n")
+}
+
+// DetachCodexHistory removes sender-local pagination and context lineage from
+// a rollout that will be stored as a standalone session on another machine.
+func DetachCodexHistory(content []byte) []byte {
+	var out []string
+	IterLines(content, func(line Line) {
+		if line.Obj == nil || Type(line.Obj) != "session_meta" {
+			out = append(out, line.Raw)
+			return
+		}
+		payload := Payload(line.Obj)
+		if payload == nil {
+			out = append(out, line.Raw)
+			return
+		}
+		detachCodexHistory(payload)
+		if encoded, err := json.Marshal(line.Obj); err == nil {
+			out = append(out, string(encoded))
+		} else {
+			out = append(out, line.Raw)
+		}
+	})
+	return []byte(strings.Join(out, "\n") + "\n")
+}
+
+func detachCodexHistory(payload map[string]any) {
+	delete(payload, "history_mode")
+	delete(payload, "history_base")
+	delete(payload, "context_window")
 }

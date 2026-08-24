@@ -21,7 +21,7 @@ const (
 // WriterInput is everything needed to emit a share zip.
 type WriterInput struct {
 	Manifest  *Manifest
-	Session   []byte            // raw native session
+	Session   []byte            // portable native session
 	Meta      map[string]any    // sender-side metadata (thread row / index entry)
 	Images    []ImageAsset      // image manifest (may be nil)
 	ImageData map[string][]byte // zip path -> bytes, for copied images

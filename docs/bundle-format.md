@@ -7,7 +7,7 @@ This document specifies the v2 agent-handoff bundle container: the on-disk layou
 ## Design goals
 
 - **Self-describing**: a bundle can be inspected, previewed, and imported without any network access or external service.
-- **Native + semantic in one artifact**: the raw native session is preserved byte-for-byte alongside a neutral transcript. Same-agent import reuses its native events and content while rewriting new-task identity/path fields; cross-agent import uses the neutral representation.
+- **Native + semantic in one artifact**: native events and content travel alongside a neutral transcript. A paginated Codex rollout is materialized with its referenced history into one standalone session, without sender-local lineage. Same-agent import reuses native data while rewriting new-task identity/path fields; cross-agent import uses the neutral representation.
 - **Tamper-evident**: every entry is covered by SHA-256 checksums verified before any import writes.
 - **Deterministic**: identical input produces a byte-identical zip (sorted entries, fixed timestamps), so bundles can be diffed and re-verified.
 
@@ -17,7 +17,7 @@ This document specifies the v2 agent-handoff bundle container: the on-disk layou
 manifest.json            bundle manifest (schema, ids, counts, agent info)
 AGENT_README.md          instructions for a receiving agent
 checksums.json           sha256 of every other file
-codex/session.jsonl      raw native session        (agent = source agent)
+codex/session.jsonl      portable native session   (agent = source agent)
 codex/meta.json          sender-side metadata       (threads-table row)
 codex/images.json        image manifest             (codex source only)
 codex/images/*           image assets               (codex source only)
@@ -98,7 +98,7 @@ The cross-agent representation (schema `agent-handoff.neutral.v1`):
 
 ## codex/meta.json
 
-For a Codex source: the sender's `threads`-table row (from `state_5.sqlite`) as a flat JSON object. On same-agent import the row is cloned into the receiver's database with import-specific fields overlaid (fresh id, timestamps, cwd), preserving model, effort, git metadata, sandbox/approval settings, and so on — writing only columns that exist on the receiver's schema, so older/newer Codex versions both work. When the receiver has no `state_5.sqlite` at all, agent-handoff bootstraps a minimal `threads` table so the imported task is immediately listed.
+For a Codex source: the sender's `threads`-table row (from `state_5.sqlite`) as a flat JSON object. On same-agent import the row is cloned into the receiver's database with import-specific fields overlaid (fresh id, timestamps, cwd, standalone `history_mode`), preserving model, effort, git metadata, sandbox/approval settings, and so on — writing only columns that exist on the receiver's schema, so older/newer Codex versions both work. Sender-local `history_base` and `context_window` lineage is intentionally omitted because those rollout files do not exist on the receiver. When the receiver has no `state_5.sqlite` at all, agent-handoff bootstraps a minimal `threads` table so the imported task is immediately listed.
 
 ## claude/meta.json
 
