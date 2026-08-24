@@ -5,6 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-08-24
+
+### Fixed
+
+- Codex exports now materialize paginated history into one standalone rollout
+  and remove sender-local lineage, so imports work across machines and Windows.
+- Imported Codex and Claude Code task titles now consistently use the
+  `[Handoff] ` prefix without duplicating it on subsequent handoffs.
+
 ## [0.4.2] - 2026-08-24
 
 ### Fixed

@@ -141,7 +141,7 @@ Your teammate just tells their agent (Codex or Claude Code, with the plugin inst
 > “import /path/to/fix-flaky-retry-test.agent-handoff.zip” / 「导入 <文件>」
 > “import https://share.example.com/s/Wi5x…#k=Qm9…” / 「导入 <链接>」
 
-The agent shows a preview card (title, origin, time range, first/last message), then imports it as a **native new task** at the top of the task list, ready to continue. Re-importing the same share returns `duplicate` instead of silently forking.
+The agent shows a preview card (title, origin, time range, first/last message), then imports it as a **native new task** at the top of the task list, ready to continue. Imported titles use the `[Handoff] ` prefix so they are easy to distinguish from local tasks. Re-importing the same share returns `duplicate` instead of silently forking.
 
 ### Cross-agent
 

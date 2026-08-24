@@ -106,6 +106,39 @@ func buildCodexHome(t *testing.T) string {
 	return home
 }
 
+func buildPaginatedCodexHome(t *testing.T) string {
+	t.Helper()
+	home := buildCodexHome(t)
+	basePath := filepath.Join(home, "sessions", "2026", "08", "01",
+		"rollout-2026-08-01T10-00-00-"+codexThreadID+".jsonl")
+	tailPath := filepath.Join(home, "sessions", "2026", "08", "01",
+		"rollout-2026-08-01T11-00-00-"+codexThreadID+"_0192bbbb-cccc-7ddd-8eee-ffff00001111.jsonl")
+	tail := fmt.Sprintf(`{"timestamp":"2026-08-01T11:00:00.000Z","ordinal":9,"type":"session_meta","payload":{"id":%q,"cwd":"/src/project","history_mode":"paginated","history_base":{"thread_id":%q,"end_ordinal_exclusive":9,"end_byte_offset":%d},"context_window":{"window_id":"source-window"}}}
+{"timestamp":"2026-08-01T11:00:01.000Z","ordinal":10,"type":"event_msg","payload":{"type":"task_started","turn_id":"tail-turn"}}
+{"timestamp":"2026-08-01T11:00:02.000Z","ordinal":11,"type":"event_msg","payload":{"type":"user_message","message":"Continue on Windows"}}
+{"timestamp":"2026-08-01T11:00:03.000Z","ordinal":12,"type":"event_msg","payload":{"type":"agent_message","message":"Tail answer"}}
+{"timestamp":"2026-08-01T11:00:04.000Z","ordinal":13,"type":"event_msg","payload":{"type":"task_complete"}}
+`, codexThreadID, codexThreadID, len(codexFixture))
+	if err := os.WriteFile(tailPath, []byte(tail), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(basePath); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite", filepath.Join(home, codex.StateSQLiteFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`ALTER TABLE threads ADD COLUMN history_mode TEXT`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE threads SET rollout_path = ?, history_mode = 'paginated' WHERE id = ?`, tailPath, codexThreadID); err != nil {
+		t.Fatal(err)
+	}
+	return home
+}
+
 // buildClaudeHome lays out a sender Claude home.
 func buildClaudeHome(t *testing.T) string {
 	t.Helper()
@@ -252,6 +285,65 @@ func TestRoundTripCodexToCodex(t *testing.T) {
 	// Lossless: message content preserved.
 	if !strings.Contains(string(b.Session), "Fix the login bug") {
 		t.Error("session content lost")
+	}
+}
+
+func TestRoundTripPaginatedCodexHistoryToStandaloneCodex(t *testing.T) {
+	senderHome := buildPaginatedCodexHome(t)
+	m, sessionBytes, row := exportCodex(t, senderHome)
+	for _, want := range []string{"Fix the login bug", "Continue on Windows"} {
+		if !strings.Contains(string(sessionBytes), want) {
+			t.Errorf("standalone export missing %q", want)
+		}
+	}
+
+	tr := neutral.FromCodexSession(m.SourceThreadID, m.Title, m.SourceCWD, sessionBytes)
+	path := writeBundle(t, m, sessionBytes, row, tr)
+	b := loadBundle(t, path)
+	receiverHome := t.TempDir()
+	res, err := codex.Restore(codex.RestoreInput{
+		SourceThreadID: b.Manifest.SourceThreadID,
+		Title:          b.Manifest.Title,
+		SessionBytes:   b.Session,
+		ThreadRow:      b.Meta,
+		Neutral:        b.Neutral,
+	}, codex.RestoreOptions{
+		Home: receiverHome, TargetCWD: `C:\\recv\\project`, Execute: true, Now: importTime,
+	})
+	if err != nil {
+		t.Fatalf("Restore: %v (result %+v)", err, res)
+	}
+	if res.Title != "[Handoff] Login bug fix" {
+		t.Errorf("title = %q", res.Title)
+	}
+	row2, err := codex.ReadThreadRow(receiverHome, res.ThreadID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if row2["history_mode"] != "legacy" {
+		t.Errorf("history_mode = %v, want legacy", row2["history_mode"])
+	}
+	rolloutPath, _ := row2["rollout_path"].(string)
+	imported, err := os.ReadFile(rolloutPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(imported)
+	for _, forbidden := range []string{"history_base", `"history_mode":"paginated"`, "source-window"} {
+		if strings.Contains(s, forbidden) {
+			t.Errorf("standalone import retained %q", forbidden)
+		}
+	}
+	for _, want := range []string{"Fix the login bug", "Continue on Windows"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("standalone import missing %q", want)
+		}
+	}
+	if strings.Index(s, "Fix the login bug") >= strings.Index(s, "Continue on Windows") {
+		t.Error("materialized history is not in chronological order")
+	}
+	if got := strings.Count(s, `"type":"session_meta"`); got != 1 {
+		t.Errorf("session_meta count = %d, want 1", got)
 	}
 }
 

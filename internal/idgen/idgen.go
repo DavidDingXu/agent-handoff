@@ -50,14 +50,18 @@ func fallbackThreadID() string {
 	)
 }
 
-// ImportedTitle keeps the sender's title as-is: the imported task should look
-// identical to the original in the receiver's task list.
+const ImportedTitlePrefix = "[Handoff] "
+
+// ImportedTitle marks imported tasks consistently across target agents.
 func ImportedTitle(title, fallback string) string {
 	title = strings.TrimSpace(title)
 	if title == "" {
-		return fallback
+		title = strings.TrimSpace(fallback)
 	}
-	return title
+	if strings.HasPrefix(title, ImportedTitlePrefix) {
+		return title
+	}
+	return ImportedTitlePrefix + title
 }
 
 // NowRFC3339 returns the current time in RFC3339 with milliseconds.

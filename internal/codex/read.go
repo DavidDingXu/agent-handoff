@@ -57,6 +57,10 @@ func LoadThread(home, threadID string) (*ExportData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read session file: %w", err)
 	}
+	sessionBytes, err = materializePaginatedHistory(home, sessionPath, sessionBytes, map[string]bool{})
+	if err != nil {
+		return nil, fmt.Errorf("materialize paginated history: %w", err)
+	}
 
 	if title == "" {
 		title, _ = row["title"].(string)

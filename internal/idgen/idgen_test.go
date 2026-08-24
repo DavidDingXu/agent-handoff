@@ -39,14 +39,17 @@ func TestNewUUIDShape(t *testing.T) {
 }
 
 func TestImportedTitle(t *testing.T) {
-	if got := ImportedTitle("  Real Title  ", "fallback"); got != "Real Title" {
+	if got := ImportedTitle("  Real Title  ", "fallback"); got != "[Handoff] Real Title" {
 		t.Errorf("ImportedTitle trim = %q", got)
 	}
-	if got := ImportedTitle("", "fallback"); got != "fallback" {
+	if got := ImportedTitle("", "fallback"); got != "[Handoff] fallback" {
 		t.Errorf("ImportedTitle empty = %q", got)
 	}
-	if got := ImportedTitle("   ", "fallback"); got != "fallback" {
+	if got := ImportedTitle("   ", "fallback"); got != "[Handoff] fallback" {
 		t.Errorf("ImportedTitle blank = %q", got)
+	}
+	if got := ImportedTitle("[Handoff] Real Title", "fallback"); got != "[Handoff] Real Title" {
+		t.Errorf("ImportedTitle duplicate prefix = %q", got)
 	}
 }
 

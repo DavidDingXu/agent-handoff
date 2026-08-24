@@ -92,7 +92,7 @@ When the user provides a `.agent-handoff.zip` file path or a share link URL (or 
    - `<target-dir>` defaults to the current workspace directory.
    - Same-agent imports restore native events and content while rewriting identifiers and target paths for the new task; cross-agent imports are converted from the neutral transcript — mention this only if the user asks about fidelity.
 5. If the result `status` is `duplicate`: tell the user this share was already imported (show `existing_title` and import time), then use the current host's question tool with logical question key `allow_duplicate` (Codex `id` only), `header: "重复导入"`, and options `仍要导入一份副本 (Recommended)` / `取消`. Re-run with `--allow-duplicate` only after the first option is selected.
-6. On success, report the new task title (`title`) and `thread_id` (or `session_id` for claude targets), and tell the user the new task appears at the top of their task list, where they can continue the conversation.
+6. On success, report the new task title (`title`, consistently prefixed with `[Handoff] `) and `thread_id` (or `session_id` for claude targets), and tell the user the new task appears at the top of their task list, where they can continue the conversation.
 7. Verify (recommended): `<binary> verify --thread <new-thread-id> --cwd <target-dir>`; report `status: ok`.
 
 ## Safety rules

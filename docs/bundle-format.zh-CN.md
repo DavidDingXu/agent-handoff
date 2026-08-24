@@ -7,7 +7,7 @@
 ## 设计目标
 
 - **自描述**：不依赖任何网络访问或外部服务，就能检查、预览、导入一个捆绑包。
-- **原生与语义共存于一个工件**：归档逐字节保留原始原生会话，同时携带中立转录。同智能体导入复用原生事件和内容，并重写新任务所需的身份与路径字段；跨智能体导入使用中立表示。
+- **原生与语义共存于一个工件**：原生事件和内容与中立转录一同携带。分页 Codex rollout 会连同其引用的历史物化为一个独立会话，不保留发送方本地 lineage。同智能体导入复用原生数据并重写新任务所需的身份与路径字段；跨智能体导入使用中立表示。
 - **防篡改可检测**：每个条目都有 SHA-256 校验，导入写入前先验证。
 - **确定性**：相同输入产出字节级相同的 zip（条目排序、固定时间戳），捆绑包可以 diff、可以复验。
 
@@ -17,7 +17,7 @@
 manifest.json            捆绑包 manifest（schema、id、计数、智能体信息）
 AGENT_README.md          给接收智能体的操作说明
 checksums.json           其余每个文件的 sha256
-codex/session.jsonl      原始原生会话            （目录名 = 源智能体）
+codex/session.jsonl      可移植原生会话            （目录名 = 源智能体）
 codex/meta.json          发送方元数据             （threads 表行）
 codex/images.json        图片清单                 （仅 codex 源）
 codex/images/*           图片资源                 （仅 codex 源）
@@ -98,7 +98,7 @@ safety/scan.json         分享时的密钥扫描结果
 
 ## codex/meta.json
 
-Codex 来源时：发送方 `threads` 表行（来自 `state_5.sqlite`），扁平 JSON 对象。同智能体导入时，该行克隆进接收方数据库并叠加导入专属字段（新 id、时间戳、cwd），模型、effort、git 元数据、沙箱/审批设置等全部保留 —— 且只写接收方 schema 里实际存在的列，旧/新版 Codex 都能工作。接收方完全没有 `state_5.sqlite` 时，agent-handoff 会引导建出一张最小 `threads` 表，导入的任务立刻出现在列表里。
+Codex 来源时：发送方 `threads` 表行（来自 `state_5.sqlite`），扁平 JSON 对象。同智能体导入时，该行克隆进接收方数据库并叠加导入专属字段（新 id、时间戳、cwd、独立会话 `history_mode`），模型、effort、git 元数据、沙箱/审批设置等全部保留 —— 且只写接收方 schema 里实际存在的列，旧/新版 Codex 都能工作。发送方本地的 `history_base` 与 `context_window` lineage 会被主动移除，因为接收方没有这些 rollout 文件。接收方完全没有 `state_5.sqlite` 时，agent-handoff 会引导建出一张最小 `threads` 表，导入的任务立刻出现在列表里。
 
 ## claude/meta.json
 

@@ -132,6 +132,21 @@ func TestRewriteForImport(t *testing.T) {
 	}
 }
 
+func TestRewriteForImportDetachesPaginatedCodexHistory(t *testing.T) {
+	content := []byte(`{"timestamp":"2026-08-01T10:00:00.000Z","type":"session_meta","payload":{"id":"source-id","cwd":"C:\\src","history_mode":"paginated","history_base":{"thread_id":"source-id","end_ordinal_exclusive":98,"end_byte_offset":1024},"context_window":{"window_id":"source-window"}}}` + "\n")
+	out := RewriteForImport(content, ImportRewrite{
+		TargetCWD: `D:\\target`,
+		TargetID:  "target-id",
+		Now:       parseTimeHelper(t, "2026-08-02T00:00:00Z"),
+	})
+	s := string(out)
+	for _, forbidden := range []string{"history_base", `"history_mode":"paginated"`, "source-id", "source-window"} {
+		if strings.Contains(s, forbidden) {
+			t.Errorf("imported standalone rollout retained %q: %s", forbidden, s)
+		}
+	}
+}
+
 func parseTimeHelper(t *testing.T, s string) time.Time {
 	t.Helper()
 	p, err := time.Parse(time.RFC3339, s)

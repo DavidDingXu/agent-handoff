@@ -186,13 +186,15 @@ func overlayImportValues(vals map[string]any, newID, title, targetSession, targe
 	vals["archived_at"] = nil
 	vals["is_pinned"] = 0
 	vals["has_user_event"] = 1
+	// Imported rollouts are self-contained. A sender-side paginated value would
+	// make Codex search for a history_base rollout that does not exist locally.
+	vals["history_mode"] = "legacy"
 
 	// Defaults for fields the sender's row may not carry.
 	defaults := map[string]any{
 		"model_provider":     "OpenAI",
 		"sandbox_policy":     `{"type":"disabled"}`,
 		"approval_mode":      "never",
-		"history_mode":       "legacy",
 		"memory_mode":        "enabled",
 		"tokens_used":        0,
 		"preview":            preview,
