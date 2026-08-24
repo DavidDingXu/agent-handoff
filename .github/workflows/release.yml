@@ -33,7 +33,7 @@ jobs:
           test "$(jq -r .metadata.version .claude-plugin/marketplace.json)" = "$version"
           test "$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)" = "$version"
 
-      - uses: goreleaser/goreleaser-action@v6
+      - uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
           version: "~> v2"
