@@ -147,6 +147,41 @@ func TestRewriteForImportDetachesPaginatedCodexHistory(t *testing.T) {
 	}
 }
 
+func TestRewriteForImportRewritesEventThreadIdentityFields(t *testing.T) {
+	const sourceID = "01a042fe-1111-7222-8333-444444444444"
+	const targetID = "01a04355-aaaa-7bbb-8ccc-dddddddddddd"
+	content := []byte(`{"timestamp":"2026-08-27T10:00:00.000Z","type":"session_meta","payload":{"id":"` + sourceID + `","session_id":"` + sourceID + `","cwd":"/src/project"}}
+{"timestamp":"2026-08-27T10:00:01.000Z","type":"event_msg","payload":{"type":"task_started","thread_id":"` + sourceID + `","session_id":"` + sourceID + `"}}
+{"timestamp":"2026-08-27T10:00:02.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Keep source id ` + sourceID + ` as ordinary message text"}]}}
+`)
+
+	out := RewriteForImport(content, ImportRewrite{
+		TargetCWD: "C:\\recv\\project",
+		TargetID:  targetID,
+		Now:       parseTimeHelper(t, "2026-08-27T12:00:00Z"),
+	})
+
+	var lines []map[string]any
+	IterLines(out, func(line Line) {
+		if line.Obj != nil {
+			lines = append(lines, line.Obj)
+		}
+	})
+	if len(lines) != 3 {
+		t.Fatalf("rewritten lines = %d, want 3", len(lines))
+	}
+	eventPayload := Payload(lines[1])
+	if got := eventPayload["thread_id"]; got != targetID {
+		t.Errorf("event payload thread_id = %v, want %s", got, targetID)
+	}
+	if got := eventPayload["session_id"]; got != targetID {
+		t.Errorf("event payload session_id = %v, want %s", got, targetID)
+	}
+	if !strings.Contains(string(out), "Keep source id "+sourceID+" as ordinary message text") {
+		t.Errorf("ordinary message text was rewritten: %s", out)
+	}
+}
+
 func parseTimeHelper(t *testing.T, s string) time.Time {
 	t.Helper()
 	p, err := time.Parse(time.RFC3339, s)

@@ -23,14 +23,14 @@ import (
 )
 
 const codexFixture = `{"timestamp":"2026-08-01T10:00:00.000Z","type":"session_meta","payload":{"id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001","timestamp":"2026-08-01T10:00:00.000Z","cwd":"/src/project","cli_version":"0.1.0","source":"vscode"}}
-{"timestamp":"2026-08-01T10:00:01.000Z","type":"event_msg","payload":{"type":"task_started","turn_id":"t1"}}
-{"timestamp":"2026-08-01T10:00:02.000Z","type":"event_msg","payload":{"type":"user_message","message":"Fix the login bug"}}
+{"timestamp":"2026-08-01T10:00:01.000Z","type":"event_msg","payload":{"type":"task_started","turn_id":"t1","thread_id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001","session_id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001"}}
+{"timestamp":"2026-08-01T10:00:02.000Z","type":"event_msg","payload":{"type":"user_message","message":"Fix the login bug","thread_id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001","session_id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001"}}
 {"timestamp":"2026-08-01T10:00:02.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Fix the login bug"}]}}
 {"timestamp":"2026-08-01T10:00:04.000Z","type":"response_item","payload":{"type":"function_call","name":"shell","namespace":"shell","call_id":"call_1","arguments":"{\"command\":[\"grep\",\"-r\",\"login\"]}"}}
 {"timestamp":"2026-08-01T10:00:05.000Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call_1","output":"auth.go:42: bug here","status":"completed"}}
-{"timestamp":"2026-08-01T10:00:06.000Z","type":"event_msg","payload":{"type":"agent_message","message":"Found the bug in auth.go:42."}}
+{"timestamp":"2026-08-01T10:00:06.000Z","type":"event_msg","payload":{"type":"agent_message","message":"Found the bug in auth.go:42.","thread_id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001","session_id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001"}}
 {"timestamp":"2026-08-01T10:00:06.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Found the bug in auth.go:42."}]}}
-{"timestamp":"2026-08-01T10:00:07.000Z","type":"event_msg","payload":{"type":"task_complete"}}
+{"timestamp":"2026-08-01T10:00:07.000Z","type":"event_msg","payload":{"type":"task_complete","thread_id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001","session_id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001"}}
 `
 
 const claudeFixture = `{"type":"queue-operation","sessionId":"11111111-2222-3333-4444-555555555555","operation":"enqueue"}
@@ -113,11 +113,11 @@ func buildPaginatedCodexHome(t *testing.T) string {
 		"rollout-2026-08-01T10-00-00-"+codexThreadID+".jsonl")
 	tailPath := filepath.Join(home, "sessions", "2026", "08", "01",
 		"rollout-2026-08-01T11-00-00-"+codexThreadID+"_0192bbbb-cccc-7ddd-8eee-ffff00001111.jsonl")
-	tail := fmt.Sprintf(`{"timestamp":"2026-08-01T11:00:00.000Z","ordinal":9,"type":"session_meta","payload":{"id":%q,"cwd":"/src/project","history_mode":"paginated","history_base":{"thread_id":%q,"end_ordinal_exclusive":9,"end_byte_offset":%d},"context_window":{"window_id":"source-window"}}}
-{"timestamp":"2026-08-01T11:00:01.000Z","ordinal":10,"type":"event_msg","payload":{"type":"task_started","turn_id":"tail-turn"}}
-{"timestamp":"2026-08-01T11:00:02.000Z","ordinal":11,"type":"event_msg","payload":{"type":"user_message","message":"Continue on Windows"}}
-{"timestamp":"2026-08-01T11:00:03.000Z","ordinal":12,"type":"event_msg","payload":{"type":"agent_message","message":"Tail answer"}}
-{"timestamp":"2026-08-01T11:00:04.000Z","ordinal":13,"type":"event_msg","payload":{"type":"task_complete"}}
+	tail := fmt.Sprintf(`{"timestamp":"2026-08-01T11:00:00.000Z","ordinal":9,"type":"session_meta","payload":{"id":%[1]q,"cwd":"/src/project","history_mode":"paginated","history_base":{"thread_id":%[2]q,"end_ordinal_exclusive":9,"end_byte_offset":%[3]d},"context_window":{"window_id":"source-window"}}}
+{"timestamp":"2026-08-01T11:00:01.000Z","ordinal":10,"type":"event_msg","payload":{"type":"task_started","turn_id":"tail-turn","thread_id":%[1]q,"session_id":%[1]q}}
+{"timestamp":"2026-08-01T11:00:02.000Z","ordinal":11,"type":"event_msg","payload":{"type":"user_message","message":"Continue on Windows","thread_id":%[1]q,"session_id":%[1]q}}
+{"timestamp":"2026-08-01T11:00:03.000Z","ordinal":12,"type":"event_msg","payload":{"type":"agent_message","message":"Tail answer","thread_id":%[1]q,"session_id":%[1]q}}
+{"timestamp":"2026-08-01T11:00:04.000Z","ordinal":13,"type":"event_msg","payload":{"type":"task_complete","thread_id":%[1]q,"session_id":%[1]q}}
 `, codexThreadID, codexThreadID, len(codexFixture))
 	if err := os.WriteFile(tailPath, []byte(tail), 0o644); err != nil {
 		t.Fatal(err)
@@ -344,6 +344,26 @@ func TestRoundTripPaginatedCodexHistoryToStandaloneCodex(t *testing.T) {
 	}
 	if got := strings.Count(s, `"type":"session_meta"`); got != 1 {
 		t.Errorf("session_meta count = %d, want 1", got)
+	}
+	identityFields := 0
+	session.IterLines(imported, func(line session.Line) {
+		if line.Obj == nil || session.Type(line.Obj) != "event_msg" {
+			return
+		}
+		payload := session.Payload(line.Obj)
+		for _, key := range []string{"thread_id", "session_id"} {
+			value, ok := payload[key]
+			if !ok {
+				continue
+			}
+			identityFields++
+			if value != res.ThreadID {
+				t.Errorf("imported event %s = %v, want %s", key, value, res.ThreadID)
+			}
+		}
+	})
+	if identityFields == 0 {
+		t.Fatal("fixture contained no event identity fields")
 	}
 }
 

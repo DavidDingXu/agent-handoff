@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Share a coding-agent task as a file or encrypted link; the receiver imports it as a new native task. Works across Codex and Claude Code.",
-    "version": "0.4.4"
+    "version": "0.4.5"
   },
   "plugins": [
     {
@@ -14,7 +14,7 @@
       "source": "./",
       "description": "Share a coding-agent task as a portable file or encrypted link; the receiver imports it as a new native task. Works across Codex and Claude Code.",
       "category": "productivity",
-      "version": "0.4.4",
+      "version": "0.4.5",
       "license": "Apache-2.0",
       "keywords": [
         "share",

@@ -5,6 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-08-27
+
+### Fixed
+
+- Same-agent Codex imports now rewrite event-level thread and session identity
+  fields to the newly created task ID. Historical turns exported on macOS now
+  render under the imported Windows task instead of appearing empty.
+
 ## [0.4.4] - 2026-08-24
 
 ### Changed
