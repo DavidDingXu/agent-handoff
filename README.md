@@ -25,6 +25,27 @@ codex plugin add agent-handoff@agent-handoff
 
 Restart the agent, then say **“share the current task”** / **「分享当前任务」**. The receiver installs the same plugin and says **“import &lt;file/link&gt;”** / **「导入 &lt;文件/链接&gt;」**. Both sides need the plugin; no Go toolchain or Cloudflare account is required.
 
+## Compatibility
+
+Verified on 2026-10-27 with **Codex CLI 0.164.0** and **Claude Code 2.1.311**:
+plugin installation, imported Codex history read/resume/list (including a fresh
+home), and Claude resume with the imported history sent to a local API fixture.
+CI repeats these native-client checks against the current npm releases; ordinary
+unit tests alone do not certify a new client version.
+
+Codex exports support plain and Zstandard-compressed rollouts, including
+pagination bases. On a fresh home, Codex creates its own database on first launch.
+Cross-agent Codex imports use `model_provider` from the receiver's base
+`config.toml`, defaulting to `openai`. Runtime command-line overrides and named
+profile files are not inferred. Continue a Claude import from its target
+directory with `claude --resume <session-id>`, or use the returned
+`fallback_command` in its indicated `fallback_shell` (`sh` or PowerShell).
+
+These checks cover local coding sessions and text/tool history. They do not
+certify the Claude web chat, cloud-only tasks, multi-agent child-session trees,
+or full cross-agent image/attachment restoration. Embedded media remains in the
+raw source session; account-bound attachment references are not made portable.
+
 ## Highlights
 
 - **Four-quadrant handoff** — codex→codex, codex→claude, claude→codex, claude→claude. Same-agent imports preserve native events and content while rewriting the identity fields required for a new task; cross-agent imports are semantic via an agent-neutral transcript.
@@ -203,6 +224,11 @@ make test      # unit + integration (four-quadrant round trips, link crypto)
 make lint      # golangci-lint
 make build     # bin/agent-handoff
 ```
+
+With both CLIs installed, run the native compatibility tests with
+`AGENT_HANDOFF_NATIVE_TESTS=1 go test ./internal/integration_test -run TestNative -count=1`.
+They use temporary homes and a local API fixture, without account credentials or
+paid model requests. `CODEX_BIN` and `CLAUDE_BIN` can select specific executables.
 
 CI runs tests with `-race` on Ubuntu/macOS/Windows. Architecture: `internal/bundle` (container format), `internal/{codex,claude}` (agent adapters), `internal/neutral` (cross-agent transcript), `internal/link` (E2E crypto + compatible hosted endpoints and configured providers), `internal/safety` (secret scan), `internal/cli`. Adding another agent also requires native restore, neutral conversion, host detection, and the cross-agent test matrix; see [docs/adding-agent.md](docs/adding-agent.md).
 

@@ -3,7 +3,6 @@ package codex
 import (
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -16,6 +15,7 @@ type historyBase struct {
 }
 
 func materializePaginatedHistory(home, currentPath string, content []byte, visited map[string]bool) ([]byte, error) {
+	currentPath = plainRolloutPath(currentPath)
 	clean := session.DetachCodexHistory(content)
 	base, ok := paginatedHistoryBase(content)
 	if !ok {
@@ -31,7 +31,7 @@ func materializePaginatedHistory(home, currentPath string, content []byte, visit
 	if err != nil {
 		return nil, err
 	}
-	baseContent, err := os.ReadFile(basePath)
+	baseContent, err := readRollout(basePath)
 	if err != nil {
 		return nil, fmt.Errorf("read source rollout: %w", err)
 	}
@@ -75,14 +75,15 @@ func findBaseRollout(home, currentPath, threadID string) (string, error) {
 	wantSuffix := "-" + threadID + ".jsonl"
 	var exact, fallback string
 	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || path == currentPath {
+		if err != nil || d.IsDir() || plainRolloutPath(path) == plainRolloutPath(currentPath) {
 			return nil
 		}
-		if strings.HasSuffix(d.Name(), wantSuffix) {
+		name := plainRolloutPath(d.Name())
+		if strings.HasSuffix(name, wantSuffix) {
 			exact = path
 			return fs.SkipAll
 		}
-		if fallback == "" && strings.Contains(d.Name(), threadID) && strings.HasSuffix(d.Name(), ".jsonl") {
+		if fallback == "" && strings.Contains(name, threadID) && strings.HasSuffix(name, ".jsonl") {
 			fallback = path
 		}
 		return nil

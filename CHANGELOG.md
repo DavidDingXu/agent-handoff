@@ -5,6 +5,29 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-10-27
+
+### Fixed
+
+- Claude-to-Codex imports use the receiver's configured provider and a visible session source,
+  with complete turn identities and unique tool-call IDs, so current clients can
+  list and resume the imported history.
+- Fresh Codex homes keep rollout and index files without creating an incomplete
+  SQLite schema that conflicts with native migrations.
+- Codex exports read `.jsonl.zst` rollouts, including compressed pagination bases,
+  and can read valid rollout-only homes before the native database is created.
+- Current Codex session lookup correctly filters by the working directory when
+  the host supplies no session ID.
+- Claude continuation commands use `--resume` in the target directory with safe
+  shell quoting; structured tool arguments and
+  long textual tool evidence survive cross-agent conversion without truncation.
+
+### Added
+
+- Opt-in native-client regressions and CI checks for Codex read/resume/list and
+  Claude history restoration using isolated homes and a local API fixture.
+- Compatibility scope and verified client versions in both READMEs.
+
 ## [0.4.5] - 2026-08-27
 
 ### Fixed

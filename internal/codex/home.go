@@ -95,7 +95,11 @@ func latestThreadWhere(home, where, arg string) (string, error) {
 			orderBy = "updated_at desc"
 		}
 	}
-	query := "SELECT id FROM threads " + where + " ORDER BY " + orderBy + " LIMIT 1"
+	query := "SELECT id FROM threads"
+	if where != "" {
+		query += " WHERE " + where
+	}
+	query += " ORDER BY " + orderBy + " LIMIT 1"
 	var id string
 	if where == "" {
 		err = db.QueryRow(query).Scan(&id)

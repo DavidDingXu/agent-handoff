@@ -6,8 +6,11 @@ agent-handoff binaries include open-source Go dependencies. Their license texts 
 | --- | --- |
 | `github.com/dustin/go-humanize` | MIT |
 | `github.com/google/uuid` | BSD-3-Clause |
+| `github.com/klauspost/compress` (Zstandard decoder) | BSD-3-Clause |
+| `github.com/klauspost/compress/zstd/internal/xxhash` | MIT |
 | `github.com/mattn/go-isatty` | MIT |
 | `github.com/ncruces/go-strftime` | MIT |
+| `github.com/pelletier/go-toml/v2` | MIT |
 | `github.com/remyoudompheng/bigfft` | BSD-3-Clause |
 | `golang.org/x/sys/unix` | BSD-3-Clause |
 | `modernc.org/libc` and its bundled notices | MIT and listed third-party licenses |
