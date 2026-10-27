@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -40,7 +41,11 @@ func TestRestoreFallbackRunsInTargetDirectory(t *testing.T) {
 			}
 			cmd := exec.Command(shell, args...)
 			cmd.Dir = start
-			output, err := cmd.CombinedOutput()
+			// PowerShell errors echo the command, including the function's
+			// marker literal. Only stdout proves the function actually ran.
+			var stderr bytes.Buffer
+			cmd.Stderr = &stderr
+			output, err := cmd.Output()
 			text := strings.ReplaceAll(string(output), "\r\n", "\n")
 			if !exists {
 				if strings.Contains(text, "CLAUDE_INVOKED") {
@@ -52,7 +57,7 @@ func TestRestoreFallbackRunsInTargetDirectory(t *testing.T) {
 				return
 			}
 			if err != nil {
-				t.Fatalf("resume command failed: %v\n%s", err, text)
+				t.Fatalf("resume command failed: %v\n%s\n%s", err, text, stderr.String())
 			}
 			canonicalTarget, err := filepath.EvalSymlinks(target)
 			if err != nil {
