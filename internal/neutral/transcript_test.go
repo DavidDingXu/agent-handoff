@@ -1,6 +1,7 @@
 package neutral
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -114,6 +115,91 @@ func TestFromClaudeSession(t *testing.T) {
 	}
 	if tr.Entries[3].Text != "Found the bug." {
 		t.Errorf("entry 3 = %q", tr.Entries[3].Text)
+	}
+}
+
+func TestFromClaudeSessionPreservesToolInput(t *testing.T) {
+	longInput := strings.Repeat("argument ", 300) + "INPUT_TAIL"
+	for _, tc := range []struct {
+		name        string
+		input       any
+		description string
+		want        string
+	}{
+		{"structured input", map[string]any{"command": "grep -r login", "options": map[string]any{"paths": []string{"src", "test"}, "retry": false, "timeout": 2000}}, "", `{"command":"grep -r login","options":{"paths":["src","test"],"retry":false,"timeout":2000}}`},
+		{"description with structured input", map[string]any{"command": "grep -r login"}, "Find login code", `{"command":"grep -r login"}`},
+		{"description with legacy string input", `{"command":"grep -r login"}`, "Find login code", `{"command":"grep -r login"}`},
+		{"long structured input", map[string]any{"command": longInput}, "", longInput},
+		{"long legacy input", longInput, "", longInput},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			data, err := json.Marshal(map[string]any{
+				"type": "assistant",
+				"message": map[string]any{"role": "assistant", "content": []any{map[string]any{
+					"type": "tool_use", "id": "tool_1", "name": "Bash", "input": tc.input, "description": tc.description,
+				}}},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			tr := FromClaudeSession("s1", "", "/src/project", data)
+			if len(tr.Entries) != 1 || tr.Entries[0].Role != "assistant" {
+				t.Fatalf("entries = %+v, want one assistant entry", tr.Entries)
+			}
+			for _, want := range []string{"[external_agent_tool_call: Bash]", tc.want, tc.description} {
+				if !strings.Contains(tr.Entries[0].Text, want) {
+					t.Errorf("tool call lost evidence (%d bytes): %q", len(want), tr.Entries[0].Text)
+				}
+			}
+		})
+	}
+}
+
+func TestFromClaudeSessionPreservesFullToolResult(t *testing.T) {
+	output := strings.Repeat("result ", 700) + "OUTPUT_TAIL"
+	for _, tc := range []struct {
+		name    string
+		content any
+	}{
+		{"string", output},
+		{"text blocks", []any{map[string]any{"type": "text", "text": output}, map[string]any{"type": "text", "text": "SECOND_BLOCK"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			data, err := json.Marshal(map[string]any{
+				"type": "user",
+				"message": map[string]any{"role": "user", "content": []any{map[string]any{
+					"type": "tool_result", "tool_use_id": "tool_1", "is_error": true, "content": tc.content,
+				}}},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			tr := FromClaudeSession("s1", "", "/src/project", data)
+			if len(tr.Entries) != 1 || tr.Entries[0].Role != "assistant" {
+				t.Fatalf("entries = %+v, want one assistant entry", tr.Entries)
+			}
+			text := tr.Entries[0].Text
+			if !strings.Contains(text, "[external_agent_tool_result: error]") || !strings.Contains(text, output) {
+				t.Errorf("tool result lost status or full output: got %d bytes", len(text))
+			}
+			if tc.name == "text blocks" && !strings.Contains(text, "SECOND_BLOCK") {
+				t.Error("tool result lost the second text block")
+			}
+		})
+	}
+}
+
+func TestHandoffTextPreservesFullToolEvidence(t *testing.T) {
+	input := strings.Repeat("input ", 500) + "INPUT_TAIL"
+	output := strings.Repeat("output ", 800) + "OUTPUT_TAIL"
+	tr := Transcript{Entries: []Entry{{
+		Kind: KindTool, Tool: "shell", Status: "completed", Input: input, Output: output,
+	}}}
+	text := HandoffText(tr, "claude")
+	for _, want := range []string{input, output} {
+		if !strings.Contains(text, want) {
+			t.Errorf("handoff text lost tool evidence (%d bytes)", len(want))
+		}
 	}
 }
 

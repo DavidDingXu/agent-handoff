@@ -6,6 +6,7 @@
 package neutral
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/DavidDingXu/agent-handoff/internal/session"
@@ -218,10 +219,10 @@ func HandoffText(t Transcript, targetAgent string) string {
 		case KindTool:
 			sb.WriteString("[tool] " + e.Tool + " (" + e.Status + ")\n")
 			if e.Input != "" {
-				sb.WriteString("  input: " + clip(e.Input, 2000) + "\n")
+				sb.WriteString("  input: " + e.Input + "\n")
 			}
 			if e.Output != "" {
-				sb.WriteString("  output: " + clip(e.Output, 4000) + "\n")
+				sb.WriteString("  output: " + e.Output + "\n")
 			}
 		}
 	}
@@ -258,9 +259,16 @@ func claudeMessageText(msg map[string]any) (string, bool) {
 				name, _ := cm["name"].(string)
 				sb.WriteString("\n[external_agent_tool_call: " + name + "]")
 				if d, _ := cm["description"].(string); d != "" {
-					sb.WriteString(" " + clip(d, 200))
-				} else if in, ok := cm["input"].(string); ok && in != "" {
-					sb.WriteString(" " + clip(in, 2000))
+					sb.WriteString(" " + d)
+				}
+				if in, ok := cm["input"].(string); ok {
+					if in != "" {
+						sb.WriteString(" " + in)
+					}
+				} else if cm["input"] != nil {
+					if in, err := json.Marshal(cm["input"]); err == nil {
+						sb.WriteString(" " + string(in))
+					}
 				}
 			case "tool_result":
 				hasToolResult = true
@@ -281,7 +289,7 @@ func claudeMessageText(msg map[string]any) (string, bool) {
 func toolResultText(cm map[string]any) string {
 	switch c := cm["content"].(type) {
 	case string:
-		return clip(c, 4000)
+		return c
 	case []any:
 		var parts []string
 		for _, p := range c {
@@ -291,7 +299,7 @@ func toolResultText(cm map[string]any) string {
 				}
 			}
 		}
-		return clip(strings.Join(parts, "\n"), 4000)
+		return strings.Join(parts, "\n")
 	}
 	return ""
 }

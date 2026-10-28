@@ -34,10 +34,15 @@ Detect platform with `uname -s` + `uname -m` (macOS: `darwin` + `arm64`/`x86_64`
 
 For every choice or confirmation in this skill, use the question tool exposed by the current host when that tool is actually available in the current mode:
 
-- Codex: call `request_user_input` with `{"questions":[{"id":"<stable_id>","header":"<header>","question":"<question>","options":[{"label":"<label>","description":"<description>"}]}]}`.
+- Codex: prefer `request_user_input_async` when exposed, with `{"questions":[{"title":"<self-contained question>","options":["<label — description>","<label — description>"]}]}`. Keep dependent work pending until the user replies. Otherwise use `request_user_input` only when its current mode and tool instructions allow the question, with `{"questions":[{"id":"<stable_id>","header":"<header>","question":"<question>","options":[{"label":"<label>","description":"<description>"}]}]}`. Never use a plan-only or optional-question-only tool for an approval it does not support.
 - Claude Code: call `AskUserQuestion` with `{"questions":[{"header":"<header>","question":"<question>","multiSelect":false,"options":[{"label":"<label>","description":"<description>"}]}]}`. Claude's schema has no `id`; do not include one.
 
 Use the tool that actually exists in the current host; never call the other host's tool name and never claim to have called an unavailable tool. Do not replace a supported question tool with a plain-text question.
+
+The examples below describe logical choices; adapt them to the available tool's
+schema. Existing explicit authorization persists: do not ask again for an import
+or other action the user already authorized. Secret-scan findings still require
+the user's informed confirmation before including secrets.
 
 If no native question tool is available:
 
@@ -92,8 +97,8 @@ When the user provides a `.agent-handoff.zip` file path or a share link URL (or 
    - `<target-dir>` defaults to the current workspace directory.
    - Same-agent imports restore native events and content while rewriting identifiers and target paths for the new task; cross-agent imports are converted from the neutral transcript — mention this only if the user asks about fidelity.
 5. If the result `status` is `duplicate`: tell the user this share was already imported (show `existing_title` and import time), then use the current host's question tool with logical question key `allow_duplicate` (Codex `id` only), `header: "重复导入"`, and options `仍要导入一份副本 (Recommended)` / `取消`. Re-run with `--allow-duplicate` only after the first option is selected.
-6. On success, report the new task title (`title`, consistently prefixed with `[Handoff] `) and `thread_id` (or `session_id` for claude targets), and tell the user the new task appears at the top of their task list, where they can continue the conversation.
-7. Verify (recommended): `<binary> verify --thread <new-thread-id> --cwd <target-dir>`; report `status: ok`.
+6. On success, report the new task title (`title`, consistently prefixed with `[Handoff] `) and `thread_id` (or `session_id` for claude targets). For Claude, execute the returned `fallback_command` with its indicated `fallback_shell` (`sh` or PowerShell), or invoke `claude --resume <id>` with the process working directory set to `target_cwd`; `--session-id` alone does not load history. A fresh Codex home initializes its own database on first launch, after which the imported task can appear in the list.
+7. Verify (recommended): `<binary> verify --thread <new-thread-id> --cwd <target-dir>`; report `status: ok` as a storage consistency check, not proof that a native client has resumed the task. Do not promise full cross-agent image/attachment or child-session restoration; those are outside the tested text/tool-history scope.
 
 ## Safety rules
 

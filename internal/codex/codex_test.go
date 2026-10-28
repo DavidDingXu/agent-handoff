@@ -202,22 +202,22 @@ func TestThreadRowValuesDefaults(t *testing.T) {
 			t.Errorf("default %q missing", k)
 		}
 	}
-	if vals["model_provider"] != "OpenAI" {
+	if vals["model_provider"] != "openai" {
 		t.Errorf("model_provider default = %v", vals["model_provider"])
 	}
-	if vals["approval_mode"] != "never" {
+	if vals["approval_mode"] != "on-request" {
 		t.Errorf("approval_mode default = %v", vals["approval_mode"])
 	}
 }
 
 func TestSynthesizedRowValues(t *testing.T) {
 	tr := neutral.Transcript{Schema: neutral.Schema, SourceAgent: "claude", SourceID: "s1"}
-	vals := synthesizedRowValues(tr, "new-id", "T", "/s.jsonl", "/d", testTime())
-	if vals["source"] != "agent-handoff" {
-		t.Errorf("source = %v, want agent-handoff", vals["source"])
+	vals := synthesizedRowValues(tr, "new-id", "T", "/s.jsonl", "/d", "openai", testTime())
+	if vals["source"] != "vscode" {
+		t.Errorf("source = %v, want vscode", vals["source"])
 	}
-	if vals["model_provider"] != "claude" {
-		t.Errorf("model_provider = %v, want the source agent name", vals["model_provider"])
+	if vals["model_provider"] != "openai" {
+		t.Errorf("model_provider = %v, want a native Codex provider", vals["model_provider"])
 	}
 	if vals["id"] != "new-id" {
 		t.Errorf("id = %v", vals["id"])
@@ -237,7 +237,7 @@ func TestSessionFromNeutral(t *testing.T) {
 			{Kind: neutral.KindMessage, Role: "assistant", Text: "Fixed."},
 		},
 	}
-	out := string(SessionFromNeutral(tr, "new-id", "/target/dir", testTime()))
+	out := string(SessionFromNeutral(tr, "new-id", "/target/dir", "openai", testTime()))
 
 	for _, want := range []string{
 		`"type":"session_meta"`,
@@ -264,7 +264,7 @@ func TestSessionFromNeutral(t *testing.T) {
 
 func TestSessionFromNeutralEmptyTranscript(t *testing.T) {
 	tr := neutral.Transcript{Schema: neutral.Schema, SourceAgent: "claude", SourceID: "s1"}
-	out := string(SessionFromNeutral(tr, "new-id", "/d", testTime()))
+	out := string(SessionFromNeutral(tr, "new-id", "/d", "openai", testTime()))
 	if !strings.Contains(out, "Cross-agent session handoff") {
 		t.Errorf("empty transcript should embed the handoff text: %q", out[:200])
 	}

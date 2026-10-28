@@ -4,6 +4,8 @@ go 1.25.0
 
 require (
 	github.com/google/uuid v1.6.0
+	github.com/klauspost/compress v1.20.3
+	github.com/pelletier/go-toml/v2 v2.4.3
 	modernc.org/sqlite v1.57.0
 )
 

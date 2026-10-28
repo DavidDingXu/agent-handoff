@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/DavidDingXu/agent-handoff/internal/neutral"
 )
 
 const claudeSrc = `{"type":"queue-operation","sessionId":"old-id","operation":"enqueue"}
@@ -128,6 +131,75 @@ func TestSessionFromNeutralEmpty(t *testing.T) {
 	out := string(SessionFromNeutral(tr, "new-id", "/new/dir", now))
 	if !strings.Contains(out, "Cross-agent session handoff") {
 		t.Error("empty transcript should embed the handoff text")
+	}
+}
+
+func TestRestoreFallbackCommandResumesImportedSession(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		cwd           string
+		posixPrefix   string
+		powershellCWD string
+		fail          bool
+	}{
+		{"posix", "/project dir/$(echo unsafe)", "cd -- '/project dir/$(echo unsafe)' && ", "'/project dir/$(echo unsafe)'", false},
+		{"windows", `C:\project dir\with & symbols`, `cd -- 'C:\project dir\with & symbols' && `, `'C:\project dir\with & symbols'`, false},
+		{"quote and metacharacters", "/project ' $() `echo unsafe` (one)", "cd -- '/project '\"'\"' $() `echo unsafe` (one)' && ", "'/project '' $() `echo unsafe` (one)'", false},
+		{"write failure", "/project dir/$(echo unsafe)", "cd -- '/project dir/$(echo unsafe)' && ", "'/project dir/$(echo unsafe)'", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			if tc.fail {
+				home = filepath.Join(home, "not-a-directory")
+				if err := os.WriteFile(home, []byte("existing file"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			res, err := Restore(RestoreInput{SessionBytes: []byte(claudeSrc)}, RestoreOptions{
+				Home: home, TargetCWD: tc.cwd, Execute: true,
+			})
+			if (err != nil) != tc.fail {
+				t.Fatalf("Restore error = %v, want failure %v", err, tc.fail)
+			}
+			want := tc.posixPrefix + "claude --resume " + res.SessionID
+			wantShell := "sh"
+			if runtime.GOOS == "windows" {
+				want = "try { Set-Location -LiteralPath " + tc.powershellCWD + " -ErrorAction Stop; claude --resume " + res.SessionID + " } catch { Write-Error $_; exit 1 }"
+				wantShell = "powershell"
+			}
+			if res.FallbackCmd != want {
+				t.Errorf("fallback command = %q, want %q", res.FallbackCmd, want)
+			}
+			data, err := json.Marshal(res)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var result map[string]any
+			if err := json.Unmarshal(data, &result); err != nil {
+				t.Fatal(err)
+			}
+			if result["fallback_shell"] != wantShell {
+				t.Errorf("fallback_shell = %v, want %q", result["fallback_shell"], wantShell)
+			}
+		})
+	}
+}
+
+func TestSessionFromNeutralPreservesFullToolEvidence(t *testing.T) {
+	input := strings.Repeat("input ", 500) + "INPUT_TAIL"
+	output := strings.Repeat("output ", 800) + "OUTPUT_TAIL"
+	tr := neutral.Transcript{Entries: []neutral.Entry{{
+		Kind: neutral.KindTool, Tool: "shell", Status: "completed", Input: input, Output: output,
+	}}}
+	data := SessionFromNeutral(tr, "new-id", "/new/dir", time.Now())
+	got := neutral.FromClaudeSession("new-id", "", "/new/dir", data)
+	if len(got.Entries) != 1 {
+		t.Fatalf("entries = %d, want 1", len(got.Entries))
+	}
+	for _, want := range []string{"[tool] shell (completed)", input, output} {
+		if !strings.Contains(got.Entries[0].Text, want) {
+			t.Errorf("synthesized session lost tool evidence (%d bytes)", len(want))
+		}
 	}
 }
 

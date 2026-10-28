@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -34,17 +35,18 @@ type RestoreOptions struct {
 
 // RestoreResult is the outcome of a restore.
 type RestoreResult struct {
-	Status      string   `json:"status"`
-	SessionID   string   `json:"session_id"`
-	Title       string   `json:"title,omitempty"`
-	TargetHome  string   `json:"target_home"`
-	TargetCWD   string   `json:"target_cwd"`
-	DryRun      bool     `json:"dry_run"`
-	CrossAgent  bool     `json:"cross_agent,omitempty"`
-	Writes      []string `json:"writes,omitempty"`
-	BackupDir   string   `json:"backup_dir,omitempty"`
-	Error       string   `json:"error,omitempty"`
-	FallbackCmd string   `json:"fallback_command,omitempty"`
+	Status        string   `json:"status"`
+	SessionID     string   `json:"session_id"`
+	Title         string   `json:"title,omitempty"`
+	TargetHome    string   `json:"target_home"`
+	TargetCWD     string   `json:"target_cwd"`
+	DryRun        bool     `json:"dry_run"`
+	CrossAgent    bool     `json:"cross_agent,omitempty"`
+	Writes        []string `json:"writes,omitempty"`
+	BackupDir     string   `json:"backup_dir,omitempty"`
+	Error         string   `json:"error,omitempty"`
+	FallbackCmd   string   `json:"fallback_command,omitempty"`
+	FallbackShell string   `json:"fallback_shell,omitempty"`
 }
 
 // Restore writes the shared session into the local Claude home as a new
@@ -71,6 +73,7 @@ func Restore(in RestoreInput, opts RestoreOptions) (*RestoreResult, error) {
 	if !opts.Execute {
 		return res, nil
 	}
+	res.FallbackCmd, res.FallbackShell = resumeCommand(opts.TargetCWD, newID, runtime.GOOS)
 
 	writes, backupDir, err := writeImport(in, opts, newID, title, now, crossAgent)
 	res.Writes = writes
@@ -78,11 +81,9 @@ func Restore(in RestoreInput, opts RestoreOptions) (*RestoreResult, error) {
 	if err != nil {
 		res.Status = "error"
 		res.Error = err.Error()
-		res.FallbackCmd = fmt.Sprintf("cd %s && claude --session-id %s", opts.TargetCWD, newID)
 		return res, err
 	}
 	res.Status = "ok"
-	res.FallbackCmd = fmt.Sprintf("cd %s && claude --session-id %s", opts.TargetCWD, newID)
 	return res, nil
 }
 
@@ -300,9 +301,7 @@ func SessionFromNeutral(t neutral.Transcript, newID, targetCWD string, now time.
 			leaf = emit(e.Role, e.Text)
 		case neutral.KindTool:
 			text := fmt.Sprintf("[tool] %s (%s)\ninput: %s\noutput: %s",
-				e.Tool, e.Status,
-				session.Truncate(e.Input, 2000),
-				session.Truncate(e.Output, 4000))
+				e.Tool, e.Status, e.Input, e.Output)
 			leaf = emit("assistant", text)
 		}
 	}

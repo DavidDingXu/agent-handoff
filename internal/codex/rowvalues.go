@@ -13,17 +13,18 @@ import (
 
 // upsertThreadRow inserts a new row into the threads table, writing only
 // columns that exist on the receiver's schema. Values are derived by
-// threadRowValues (clone source row, overlay import-specific fields). When
-// the receiver has no state db yet, a minimal one is created so the imported
-// task still shows in the task list.
-func upsertThreadRow(home string, in RestoreInput, newID, title, targetSession, targetCWD string, now time.Time, crossAgent bool) error {
+// threadRowValues (clone source row, overlay import-specific fields). A new
+// home is left for Codex to initialize and backfill from the imported rollout;
+// creating a partial schema here would conflict with its native migrations.
+func upsertThreadRow(home string, in RestoreInput, newID, title, targetSession, targetCWD, modelProvider string, now time.Time, crossAgent bool) error {
 	dbPath := filepath.Join(home, StateSQLiteFile)
-	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
-		if err := createThreadsTable(dbPath); err != nil {
-			return fmt.Errorf("create state db: %w", err)
+	if _, err := os.Stat(dbPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil
 		}
+		return err
 	}
-	db, err := sql.Open("sqlite", "file:"+dbPath+"?_pragma=busy_timeout(5000)")
+	db, err := sql.Open("sqlite", "file:"+dbPath+"?mode=rw&_pragma=busy_timeout(5000)")
 	if err != nil {
 		return err
 	}
@@ -36,7 +37,7 @@ func upsertThreadRow(home string, in RestoreInput, newID, title, targetSession, 
 
 	var rowVals map[string]any
 	if crossAgent {
-		rowVals = synthesizedRowValues(in.Neutral, newID, title, targetSession, targetCWD, now)
+		rowVals = synthesizedRowValues(in.Neutral, newID, title, targetSession, targetCWD, modelProvider, now)
 	} else {
 		rowVals = threadRowValues(in.ThreadRow, newID, title, targetSession, targetCWD, now)
 	}
@@ -55,54 +56,9 @@ func upsertThreadRow(home string, in RestoreInput, newID, title, targetSession, 
 	if len(names) == 0 {
 		return fmt.Errorf("no insertable columns found in threads table")
 	}
-	stmt := fmt.Sprintf("INSERT OR REPLACE INTO threads (%s) VALUES (%s)",
+	stmt := fmt.Sprintf("INSERT INTO threads (%s) VALUES (%s)",
 		joinQuoted(names), joinPlaceholders(placeholders))
 	_, err = db.Exec(stmt, values...)
-	return err
-}
-
-// createThreadsTable creates a minimal state db with a threads table for
-// receivers that have never run Codex desktop. The column set mirrors the
-// common Codex desktop schema so sender-row metadata survives the clone.
-func createThreadsTable(dbPath string) error {
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
-		return err
-	}
-	db, err := sql.Open("sqlite", "file:"+dbPath+"?_pragma=busy_timeout(5000)")
-	if err != nil {
-		return err
-	}
-	defer func() { _ = db.Close() }()
-	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS threads (
-		id TEXT PRIMARY KEY,
-		title TEXT,
-		cwd TEXT,
-		rollout_path TEXT,
-		model TEXT,
-		model_provider TEXT,
-		effort TEXT,
-		source TEXT,
-		git_branch TEXT,
-		git_origin_url TEXT,
-		cli_version TEXT,
-		sandbox_policy TEXT,
-		approval_mode TEXT,
-		history_mode TEXT,
-		memory_mode TEXT,
-		tokens_used INTEGER DEFAULT 0,
-		preview TEXT,
-		first_user_message TEXT,
-		created_at INTEGER,
-		created_at_ms INTEGER,
-		updated_at INTEGER,
-		updated_at_ms INTEGER,
-		recency_at INTEGER,
-		recency_at_ms INTEGER,
-		archived INTEGER DEFAULT 0,
-		archived_at INTEGER,
-		is_pinned INTEGER DEFAULT 0,
-		has_user_event INTEGER DEFAULT 0
-	)`)
 	return err
 }
 
@@ -144,10 +100,14 @@ func threadRowValues(src map[string]any, newID, title, targetSession, targetCWD 
 
 // synthesizedRowValues builds a thread row for cross-agent imports where no
 // codex source row exists.
-func synthesizedRowValues(t neutral.Transcript, newID, title, targetSession, targetCWD string, now time.Time) map[string]any {
+func synthesizedRowValues(t neutral.Transcript, newID, title, targetSession, targetCWD, modelProvider string, now time.Time) map[string]any {
 	vals := map[string]any{
-		"source":         "agent-handoff",
-		"model_provider": t.SourceAgent,
+		"source":             "vscode",
+		"thread_source":      "user",
+		"originator":         "agent-handoff",
+		"model_provider":     modelProvider,
+		"preview":            neutral.FirstUserText(t),
+		"first_user_message": neutral.FirstUserText(t),
 	}
 	return overlayImportValues(vals, newID, title, targetSession, targetCWD, now)
 }
@@ -192,9 +152,9 @@ func overlayImportValues(vals map[string]any, newID, title, targetSession, targe
 
 	// Defaults for fields the sender's row may not carry.
 	defaults := map[string]any{
-		"model_provider":     "OpenAI",
-		"sandbox_policy":     `{"type":"disabled"}`,
-		"approval_mode":      "never",
+		"model_provider":     "openai",
+		"sandbox_policy":     `{"type":"read-only"}`,
+		"approval_mode":      "on-request",
 		"memory_mode":        "enabled",
 		"tokens_used":        0,
 		"preview":            preview,

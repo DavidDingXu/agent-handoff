@@ -25,6 +25,23 @@ codex plugin add agent-handoff@agent-handoff
 
 重启智能体后直接说**「分享当前任务」**。接收方安装同一个插件后说**「导入 &lt;文件/链接&gt;」**。发送方和接收方都需要安装插件；不需要 Go 环境，也不需要 Cloudflare 账号。
 
+## 兼容范围
+
+2026-10-27 已使用 **Codex CLI 0.164.0** 和 **Claude Code 2.1.311** 验证：
+插件安装、导入后 Codex 历史读取／恢复／列表发现（含全新配置目录），以及 Claude
+恢复时向本地模拟 API 传入导入历史。CI 会对 npm 当前版本重复这些原生客户端检查；
+普通单元测试通过，不等于已经验证某个新客户端版本。
+
+Codex 支持普通与 Zstandard 压缩的 rollout，包括分页历史基底。全新配置目录的
+数据库由 Codex 首次启动时自行初始化。跨智能体导入读取接收端基础 `config.toml`
+中的 `model_provider`，默认 `openai`；不会猜测启动参数覆盖或命名 profile 文件。
+Claude 导入后，在目标目录使用 `claude --resume <session-id>`，或在返回的
+`fallback_shell`（`sh` 或 PowerShell）中执行 `fallback_command`。
+
+上述验证覆盖本地编码会话和文本／工具历史，不代表支持 Claude 网页聊天、仅存在于
+云端的任务、多智能体子会话树，或跨智能体完整图片／附件恢复。内嵌媒体保留在原始
+源会话中；绑定账号的附件引用不会自动变成可跨机器访问的文件。
+
 ## 特性
 
 - **四象限交接** —— codex→codex、codex→claude、claude→codex、claude→claude。同智能体导入保留原生事件结构与内容，只重写创建新任务所需的身份字段；跨智能体导入走中立转录语义路径，保留可见对话与工具证据。
@@ -196,6 +213,11 @@ make test      # 单元 + 集成测试（四象限往返、链接加密）
 make lint      # golangci-lint
 make build     # bin/agent-handoff
 ```
+
+安装两个 CLI 后，可运行
+`AGENT_HANDOFF_NATIVE_TESTS=1 go test ./internal/integration_test -run TestNative -count=1`。
+原生兼容测试使用临时配置目录和本地模拟 API，不需要账号凭证或付费模型请求。
+`CODEX_BIN`、`CLAUDE_BIN` 可指定待验证的客户端可执行文件。
 
 CI 在 Ubuntu/macOS/Windows 上带 `-race` 跑测试。架构：`internal/bundle`（容器格式）、`internal/{codex,claude}`（智能体适配器）、`internal/neutral`（跨智能体转录）、`internal/link`（端到端加密 + 兼容 hosted endpoint 和配置化 Provider）、`internal/safety`（密钥扫描）、`internal/cli`。新增智能体还要实现原生恢复、中立转换、宿主探测和跨智能体测试矩阵，详见 [新增其他智能体](docs/adding-agent.zh-CN.md)。
 

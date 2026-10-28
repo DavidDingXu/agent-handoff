@@ -243,7 +243,7 @@ func TestRoundTripCodexToCodex(t *testing.T) {
 	path := writeBundle(t, m, sessionBytes, row, tr)
 	b := loadBundle(t, path)
 
-	receiverHome := t.TempDir()
+	receiverHome := buildCodexHome(t)
 	res, err := codex.Restore(codex.RestoreInput{
 		SourceThreadID: b.Manifest.SourceThreadID,
 		Title:          b.Manifest.Title,
@@ -300,7 +300,7 @@ func TestRoundTripPaginatedCodexHistoryToStandaloneCodex(t *testing.T) {
 	tr := neutral.FromCodexSession(m.SourceThreadID, m.Title, m.SourceCWD, sessionBytes)
 	path := writeBundle(t, m, sessionBytes, row, tr)
 	b := loadBundle(t, path)
-	receiverHome := t.TempDir()
+	receiverHome := buildPaginatedCodexHome(t)
 	res, err := codex.Restore(codex.RestoreInput{
 		SourceThreadID: b.Manifest.SourceThreadID,
 		Title:          b.Manifest.Title,
@@ -456,8 +456,8 @@ func TestRoundTripClaudeToCodex(t *testing.T) {
 	if !strings.Contains(s, "Fix the login bug") {
 		t.Error("user message lost in cross-agent synthesis")
 	}
-	if !strings.Contains(s, `"model_provider":"claude"`) {
-		t.Error("source agent provenance missing in session_meta")
+	if !strings.Contains(s, `"model_provider":"openai"`) {
+		t.Error("native Codex model provider missing in session_meta")
 	}
 	if strings.Contains(s, "/src/project") {
 		t.Error("sender cwd leaked into the receiver session")

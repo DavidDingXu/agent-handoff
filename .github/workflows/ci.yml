@@ -125,3 +125,8 @@ jobs:
           claude plugin marketplace add "$GITHUB_WORKSPACE"
           claude plugin install agent-handoff@agent-handoff
           test "$(claude plugin list --json | jq -r '.[0].version')" = "$(jq -r .version .codex-plugin/plugin.json)"
+
+      - name: Resume synthetic handoffs in current native clients
+        env:
+          AGENT_HANDOFF_NATIVE_TESTS: "1"
+        run: go test ./internal/integration_test -run '^TestNativeClients$' -count=1 -race -v -timeout=5m

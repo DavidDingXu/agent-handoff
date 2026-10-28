@@ -37,7 +37,7 @@ func LoadThread(home, threadID string) (*ExportData, error) {
 	}
 
 	row, err := ReadThreadRow(home, threadID)
-	if err != nil {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("read thread row: %w", err)
 	}
 	rolloutPath, _ := row["rollout_path"].(string)
@@ -53,7 +53,7 @@ func LoadThread(home, threadID string) (*ExportData, error) {
 			return nil, err
 		}
 	}
-	sessionBytes, err := os.ReadFile(sessionPath)
+	sessionBytes, err := readRollout(sessionPath)
 	if err != nil {
 		return nil, fmt.Errorf("read session file: %w", err)
 	}
@@ -86,7 +86,7 @@ func LoadThread(home, threadID string) (*ExportData, error) {
 func ReadThreadRow(home, threadID string) (map[string]any, error) {
 	dbPath := filepath.Join(home, StateSQLiteFile)
 	if _, err := os.Stat(dbPath); errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("thread %s not found (no %s)", threadID, StateSQLiteFile)
+		return nil, fmt.Errorf("thread %s not found (no %s): %w", threadID, StateSQLiteFile, err)
 	}
 	db, err := sql.Open("sqlite", "file:"+dbPath+"?mode=ro")
 	if err != nil {
@@ -142,7 +142,7 @@ func findRolloutByThreadID(home, threadID string) (string, error) {
 		if d.IsDir() {
 			return nil
 		}
-		if strings.Contains(d.Name(), threadID) && strings.HasSuffix(d.Name(), ".jsonl") {
+		if strings.Contains(d.Name(), threadID) && strings.HasSuffix(plainRolloutPath(d.Name()), ".jsonl") {
 			found = path
 		}
 		return nil
@@ -201,7 +201,7 @@ func Verify(home, threadID, expectedCWD string) *VerifyResult {
 	if sessionPath == "" {
 		sessionPath, _ = findRolloutByThreadID(home, threadID)
 	}
-	if sessionPath != "" && fileExists(sessionPath) {
+	if sessionPath != "" && rolloutExists(sessionPath) {
 		res.SessionFileExists = true
 	}
 
@@ -216,12 +216,14 @@ func Verify(home, threadID, expectedCWD string) *VerifyResult {
 	}
 
 	if expectedCWD != "" && res.SessionFileExists {
-		if data, err := os.ReadFile(sessionPath); err == nil {
+		if data, err := readRollout(sessionPath); err == nil {
 			cwds := session.SessionCWDs(data)
 			if len(cwds) != 1 || !cwds[expectedCWD] {
 				res.Failures = append(res.Failures, fmt.Sprintf(
 					"session cwd mismatch: expected exactly %q, found %d distinct cwd(s)", expectedCWD, len(cwds)))
 			}
+		} else {
+			res.Failures = append(res.Failures, "read session file: "+err.Error())
 		}
 		if res.SQLiteCWD != "" && res.SQLiteCWD != expectedCWD {
 			res.Failures = append(res.Failures, "sqlite cwd mismatch: "+res.SQLiteCWD)

@@ -90,6 +90,14 @@ func Restore(in RestoreInput, opts RestoreOptions) (*RestoreResult, error) {
 
 func writeImport(in RestoreInput, opts RestoreOptions, newID, title string, now time.Time, crossAgent bool) ([]string, string, error) {
 	home := opts.Home
+	modelProvider := ""
+	if crossAgent {
+		var err error
+		modelProvider, err = targetModelProvider(home)
+		if err != nil {
+			return nil, "", err
+		}
+	}
 	targetSession := idgen.RolloutPath(home, newID, now)
 	assetDir := filepath.Join(home, "agent-handoff-assets", newID, "images")
 
@@ -104,7 +112,7 @@ func writeImport(in RestoreInput, opts RestoreOptions, newID, title string, now 
 	// Build the session bytes for the receiver.
 	var sessionBytes []byte
 	if crossAgent {
-		sessionBytes = SessionFromNeutral(in.Neutral, newID, opts.TargetCWD, now)
+		sessionBytes = SessionFromNeutral(in.Neutral, newID, opts.TargetCWD, modelProvider, now)
 	} else {
 		imagePaths := map[string]string{}
 		for _, img := range images {
@@ -162,10 +170,12 @@ func writeImport(in RestoreInput, opts RestoreOptions, newID, title string, now 
 	writes = append(writes, filepath.Join(home, SessionIndexFile))
 
 	// Insert the sqlite thread row (schema-aware).
-	if err := upsertThreadRow(home, in, newID, title, targetSession, opts.TargetCWD, now, crossAgent); err != nil {
+	if err := upsertThreadRow(home, in, newID, title, targetSession, opts.TargetCWD, modelProvider, now, crossAgent); err != nil {
 		return writes, backupDir, fmt.Errorf("insert thread row: %w", err)
 	}
-	writes = append(writes, filepath.Join(home, StateSQLiteFile))
+	if fileExists(filepath.Join(home, StateSQLiteFile)) {
+		writes = append(writes, filepath.Join(home, StateSQLiteFile))
+	}
 	return writes, backupDir, nil
 }
 
@@ -222,45 +232,49 @@ func writeFileExclusive(path string, data []byte) error {
 
 // SessionFromNeutral synthesizes a valid Codex rollout jsonl from a neutral
 // transcript (cross-agent import path).
-func SessionFromNeutral(t neutral.Transcript, threadID, targetCWD string, now time.Time) []byte {
+func SessionFromNeutral(t neutral.Transcript, threadID, targetCWD, modelProvider string, now time.Time) []byte {
 	var out []string
+	stamp := now.UTC().Format("2006-01-02T15:04:05.000Z")
 	appendLine := func(obj map[string]any) {
+		if obj["timestamp"] == "" {
+			obj["timestamp"] = stamp
+		}
 		if b, err := jsonMarshalLine(obj); err == nil {
 			out = append(out, string(b))
 		}
 	}
-	stamp := now.UTC().Format("2006-01-02T15:04:05.000Z")
 
 	appendLine(map[string]any{
 		"timestamp": stamp,
 		"type":      "session_meta",
 		"payload": map[string]any{
 			"id":             threadID,
+			"session_id":     threadID,
 			"timestamp":      stamp,
 			"cwd":            targetCWD,
 			"originator":     "agent-handoff",
 			"cli_version":    "agent-handoff",
-			"source":         "agent-handoff",
-			"thread_source":  "imported",
-			"model_provider": t.SourceAgent,
-		},
-	})
-	appendLine(map[string]any{
-		"timestamp": stamp,
-		"type":      "turn_context",
-		"payload": map[string]any{
-			"cwd":             targetCWD,
-			"approval_policy": "never",
-			"sandbox_policy":  map[string]any{"type": "disabled"},
+			"source":         "vscode",
+			"thread_source":  "user",
+			"model_provider": modelProvider,
 		},
 	})
 
 	turn := 0
+	toolCall := 0
 	hasUserTurn := false
+	turnID := ""
+	completeTurn := func() {
+		if turnID != "" {
+			appendLine(eventMsg("task_complete", map[string]any{"turn_id": turnID}))
+		}
+	}
 	startTurn := func() {
+		completeTurn()
 		turn++
+		turnID = fmt.Sprintf("agent-handoff-import-turn-%d", turn)
 		appendLine(eventMsg("task_started", map[string]any{
-			"turn_id": fmt.Sprintf("agent-handoff-import-turn-%d", turn),
+			"turn_id": turnID,
 		}))
 	}
 	for _, e := range t.Entries {
@@ -279,7 +293,8 @@ func SessionFromNeutral(t neutral.Transcript, threadID, targetCWD string, now ti
 			if !hasUserTurn {
 				continue
 			}
-			callID := fmt.Sprintf("agent_handoff_tool_%03d", turn)
+			toolCall++
+			callID := fmt.Sprintf("agent_handoff_tool_%03d", toolCall)
 			appendLine(map[string]any{
 				"timestamp": stamp,
 				"type":      "response_item",
@@ -315,10 +330,7 @@ func SessionFromNeutral(t neutral.Transcript, threadID, targetCWD string, now ti
 	appendLine(eventMsg("agent_message", map[string]any{
 		"message": "<EXTERNAL SESSION IMPORTED>",
 	}))
-	appendLine(eventMsg("token_count", map[string]any{
-		"info": map[string]any{"total_token_usage": map[string]any{"total_tokens": 0}},
-	}))
-	appendLine(eventMsg("task_complete", nil))
+	completeTurn()
 	return []byte(strings.Join(out, "\n") + "\n")
 }
 
