@@ -28,6 +28,9 @@ try {
       '@deepseek-ai/dsh-client-store': '0.2.2-rc.1',
       '@deepseek-ai/dsh-client-ui-slots': '0.2.2-rc.1',
       '@deepseek-ai/dsh-client-ui-primitives': '0.2.2-rc.1',
+      // The released store imports these at runtime but lists them only as devDependencies.
+      zustand: '4.5.7',
+      immer: '10.1.1',
     } }))
     await run([process.env.npm_execpath, 'install', '--prefix', temporary, '--ignore-scripts', '--no-fund', '--no-audit'])
     sdkRoot = join(temporary, 'node_modules')
