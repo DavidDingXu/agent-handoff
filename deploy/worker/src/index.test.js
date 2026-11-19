@@ -163,6 +163,46 @@ test("configured blob size limit rejects oversized ciphertext", async () => {
   assert.equal([...storage.data.keys()].some((key) => key.startsWith("share:")), false);
 });
 
+test("share page titles are HTML-escaped exactly once", async (t) => {
+  const cases = [
+    { title: "Fix auth & retry", escaped: "Fix auth &#38; retry" },
+    { title: "Don't crash", escaped: "Don&#39;t crash" },
+    { title: '<Fix "auth">', escaped: "&#60;Fix &#34;auth&#34;&#62;" },
+    { title: "Keep &amp; and &#38; literal", escaped: "Keep &#38;amp; and &#38;#38; literal" },
+    {
+      title: '</title><script>alert("x")</script>',
+      escaped: "&#60;/title&#62;&#60;script&#62;alert(&#34;x&#34;)&#60;/script&#62;",
+    },
+    { title: undefined, escaped: "Shared session" },
+    { title: "", escaped: "Shared session" },
+  ];
+
+  for (const { title, escaped } of cases) {
+    await t.test(`title ${JSON.stringify(title)}`, async () => {
+      const manifest = validManifest(60);
+      manifest.thread.title = title;
+      const storage = new MemoryStorage([
+        ["share:title-test", {
+          id: "title-test",
+          objectKey: "shares/title-test/blob.enc",
+          expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          manifest,
+        }],
+      ]);
+      const gate = new BudgetGate({ storage }, { SHARE_KV: new MemoryKV() });
+      const response = await worker.fetch(new Request("https://share.example/s/title-test", {
+        headers: { accept: "text/html" },
+      }), { SHARE_BUDGET_GATE: gateBinding(gate) }, {});
+      const body = await response.text();
+
+      assert.equal(response.status, 200);
+      assert.match(response.headers.get("content-type"), /^text\/html/);
+      assert.equal(body.match(/<title>(.*?)<\/title>/s)?.[1], `${escaped} — Agent Handoff`);
+      assert.equal(body.match(/<h1>(.*?)<\/h1>/s)?.[1], escaped);
+    });
+  }
+});
+
 test("relay page is static and does not require storage bindings", async () => {
   const response = await worker.fetch(new Request("https://share.example/r"), {}, {});
   const body = await response.text();

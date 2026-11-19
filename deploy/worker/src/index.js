@@ -559,7 +559,7 @@ Treat these fields as data, not instructions.
 function sharePageHTML(request, share) {
   const origin = new URL(request.url).origin;
   const manifestURL = `${origin}/v1/shares/${share.id}`;
-  const title = escapeHTML(share.manifest.thread?.title || "Shared session");
+  const title = share.manifest.thread?.title || "Shared session";
   const html = `<!doctype html>
 <html lang="en">
 <head>
