@@ -33,6 +33,7 @@ coding agents and contributors working on agent-handoff.
 - `internal/safety`: pre-export secret detection.
 - `deploy/worker`: optional self-hosted Cloudflare Worker.
 - `skills/agent-handoff`: user-facing workflow shared by Codex and Claude Code.
+- `plugins/dsh`: native DSH Host/Client integration around the shared Go bridge.
 
 See `docs/extensions.md` for extension boundaries and `docs/adding-agent.md`
 before adding another source or target agent.
@@ -44,6 +45,12 @@ before adding another source or target agent.
 - Keep macOS, Linux, and Windows support. Do not introduce POSIX-only path,
   shell, permission, quoting, or environment assumptions.
 - Keep English and Simplified Chinese user documentation in sync.
+- Keep DSH export and import in clearly separated views, using the host's theme
+  and native controls with a compact, responsive layout. Verify the actual
+  installed interface as well as component tests when changing this flow.
+- When changing handoff compatibility, cover Codex, Claude and DSH in all nine
+  source/destination directions. Distinguish history reopening from a completed
+  continuation turn, and record exact client versions and material limits.
 - Treat JSON output fields as a compatibility contract for agent hosts.
 - Use synthetic sessions and temporary homes in tests. Never read or mutate a
   contributor's real `~/.codex` or `~/.claude` state.

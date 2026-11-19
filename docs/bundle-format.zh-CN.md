@@ -30,6 +30,24 @@ safety/scan.json         分享时的密钥扫描结果
 
 `manifest.json` 与 `checksums.json` 永远在压缩包根目录。无论产出平台，所有条目统一用正斜杠存储。
 
+## DSH 来源扩展
+
+DSH 捆绑包使用 `dsh/session.jsonl`，一行 JSON 包含
+`agent-handoff.dsh.native.v1` schema、运行时版本、会话格式版本、来源 header、继承事件
+计数和 events。`dsh/meta.json` 必须为空；首版不含 DSH 附件条目。Go 核心将原生字节视为
+惰性数据，由固定版本的 DSH 插件在恢复前校验事件词汇。
+
+`bridge share --input FILE|-` 接受 `agent-handoff.bridge.share.v1`；
+`bridge read FILE|URL` 返回已校验的 `agent-handoff.bridge.read-result.v1`。
+请求和响应上限 32 MiB，原生数据 16 MiB，中立转录 8 MiB／100,000 条。JSON 拒绝重复键、
+尾随文档和无效 UTF-8；压缩包拒绝重复或歧义路径。插件的 ZIP 上传／下载上限 16 MiB。
+这些限制比通用压缩包限制更严格。
+
+DSH 插件负责预览、确认和新会话持久化，不恢复来源权限、provider 配置或待执行工作。
+不支持的原生状态需要显式选择对话导入。Codex/Claude 接收方读取 DSH 中立转录，并将
+原始来源字节保存为私有审计文件。普通 CLI 的本地 `--source`／`--target` 仍只接受
+Codex/Claude。
+
 ## manifest.json
 
 ```json
@@ -58,8 +76,8 @@ safety/scan.json         分享时的密钥扫描结果
 | --- | --- |
 | `format_version` | 本规范为 `2`。读取方必须拒绝未知的**主**版本，但可接受更新的次版本（为增量字段保留）。 |
 | `artifact_type` | 恒为 `"agent-handoff"`，读取方的快速健全性检查。 |
-| `source_agent` | `"codex"` 或 `"claude"` —— 产出原始会话的智能体。 |
-| `target_support` | 本捆绑包可导入的智能体，目前恒为两者。 |
+| `source_agent` | `"codex"`、`"claude"` 或 `"dsh"` —— 产出原始会话的智能体。 |
+| `target_support` | 声明的接收方；实际原生／语义兼容性由接收方检查。DSH 导出包含三者。 |
 | `source_thread_id` | 发送方的线程（Codex UUIDv7）或会话（Claude UUIDv4）id。 |
 | `source_cwd` | 发送方的工作目录。仅作信息展示，绝不用作导入目标。 |
 | `message_count` | 规范化后会话中 user+assistant 消息数（发送方视角）。 |

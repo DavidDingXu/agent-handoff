@@ -10,7 +10,7 @@ agent-handoff does not equate extensibility with loading plugins everywhere. Pre
 | --- | --- | --- | --- |
 | File provider | `config.json` | No | Domestic file services, object stores, enterprise upload APIs |
 | Resolver page | Static HTTPS page config | No | Replacing the visible link page; CLI import does not depend on it |
-| New agent | Go adapter | Yes | Native session formats for OpenCode, DeepSeek Harness, and future agents |
+| New agent | Reviewed Go adapter or host-native plugin + bridge | Yes | New native session formats and host session services |
 | Secret scan rule | Go rule plus tests | Yes | Another high-confidence credential format |
 | Bundle field | Versioned schema | Yes | Additional portable cross-agent metadata |
 
@@ -32,7 +32,7 @@ See [custom providers](link-service.md#custom-providers).
 
 Agent adapters directly read and write native Codex, Claude Code, or future agent state. They own task discovery, native restore, append-only writes, backups, identity rewriting, and verification. Today they are source contributions; see [adding another agent](adding-agent.md).
 
-Native [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin integration is an option under investigation in [#10](https://github.com/DavidDingXu/agent-handoff/issues/10). Such a plugin would use DSH's own plugin and session services; it is distinct from adding a generic runtime plugin loader to agent-handoff. DSH support remains research until a pinned runtime proves safe native restore. OpenCode adapter work is deferred. Two current adapters are not enough to prove a stable shared interface. Revisit that interface after a third real adapter lands:
+The experimental [DeepSeek Harness plugin](../plugins/dsh/README.md) uses the pinned host's session services and native UI. Its explicit `bridge share/read` protocol delegates bundles, scanning and transport to the Go core. It does not introduce a generic plugin loader or DSH filesystem adapter. Native restore accepts reviewed passive events only; ordinary logs with authority state require explicit conversation import. OpenCode work remains deferred. Revisit a general adapter interface only when these real integrations demonstrate a useful common contract:
 
 - it must support macOS, Linux, and Windows, so Go's Windows-incompatible `plugin` package is not an option;
 - an out-of-process protocol must be versioned and define permissions, backups, and failure atomicity;

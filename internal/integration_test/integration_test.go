@@ -22,7 +22,7 @@ import (
 	"github.com/DavidDingXu/agent-handoff/internal/session"
 )
 
-const codexFixture = `{"timestamp":"2026-08-01T10:00:00.000Z","type":"session_meta","payload":{"id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001","timestamp":"2026-08-01T10:00:00.000Z","cwd":"/src/project","cli_version":"0.1.0","source":"vscode"}}
+const codexFixture = `{"timestamp":"2026-08-01T10:00:00.000Z","type":"session_meta","payload":{"id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001","timestamp":"2026-08-01T10:00:00.000Z","cwd":"/src/project","cli_version":"0.1.0","originator":"agent_handoff_native_test","source":"vscode","model_provider":"openai"}}
 {"timestamp":"2026-08-01T10:00:01.000Z","type":"event_msg","payload":{"type":"task_started","turn_id":"t1","thread_id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001","session_id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001"}}
 {"timestamp":"2026-08-01T10:00:02.000Z","type":"event_msg","payload":{"type":"user_message","message":"Fix the login bug","thread_id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001","session_id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001"}}
 {"timestamp":"2026-08-01T10:00:02.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Fix the login bug"}]}}
@@ -30,7 +30,7 @@ const codexFixture = `{"timestamp":"2026-08-01T10:00:00.000Z","type":"session_me
 {"timestamp":"2026-08-01T10:00:05.000Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call_1","output":"auth.go:42: bug here","status":"completed"}}
 {"timestamp":"2026-08-01T10:00:06.000Z","type":"event_msg","payload":{"type":"agent_message","message":"Found the bug in auth.go:42.","thread_id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001","session_id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001"}}
 {"timestamp":"2026-08-01T10:00:06.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Found the bug in auth.go:42."}]}}
-{"timestamp":"2026-08-01T10:00:07.000Z","type":"event_msg","payload":{"type":"task_complete","thread_id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001","session_id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001"}}
+{"timestamp":"2026-08-01T10:00:07.000Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"t1","thread_id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001","session_id":"0192aaaa-bbbb-7ccc-8ddd-eeeeffff0001"}}
 `
 
 const claudeFixture = `{"type":"queue-operation","sessionId":"11111111-2222-3333-4444-555555555555","operation":"enqueue"}
@@ -97,7 +97,7 @@ func buildCodexHome(t *testing.T) string {
 	}
 	_, err = db.Exec(`INSERT INTO threads (id, title, cwd, rollout_path, model, model_provider, git_branch, git_origin_url, cli_version, effort, source, created_at, created_at_ms, updated_at, updated_at_ms, recency_at, recency_at_ms, has_user_event, preview)
 		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-		codexThreadID, "Login bug fix", "/src/project", rollout, "gpt-5.2-codex", "OpenAI",
+		codexThreadID, "Login bug fix", "/src/project", rollout, "gpt-5.2-codex", "openai",
 		"feature/login", "https://github.com/org/repo", "0.51.0", "high", "vscode",
 		1754032800, 1754032800000, 1754032807, 1754032807000, 1754032807, 1754032807000, 1, "Fix the login bug")
 	if err != nil {

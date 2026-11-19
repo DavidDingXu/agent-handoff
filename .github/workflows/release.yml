@@ -23,6 +23,12 @@ jobs:
           go-version: "1.26.7"
           cache: true
 
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24.14.1"
+          cache: npm
+          cache-dependency-path: plugins/dsh/package-lock.json
+
       - name: Run tests
         run: go test ./... -count=1 && go vet ./...
 
@@ -30,8 +36,31 @@ jobs:
         run: |
           version=${GITHUB_REF_NAME#v}
           test "$(jq -r .version .codex-plugin/plugin.json)" = "$version"
+          test "$(jq -r .version plugins/dsh/package.json)" = "$version"
           test "$(jq -r .metadata.version .claude-plugin/marketplace.json)" = "$version"
           test "$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)" = "$version"
+
+      - name: Build matching transfer cores for DSH
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          for target in darwin-amd64 darwin-arm64 linux-amd64 linux-arm64 windows-amd64; do
+            os=${target%-*}
+            arch=${target##*-}
+            ext=""
+            if [ "$os" = windows ]; then ext=".exe"; fi
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -trimpath -buildvcs=false \
+              -ldflags "-s -w -X github.com/DavidDingXu/agent-handoff/internal/cli.Version=$version" \
+              -o "plugins/dsh/bin/$target/agent-handoff$ext" .
+          done
+
+      - name: Build and verify DSH release package
+        working-directory: plugins/dsh
+        run: |
+          npm ci --ignore-scripts --no-fund --no-audit
+          npm run check
+          mkdir -p dist
+          npm pack --ignore-scripts --pack-destination dist
+          npm run check:package
 
       - uses: goreleaser/goreleaser-action@v7
         with:

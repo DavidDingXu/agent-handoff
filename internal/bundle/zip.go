@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/DavidDingXu/agent-handoff/internal/neutral"
 	"github.com/DavidDingXu/agent-handoff/internal/safety"
@@ -189,6 +190,14 @@ func decode(files map[string][]byte) (*ReadResult, error) {
 	agent := m.SourceAgent
 	if m.FormatVersion == Version1 {
 		agent = AgentCodex
+		m.SourceAgent = AgentCodex
+		if m.SourceThreadID == "" {
+			var legacy struct {
+				ThreadID string `json:"thread_id"`
+			}
+			_ = unmarshalStrict(manifestData, &legacy)
+			m.SourceThreadID = legacy.ThreadID
+		}
 	}
 	if !IsSupportedAgent(agent) {
 		return nil, fmt.Errorf("%w %q", ErrUnsupportedAgent, m.SourceAgent)
@@ -283,7 +292,12 @@ func readZipFiles(entries []*zip.File) (map[string][]byte, error) {
 	}
 
 	var declaredTotal uint64
+	seen := map[string]bool{}
 	for _, zf := range entries {
+		if seen[zf.Name] || !validArchiveName(zf.Name) {
+			return nil, fmt.Errorf("ambiguous archive entry")
+		}
+		seen[zf.Name] = true
 		if zf.UncompressedSize64 > maxZipEntryBytes {
 			return nil, fmt.Errorf("%w: entry %q is larger than %d bytes", ErrArchiveLimit, zf.Name, maxZipEntryBytes)
 		}
@@ -330,4 +344,16 @@ func readLimitedZipEntry(r io.Reader, name string, maxBytes uint64) ([]byte, err
 		return nil, fmt.Errorf("%w: entry %q exceeds %d bytes while decompressing", ErrArchiveLimit, name, maxBytes)
 	}
 	return data, nil
+}
+
+func validArchiveName(name string) bool {
+	if name == "" || strings.ContainsAny(name, "\\:\x00") || strings.HasPrefix(name, "/") {
+		return false
+	}
+	for _, part := range strings.Split(name, "/") {
+		if part == "" || part == "." || part == ".." {
+			return false
+		}
+	}
+	return true
 }

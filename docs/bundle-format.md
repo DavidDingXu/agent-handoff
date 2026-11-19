@@ -30,6 +30,27 @@ The `codex/` directory is per-source-agent: a Claude-sourced bundle uses `claude
 
 `manifest.json` and `checksums.json` are always at the archive root. All entries are stored with forward slashes regardless of the producing platform.
 
+## DSH source extension
+
+DSH bundles contain `dsh/session.jsonl`: one JSON line with schema
+`agent-handoff.dsh.native.v1`, runtime version, session format version, source
+header, inherited-event count and events. `dsh/meta.json` must be empty; there are
+no DSH attachment entries in the first version. Native bytes remain inert in the
+Go core. The pinned DSH plugin validates the event vocabulary before restoring.
+
+`bridge share --input FILE|-` accepts `agent-handoff.bridge.share.v1`;
+`bridge read FILE|URL` returns verified `agent-handoff.bridge.read-result.v1`.
+Requests and results are capped at 32 MiB, native data at 16 MiB and neutral data
+at 8 MiB/100,000 entries. JSON rejects duplicate keys, trailing documents and
+invalid UTF-8. Archives reject duplicate or ambiguous entry paths. The plugin's
+ZIP upload/download cap is 16 MiB. These are stricter than general archive limits.
+
+The DSH plugin owns preview/confirmation and fresh-session persistence. It never
+restores source permissions, provider configuration or queued work. Unsupported
+native state requires explicit conversation import. Codex/Claude receivers use
+DSH neutral content and retain raw source bytes as a private audit sidecar.
+Normal local `--source`/`--target` CLI adapters remain Codex/Claude only.
+
 ## manifest.json
 
 ```json
@@ -58,8 +79,8 @@ Field semantics:
 | --- | --- |
 | `format_version` | `2` for this spec. Readers must reject unknown *major* versions but may accept newer minor revisions (reserved for additive fields). |
 | `artifact_type` | Always `"agent-handoff"`; a quick sanity check for readers. |
-| `source_agent` | `"codex"` or `"claude"` — the agent that produced the raw session. |
-| `target_support` | Agents this bundle can be imported into. Currently always both. |
+| `source_agent` | `"codex"`, `"claude"`, or `"dsh"` — the agent that produced the raw session. |
+| `target_support` | Declared receivers; actual native/semantic support is checked by each receiver. DSH exports include all three. |
 | `source_thread_id` | The sender's thread (Codex UUIDv7) or session (Claude UUIDv4) id. |
 | `source_cwd` | The sender's working directory. Informational; never used as an import target. |
 | `message_count` | Count of user+assistant messages in the normalized session (sender's view). |

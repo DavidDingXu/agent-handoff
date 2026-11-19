@@ -18,3 +18,10 @@ bin/local/
 deploy/worker/node_modules/
 deploy/worker/.wrangler/
 deploy/worker/wrangler.toml
+
+# DSH plugin build and local runtime state
+plugins/dsh/node_modules
+plugins/dsh/lib/
+plugins/dsh/bin/
+plugins/dsh/.test-runtime/
+plugins/dsh/*.tgz

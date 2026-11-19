@@ -10,7 +10,7 @@ agent-handoff 不把“可扩展”等同于“所有东西都加载插件”。
 | --- | --- | --- | --- |
 | 文件服务 Provider | `config.json` | 否 | 国内文件服务、对象存储、企业上传 API |
 | Resolver 页面 | HTTPS 静态页配置 | 否 | 替换默认链接展示页；CLI 导入不依赖它 |
-| 新增智能体 | Go 适配器 | 是 | OpenCode、DeepSeek Harness 等新的原生会话格式 |
+| 新增智能体 | 经审查的 Go 适配器，或宿主原生插件 + bridge | 是 | 新原生格式及宿主会话服务 |
 | 密钥扫描规则 | Go 规则 + 测试 | 是 | 新的高置信凭据格式 |
 | 捆绑包字段 | 版本化 schema | 是 | 新的跨智能体可移植元数据 |
 
@@ -32,7 +32,7 @@ agent-handoff 不把“可扩展”等同于“所有东西都加载插件”。
 
 智能体适配器直接读写 Codex、Claude Code 或未来工具的原生状态，承担任务发现、原生恢复、追加写入、备份、身份重写和 verify。当前通过源码适配器贡献，完整流程见 [新增其他智能体](adding-agent.zh-CN.md)。
 
-[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 原生插件是 [#10](https://github.com/DavidDingXu/agent-handoff/issues/10) 正在评估的接入方案。这种插件使用 DSH 自身的插件和会话服务，与给 agent-handoff 增加通用运行时插件加载器是两件事。在固定版本的宿主上验证安全原生恢复之前，DSH 支持仍属于研究；OpenCode 适配工作暂缓。现在只有 Codex 和 Claude 两个实现，还不足以证明稳定公共 interface，第三个真实适配器加入后再评估：
+实验性的 [DeepSeek Harness 插件](../plugins/dsh/README.zh-CN.md) 使用固定版本的宿主会话服务和原生 UI，通过明确的 `bridge share/read` 协议复用 Go 核心的捆绑包、扫描与传输能力，不引入通用插件加载器或 DSH 文件系统适配器。原生恢复只接受已审查的被动事件；普通日志中的权限等状态需要显式选择对话导入。OpenCode 仍暂缓；只有真实接入证明共用合同有用后，再评估通用适配器接口：
 
 - 必须覆盖 macOS、Linux、Windows，不能使用不支持 Windows 的 Go `plugin` 包；
 - 若采用进程外协议，必须版本化并明确读写权限、备份和失败原子性；

@@ -3,6 +3,7 @@ package integration_test
 import (
 	"bufio"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,6 +16,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/DavidDingXu/agent-handoff/internal/codex"
 )
 
 const (
@@ -67,58 +70,7 @@ wire_api = "responses"
 					imported := nativeShareImport(t, binary, "claude", "codex", home, cwd, env)
 					threadID := nativeID(t, imported, "thread_id")
 					server := startNativeCodex(t, client, cwd, env)
-					read := server.call(t, "thread/read", map[string]any{"threadId": threadID, "includeTurns": true})
-					var history struct {
-						Thread struct {
-							Turns []struct {
-								Status string          `json:"status"`
-								Items  json.RawMessage `json:"items"`
-							} `json:"turns"`
-						} `json:"thread"`
-					}
-					if err := json.Unmarshal(read, &history); err != nil {
-						t.Fatal(err)
-					}
-					if len(history.Thread.Turns) == 0 {
-						t.Fatalf("thread/read returned no imported turns: %s", read)
-					}
-					var items []byte
-					for _, turn := range history.Thread.Turns {
-						if turn.Status != "completed" {
-							t.Errorf("imported turn status = %q, want completed", turn.Status)
-						}
-						items = append(items, turn.Items...)
-					}
-					for _, marker := range []string{nativeUserMarker, nativeAssistantMarker} {
-						if !strings.Contains(string(items), marker) {
-							t.Errorf("thread/read lost imported history %q: %s", marker, read)
-						}
-					}
-					resumed := server.call(t, "thread/resume", map[string]any{"threadId": threadID, "cwd": cwd, "excludeTurns": true})
-					var resume struct {
-						ModelProvider string `json:"modelProvider"`
-					}
-					if err := json.Unmarshal(resumed, &resume); err != nil {
-						t.Fatal(err)
-					}
-					if resume.ModelProvider != config.provider {
-						t.Errorf("thread/resume modelProvider = %q, want receiver's configured provider %q", resume.ModelProvider, config.provider)
-					}
-					listed := server.call(t, "thread/list", map[string]any{"limit": 20, "sourceKinds": []string{}})
-					var list struct {
-						Data []struct {
-							ID string `json:"id"`
-						} `json:"data"`
-					}
-					if err := json.Unmarshal(listed, &list); err != nil {
-						t.Fatal(err)
-					}
-					for _, thread := range list.Data {
-						if thread.ID == threadID {
-							return
-						}
-					}
-					t.Fatalf("imported thread %s is missing from native thread/list: %s", threadID, listed)
+					assertNativeCodexTask(t, server, threadID, cwd, config.provider, []string{nativeUserMarker, nativeAssistantMarker})
 				})
 			}
 		}
@@ -139,77 +91,10 @@ wire_api = "responses"
 		}
 		env := append(nativeEnvironment(t), "CLAUDE_CONFIG_DIR="+home)
 		imported := nativeShareImport(t, binary, "codex", "claude", home, cwd, env)
-		// Run the returned shell command from another directory. Add only fixed
-		// noninteractive options; the native client must load history and enter
-		// the receiver's project through the command users actually receive.
-		fallback, _ := imported["fallback_command"].(string)
-		if !strings.Contains(fallback, "claude ") {
-			t.Fatalf("unexpected fallback command: %q", fallback)
-		}
-		command := strings.Replace(fallback, "claude ", "claude --bare -p 'Continue the saved conversation.' --model claude-sonnet-4-5-20250929 --output-format json --tools= --permission-mode plan --setting-sources= ", 1)
-		shell, _ := imported["fallback_shell"].(string)
-		var args []string
-		switch shell {
-		case "sh":
-			args = []string{"-c", command}
-		case "powershell":
-			args = []string{"-NoProfile", "-NonInteractive", "-Command", command}
-		default:
-			t.Fatalf("unexpected fallback shell: %q", shell)
-		}
-		var mu sync.Mutex
-		var history []byte
-		var system strings.Builder
-		api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			body, err := io.ReadAll(io.LimitReader(r.Body, 8<<20))
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			var request struct {
-				Messages json.RawMessage `json:"messages"`
-				Stream   bool            `json:"stream"`
-				System   []struct {
-					Text string `json:"text"`
-				} `json:"system"`
-			}
-			if err := json.Unmarshal(body, &request); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			if strings.Contains(r.URL.Path, "count_tokens") {
-				w.Header().Set("Content-Type", "application/json")
-				_, _ = io.WriteString(w, `{"input_tokens":20}`)
-				return
-			}
-			if !strings.HasSuffix(r.URL.Path, "/messages") {
-				http.NotFound(w, r)
-				return
-			}
-			mu.Lock()
-			history = append(history, request.Messages...)
-			for _, part := range request.System {
-				system.WriteString(part.Text)
-			}
-			mu.Unlock()
-			writeNativeAnthropicResponse(w, request.Stream)
-		}))
-		defer api.Close()
-		env = append(env, "ANTHROPIC_BASE_URL="+api.URL, "ANTHROPIC_API_KEY=native-test-local-key",
-			"DISABLE_AUTOUPDATER=1", "DISABLE_TELEMETRY=1", "DISABLE_ERROR_REPORTING=1",
-			"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1", "PATH="+filepath.Dir(client)+string(os.PathListSeparator)+os.Getenv("PATH"))
-		nativeCommand(t, shell, otherCWD, env, args...)
-		mu.Lock()
-		defer mu.Unlock()
-		for _, marker := range []string{nativeUserMarker, nativeAssistantMarker} {
-			if !strings.Contains(string(history), marker) {
-				t.Errorf("native Claude request lost imported history %q: %s", marker, history)
-			}
-		}
-		if !strings.Contains(system.String(), cwd) || strings.Contains(system.String(), otherCWD) {
-			t.Errorf("native Claude did not use receiver cwd %q (started in %q): %s", cwd, otherCWD, system.String())
-		}
+		assertNativeClaudeContinuation(t, client, imported, cwd, otherCWD, env, []string{nativeUserMarker, nativeAssistantMarker})
 	})
+	runAdditionalNativeSources(t, binary)
+	runNativeCodexContinuations(t, binary)
 }
 
 func nativeClient(t *testing.T, override, name string) string {
@@ -257,8 +142,11 @@ func nativeCommand(t *testing.T, binary, cwd string, env []string, args ...strin
 	return out
 }
 
-func nativeShareImport(t *testing.T, binary, source, target, home, cwd string, env []string) map[string]any {
+func nativeShareImport(t *testing.T, binary, source, target, home, cwd string, env []string, sourceProvider ...string) map[string]any {
 	t.Helper()
+	if source == "dsh" {
+		return nativeImportBundle(t, binary, nativeDSHBridgeShare(t, binary, cwd, env), target, home, cwd, env)
+	}
 	sender, id := buildCLIHome(t, source)
 	// Existing fixtures contain tool evidence as well as both conversation
 	// roles. Distinct markers detect loss of either role independently.
@@ -272,13 +160,39 @@ func nativeShareImport(t *testing.T, binary, source, target, home, cwd string, e
 		}
 		content := strings.ReplaceAll(string(data), "Fix the login bug", nativeUserMarker)
 		content = strings.ReplaceAll(content, "Found the bug in auth.go:42.", nativeAssistantMarker)
+		if source == "codex" && len(sourceProvider) > 0 {
+			providerJSON, _ := json.Marshal(sourceProvider[0])
+			content = strings.ReplaceAll(content, `"model_provider":"openai"`, `"model_provider":`+string(providerJSON))
+		}
 		return os.WriteFile(path, []byte(content), 0o600)
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Current Codex requires same-agent history to use a provider that exists
+	// under the same ID on the receiver. Configure only this synthetic source.
+	if source == "codex" && len(sourceProvider) > 0 {
+		db, err := sql.Open("sqlite", filepath.Join(sender, codex.StateSQLiteFile))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = db.Exec("UPDATE threads SET model_provider = ? WHERE id = ?", sourceProvider[0], id)
+		closeErr := db.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if closeErr != nil {
+			t.Fatal(closeErr)
+		}
+	}
+
 	zip := filepath.Join(t.TempDir(), "synthetic.agent-handoff.zip")
 	nativeCommand(t, binary, cwd, env, "share", "--source", source, "--thread", id, "--home", sender, "--format", "zip", "--out", zip)
+	return nativeImportBundle(t, binary, zip, target, home, cwd, env)
+}
+
+func nativeImportBundle(t *testing.T, binary, zip, target, home, cwd string, env []string) map[string]any {
+	t.Helper()
 	out := nativeCommand(t, binary, cwd, env, "import", zip, "--target", target, "--home", home, "--cwd", cwd, "--execute")
 	var imported map[string]any
 	if err := json.Unmarshal(out, &imported); err != nil {
@@ -446,5 +360,138 @@ func writeNativeAnthropicResponse(w http.ResponseWriter, stream bool) {
 		}
 		_ = json.Unmarshal([]byte(data), &event)
 		_, _ = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event.Type, data)
+	}
+}
+
+func assertNativeCodexTask(t *testing.T, server *nativeCodex, threadID, cwd, expectedProvider string, markers []string) {
+	t.Helper()
+	read := server.call(t, "thread/read", map[string]any{"threadId": threadID, "includeTurns": true})
+	var history struct {
+		Thread struct {
+			Turns []struct {
+				Status string          `json:"status"`
+				Items  json.RawMessage `json:"items"`
+			} `json:"turns"`
+		} `json:"thread"`
+	}
+	if err := json.Unmarshal(read, &history); err != nil {
+		t.Fatal(err)
+	}
+	if len(history.Thread.Turns) == 0 {
+		t.Fatalf("thread/read returned no imported turns: %s", read)
+	}
+	var items []byte
+	for _, turn := range history.Thread.Turns {
+		if turn.Status != "completed" {
+			t.Errorf("imported turn status = %q, want completed", turn.Status)
+		}
+		items = append(items, turn.Items...)
+	}
+	for _, marker := range markers {
+		if !strings.Contains(string(items), marker) {
+			t.Errorf("thread/read lost imported history %q: %s", marker, read)
+		}
+	}
+	resumed := server.call(t, "thread/resume", map[string]any{"threadId": threadID, "cwd": cwd, "excludeTurns": true})
+	var resume struct {
+		ModelProvider string `json:"modelProvider"`
+	}
+	if err := json.Unmarshal(resumed, &resume); err != nil {
+		t.Fatal(err)
+	}
+	if resume.ModelProvider != expectedProvider {
+		t.Errorf("thread/resume modelProvider = %q, want receiver's configured provider %q", resume.ModelProvider, expectedProvider)
+	}
+	listed := server.call(t, "thread/list", map[string]any{"limit": 20, "sourceKinds": []string{}})
+	var list struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(listed, &list); err != nil {
+		t.Fatal(err)
+	}
+	for _, thread := range list.Data {
+		if thread.ID == threadID {
+			return
+		}
+	}
+	t.Fatalf("imported thread %s is missing from native thread/list: %s", threadID, listed)
+}
+
+func assertNativeClaudeContinuation(t *testing.T, client string, imported map[string]any, cwd, otherCWD string, env []string, markers []string) {
+	t.Helper()
+	// Run the returned shell command from another directory. Add only fixed
+	// noninteractive options; the native client must load history and enter
+	// the receiver's project through the command users actually receive.
+	fallback, _ := imported["fallback_command"].(string)
+	if !strings.Contains(fallback, "claude ") {
+		t.Fatalf("unexpected fallback command: %q", fallback)
+	}
+	command := strings.Replace(fallback, "claude ", "claude --bare -p 'Continue the saved conversation.' --model claude-sonnet-4-5-20250929 --output-format json --tools= --permission-mode plan --setting-sources= ", 1)
+	shell, _ := imported["fallback_shell"].(string)
+	var args []string
+	switch shell {
+	case "sh":
+		args = []string{"-c", command}
+	case "powershell":
+		args = []string{"-NoProfile", "-NonInteractive", "-Command", command}
+	default:
+		t.Fatalf("unexpected fallback shell: %q", shell)
+	}
+	var mu sync.Mutex
+	var history []byte
+	var system strings.Builder
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(io.LimitReader(r.Body, 8<<20))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		var request struct {
+			Messages json.RawMessage `json:"messages"`
+			Stream   bool            `json:"stream"`
+			System   []struct {
+				Text string `json:"text"`
+			} `json:"system"`
+		}
+		if err := json.Unmarshal(body, &request); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if strings.Contains(r.URL.Path, "count_tokens") {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"input_tokens":20}`)
+			return
+		}
+		if !strings.HasSuffix(r.URL.Path, "/messages") {
+			http.NotFound(w, r)
+			return
+		}
+		mu.Lock()
+		history = append(history, request.Messages...)
+		for _, part := range request.System {
+			system.WriteString(part.Text)
+		}
+		mu.Unlock()
+		writeNativeAnthropicResponse(w, request.Stream)
+	}))
+	defer api.Close()
+	env = append(env, "ANTHROPIC_BASE_URL="+api.URL, "ANTHROPIC_API_KEY=native-test-local-key",
+		"DISABLE_AUTOUPDATER=1", "DISABLE_TELEMETRY=1", "DISABLE_ERROR_REPORTING=1",
+		"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1", "PATH="+filepath.Dir(client)+string(os.PathListSeparator)+os.Getenv("PATH"))
+	out := nativeCommand(t, shell, otherCWD, env, args...)
+	if !strings.Contains(string(out), "Local test response.") {
+		t.Fatalf("native Claude did not return the local continuation: %s", out)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	for _, marker := range markers {
+		if !strings.Contains(string(history), marker) {
+			t.Errorf("native Claude request lost imported history %q: %s", marker, history)
+		}
+	}
+	if !strings.Contains(system.String(), cwd) || strings.Contains(system.String(), otherCWD) {
+		t.Errorf("native Claude did not use receiver cwd %q (started in %q): %s", cwd, otherCWD, system.String())
 	}
 }

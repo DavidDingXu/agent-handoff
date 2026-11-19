@@ -24,6 +24,8 @@ func Run(args []string) error {
 		return nil
 	}
 	switch args[0] {
+	case "bridge":
+		return cmdBridge(args[1:])
 	case "share":
 		return cmdShare(args[1:])
 	case "preview":
@@ -47,6 +49,8 @@ Usage:
   agent-handoff share [--source codex|claude] [--thread current] [--format zip|link]
                     [--out FILE] [--endpoint URL] [--token TOKEN] [--ttl SECONDS]
                     [--config FILE] [--include-secrets]
+  agent-handoff bridge share --input FILE|- [--format zip|link] [share transport flags]
+  agent-handoff bridge read FILE.agent-handoff.zip|URL
   agent-handoff preview FILE.agent-handoff.zip
   agent-handoff import FILE.agent-handoff.zip|URL [--source codex|claude] [--target codex|claude]
                  [--cwd DIR] [--execute] [--allow-duplicate]
@@ -74,7 +78,7 @@ func targetFlag(fs *flag.FlagSet) *string {
 // is set or the cwd is inside a Claude session context, else Codex.
 func detectSource(explicit string) (string, error) {
 	if v := strings.TrimSpace(explicit); v != "" {
-		if !bundle.IsSupportedAgent(v) {
+		if v != bundle.AgentCodex && v != bundle.AgentClaude {
 			return "", fmt.Errorf("unsupported --source %q (expected codex|claude)", v)
 		}
 		return v, nil
@@ -98,7 +102,7 @@ func detectSource(explicit string) (string, error) {
 
 func resolveTarget(explicit string) (string, error) {
 	if v := strings.TrimSpace(explicit); v != "" {
-		if !bundle.IsSupportedAgent(v) {
+		if v != bundle.AgentCodex && v != bundle.AgentClaude {
 			return "", fmt.Errorf("unsupported --target %q (expected codex|claude)", v)
 		}
 		return v, nil

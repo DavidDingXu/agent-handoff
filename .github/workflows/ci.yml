@@ -96,6 +96,7 @@ jobs:
         run: |
           version=$(jq -r .version .codex-plugin/plugin.json)
           test "$(jq -r .metadata.version .claude-plugin/marketplace.json)" = "$version"
+          test "$(jq -r .version plugins/dsh/package.json)" = "$version"
           test "$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)" = "$version"
 
       - name: Rebuild bundled binaries
@@ -130,3 +131,27 @@ jobs:
         env:
           AGENT_HANDOFF_NATIVE_TESTS: "1"
         run: go test ./internal/integration_test -run '^TestNativeClients$' -count=1 -race -v -timeout=5m
+
+  dsh:
+    name: DSH plugin (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: plugins/dsh
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24.14.1"
+          cache: npm
+          cache-dependency-path: plugins/dsh/package-lock.json
+      - run: npm ci --ignore-scripts --no-fund --no-audit
+      - run: npm run check
+      - run: npm run package
+      - run: npm run check:package
+      - name: Verify DSH rc.1 persistence and continuation
+        run: npm run check:compat

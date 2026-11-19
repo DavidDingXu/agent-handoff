@@ -1,10 +1,18 @@
 # Architecture
 
-![agent-handoff architecture](architecture-diagram.png)
+```mermaid
+flowchart LR
+  A[Codex / Claude Skill] --> C[Go core]
+  B[DSH native Host + Client] --> C
+  C --> D[Verified ZIP / encrypted link]
+  D --> E[Preview + confirmed new task]
+```
 
 ## Product boundary
 
-agent-handoff exports one local Codex or Claude Code session into a versioned zip bundle, optionally encrypts and uploads that bundle, and imports it as a new native session. It transfers visible conversation data and selected metadata. It does not transfer repository files, credentials, hidden model state, permissions, memories, or uncommitted changes.
+agent-handoff exports one local Codex, Claude Code or DSH session into a versioned zip bundle, optionally encrypts and uploads that bundle, and imports it as a new native session. It transfers visible conversation data and selected metadata. It does not transfer repository files, credentials, hidden model state, permissions, memories, or uncommitted changes.
+
+DSH uses its official session/persistence/Connection services through a native plugin; its export/import panel owns local workspace selection and confirmation. Imported DSH runtime authority is rejected.
 
 The CLI is a Go static binary. A bundled Skill lets Codex and Claude Code drive the CLI conversationally. A project-operated compatible endpoint is the first zero-configuration route; anonymous temporary-file providers are its automatic fallback. The bundled Cloudflare Worker is one optional endpoint implementation. Teams can select another compatible endpoint or configure existing HTTP upload providers without loading third-party code.
 
@@ -18,6 +26,7 @@ The CLI is a Go static binary. A bundled Skill lets Codex and Claude Code drive 
 | `internal/link` | AES-256-GCM, compatible-endpoint/configured-provider upload, download validation and failover |
 | `internal/ledger` | Per-agent-home duplicate import records |
 | `internal/cli` | User-facing command contract and host detection |
+| `plugins/dsh` | Native export/import UI, pinned SDK lifecycle, preview tickets and private recovery/audit |
 | `skills/agent-handoff` | Agent workflow, confirmations, and platform binary resolution |
 | `deploy/worker` | Optional encrypted blob service and static resolver |
 
