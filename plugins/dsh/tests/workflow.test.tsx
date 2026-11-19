@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import React from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { ShareForm, ImportPanel } from '../src/client/ui.tsx'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { ShareForm, ShareDialog, ImportPanel } from '../src/client/ui.tsx'
 import { en, type Translate } from '../src/client/locales.ts'
 import type { ApiCall } from '../src/client/api.ts'
 import type { ApiRequest } from '../src/types.ts'
@@ -24,6 +24,59 @@ it('keeps code off by default, previews recorded brief, and switches the exact s
   await screen.findByDisplayValue('claude --resume new-native-id')
   expect(api.calls.at(-1)).toEqual({action:'switch',sessionId:'picked-task',target:'claude'})
   expect(api.calls.some(r=>r.action==='code-preview')).toBe(false)
+})
+
+it('opens switch results in a focused dialog and reopens them without creating another task', async () => {
+  const command = "cd -- '/synthetic/Project with spaces' && claude --resume new-native-id"
+  const copy = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true)
+  const api = service(r => r.action === 'summary' ? {sessionId:'picked-task',title:'Synthetic task',messageCount:4,warnings:[],brief}
+    : r.action === 'switch' ? {status:'ok',targetAgent:'claude',sessionId:'new-native-id',title:'Synthetic task',directory:'/synthetic/Project with spaces',command,warnings:[]} : undefined)
+  render(<ShareForm sessionId="picked-task" call={api.call} t={t} copy={copy} />)
+  await screen.findByText('Synthetic task')
+  fireEvent.click(screen.getByRole('tab',{name:'Switch agent'}))
+  const trigger = screen.getByRole('button',{name:'Switch agent'})
+  trigger.focus()
+  fireEvent.click(trigger)
+  const dialog = await screen.findByRole('dialog',{name:'Task ready to continue'})
+  const modal = within(dialog)
+  expect(modal.getByText('Claude Code')).toBeTruthy()
+  expect(modal.getByText('/synthetic/Project with spaces')).toBeTruthy()
+  expect(modal.getByLabelText('Continue command')).toHaveProperty('value',command)
+  expect(within(screen.getByRole('complementary')).queryByLabelText('Continue command')).toBeNull()
+  const copyButton = modal.getByRole('button',{name:'Copy command'})
+  await waitFor(()=>expect(document.activeElement).toBe(copyButton))
+  fireEvent.click(copyButton)
+  await modal.findByRole('alert')
+  expect(modal.getByLabelText('Continue command')).toHaveProperty('value',command)
+  fireEvent.click(copyButton)
+  await modal.findByText('Command copied.')
+  expect(copy).toHaveBeenLastCalledWith(command)
+  fireEvent.keyDown(document,{key:'Escape'})
+  await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull())
+  const reopen = screen.getByRole('button',{name:'View continue command'})
+  expect(document.activeElement).toBe(reopen)
+  fireEvent.click(reopen)
+  await screen.findByRole('dialog',{name:'Task ready to continue'})
+  expect(api.calls.filter(r=>r.action==='switch')).toHaveLength(1)
+})
+
+it('closes only the switch result when switching from the task-header dialog', async () => {
+  const api = service(r => r.action === 'summary' ? {sessionId:'picked-task',title:'Synthetic task',messageCount:4,warnings:[],brief}
+    : r.action === 'switch' ? {status:'ok',targetAgent:'codex',sessionId:'new-native-id',title:'Synthetic task',directory:'/synthetic/project',command:'codex resume new-native-id',warnings:[]} : undefined)
+  const close = vi.fn()
+  render(<ShareDialog sessionId="picked-task" call={api.call} t={t} onClose={close} />)
+  await screen.findByText('Synthetic task')
+  fireEvent.click(screen.getByRole('tab',{name:'Switch agent'}))
+  fireEvent.change(screen.getByLabelText('Continue in'),{target:{value:'codex'}})
+  const trigger = screen.getByRole('button',{name:'Switch agent'})
+  trigger.focus()
+  fireEvent.click(trigger)
+  const dialog=await screen.findByRole('dialog',{name:'Task ready to continue'})
+  expect(within(dialog).getByText('Codex')).toBeTruthy()
+  fireEvent.keyDown(document,{key:'Escape'})
+  await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Task ready to continue'})).toBeNull())
+  expect(screen.getByRole('dialog',{name:'Task handoff'})).toBeTruthy()
+  expect(close).not.toHaveBeenCalled()
 })
 
 it('includes only explicitly selected code files and clears stale share results after notes change', async () => {

@@ -10,15 +10,18 @@ Claude Code 2.1.322 and the released DSH rc.1 / rc.5 SDKs:
 - `AGENT_HANDOFF_NATIVE_TESTS=1` passed native discovery and local-model
   continuation for Codex/Claude/DSH sources. The external Desktop-export case
   was not repeated in this run; the previous native baseline remains below.
-- Both DSH SDKs passed **98 tests / 10 files** and Host typecheck. The rc.5
+- Both DSH SDKs passed **100 tests / 10 files** and Host typecheck. The rc.5
   Host/Client builds passed; rc.1 reused the npm cache in offline mode.
 - Claude's native Mod validator and **8 no-model command tests** passed. Root
   marketplace installation is checked separately by CI. The local workspace's
   root strict validation encounters development dependency symlinks and the
   existing CLAUDE.md context warning; it is not recorded as passing.
 - `make cross VERSION=v0.6.0`, packaging and the 42-file package checker passed.
-  Desktop's official CLI installed the final tarball into the user's existing
-  profile; installed Host, Client and native core bytes matched the package.
+  Desktop's official CLI installed a 0.6.0 development tarball into the user's
+  existing profile; installed Host, Client and native core bytes matched the
+  package. Updating the same local tarball name hit the installer's version
+  cache; an independently named tarball refreshed it and the Client bytes were
+  checked again. Formal npm installation remains a release step.
 - A separate official DSH Web profile installed that same tarball. Browser
   acceptance previewed a synthetic ZIP with notes and selected code, confirmed
   that code application defaults off, explicitly imported visible history and
@@ -32,6 +35,15 @@ Claude Code 2.1.322 and the released DSH rc.1 / rc.5 SDKs:
   dedicated temporary target homes. Changing the target cleared the old result;
   both actions returned fresh identities and continuation commands without any
   model call. Real Codex/Claude histories were not used or changed.
+- The switch-result follow-up uses the SDK's native focused Modal in the hub
+  and task-header form. Component regressions cover copy failure/retry with the
+  complete command, Escape, return focus, nested-dialog dismissal and reopening
+  without another switch request. Installed Web acceptance created isolated
+  Claude and Codex tasks, observed the centered result and copy-success feedback,
+  and reopened the same Claude command. The IAB clipboard reader returned empty
+  text, so OS clipboard contents were not independently verified by that reader.
+- The shared skill's compact results and preview flow passed the skill-creator
+  structural validator; this does not claim a new end-to-end model behavior test.
 - The Worker passed **39 tests**, including the actual minified reader bundle,
   and was deployed to the existing project service with its KV and Durable Object
   bindings preserved. A synthetic upload/download passed decryption and all

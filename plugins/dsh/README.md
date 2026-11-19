@@ -53,6 +53,8 @@ run `npm run check` and `npm run check:compat` before packaging.
 - Open **Task handoff → Import task**. Choose a ZIP or encrypted link, then select a local workspace.
 - Review the content and available import modes, confirm the new task, then open it.
 - **Switch locally:** choose **Switch agent** and the target app to create a Codex/Claude native task.
+  The result opens in a dialog with **Copy command**. Close it and use **View continue command**
+  to reopen the same result without creating another task.
   Run the displayed continue command in its directory on the DSH machine. No source model turn or
   continuation prompt is sent.
 - **Brief and notes:** review recorded requests, response and tool evidence, and add an optional note.

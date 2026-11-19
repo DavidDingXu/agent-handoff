@@ -22,3 +22,13 @@ The user authorized all four capabilities with user experience first: local Agen
 ## Ownership
 
 Core payload, browser reader and local switch are independent parallel tasks after the shared contract. The primary agent owns CLI/bridge integration, DSH host/client, documentation, final review and release. All tests use synthetic sessions and temporary homes.
+
+## Interaction follow-up
+
+The user's installed-interface feedback requires switch completion in a native
+focused dialog instead of the task-overview sidebar. It shows the captured
+target, a wrapping copyable command and its working directory; closing and
+reopening must reuse the created task. Keep long task previews secondary to the
+next action. The shared skill uses compact previews, asks only for missing
+choices and presents one primary continuation action. Verify clipboard failure,
+Escape/focus return, nested header dialogs and both released SDKs before release.

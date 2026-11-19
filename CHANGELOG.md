@@ -21,6 +21,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - DSH controls for switching, brief review, notes, file selection and explicit
   isolated code import, with accessible primary actions, collapsible previews
   and recovery after partial worktree creation.
+- Focused native switch-result dialogs with command copying and safe reopening;
+  compact skill previews and outcome-first continuation instructions.
 
 ### Fixed
 

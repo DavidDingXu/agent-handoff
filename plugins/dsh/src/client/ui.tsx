@@ -90,6 +90,29 @@ function BriefView({ value, t }: { value?: TaskBrief; t: Translate }) {
 function CodeInventory({ code, t }: { code: CodeManifest; t: Translate }) {
   return <div className="handoff-stack"><p className="handoff-caption">{t('codeBase')}: <code>{code.base_commit.slice(0, 12)}</code></p><ul className="handoff-code-list">{code.files.map(file => <li key={file.path}><span>{file.path}</span><small>{file.status} · {file.bytes.toLocaleString()} B</small></li>)}</ul></div>
 }
+function SwitchResultDialog({ value, t, copy, onClose }: { value: SwitchedTask; t: Translate; copy: (text: string) => Promise<boolean>; onClose: () => void }) {
+  const task = useTask()
+  const [copied, setCopied] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const copyCommand = () => void task.run('copyingCommand', async signal => {
+    setCopied(false); setFailed(false)
+    let accepted = false
+    try { accepted = await copy(value.command) } catch { /* Keep the command available for manual copying. */ }
+    signal.throwIfAborted(); setCopied(accepted); setFailed(!accepted)
+  })
+  return <Modal open onClose={onClose} closeLabel={t('close')} title={t('switchResultTitle')} description={t('switchNextStep')}
+    className="agent-handoff agent-handoff-switch"
+    footer={<><Button variant="outline" onClick={onClose}>{t('close')}</Button><Button variant="primary" data-modal-autofocus disabled={task.phase !== null} onClick={copyCommand}>{t('copyCommand')}</Button></>}>
+    <style>{handoffStyles}</style>
+    <div className="handoff-stack">
+      <div><strong className="handoff-result-title">{value.targetAgent === 'claude' ? 'Claude Code' : 'Codex'}</strong><p className="handoff-caption">{value.title}</p></div>
+      <label className="handoff-field"><span>{t('continueCommand')}</span><textarea readOnly rows={3} className="handoff-textarea handoff-command" value={value.command} aria-label={t('continueCommand')} onFocus={event => event.currentTarget.select()} /></label>
+      <div><span className="handoff-label">{t('workingDirectory')}</span><p className="handoff-switch-directory">{value.directory}</p><p className="handoff-caption">{t('switchDirectoryHelp')}</p></div>
+      <Status phase={task.phase} notice={copied ? t('commandCopied') : undefined} t={t} />
+      {failed && <p role="alert" className="handoff-alert">{t('commandCopyFailed')}</p>}
+    </div>
+  </Modal>
+}
 export interface ShareDialogProps {
   sessionId: string
   call: ApiCall
@@ -112,6 +135,7 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
   const [operation, setOperation] = useState<'share' | 'switch'>('share')
   const [target, setTarget] = useState<SwitchTarget>('claude')
   const [switched, setSwitched] = useState<SwitchedTask | null>(null)
+  const [switchDialogOpen, setSwitchDialogOpen] = useState(false)
   const [briefNote, setBriefNote] = useState('')
   const [includeCode, setIncludeCode] = useState(false)
   const [code, setCode] = useState<CodeInspection | null>(null)
@@ -125,7 +149,7 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
   }, [call, sessionId, reload, task.run, task.cancel])
   const busy = task.phase !== null
   const empty = summary?.messageCount === 0
-  const invalidate = () => { setResult(null); setSwitched(null); setConsent(false); setNotice(null); setCopyError(false); task.clearError() }
+  const invalidate = () => { setResult(null); setSwitched(null); setSwitchDialogOpen(false); setConsent(false); setNotice(null); setCopyError(false); task.clearError() }
   const inspectCode = () => void task.run('inspectingCode', async signal => {
     const value = await call<CodeInspection>({ action: 'code-preview', sessionId }, signal)
     signal.throwIfAborted(); setCode(value); setSelectedFiles(value.files.filter(file => file.eligible && (file.status === 'modified' || file.status === 'deleted')).map(file => file.path))
@@ -139,7 +163,7 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
       if (operation === 'switch') {
         const value = await call<SwitchResult>({ action: 'switch', sessionId, target, ...extra }, signal)
         signal.throwIfAborted(); setConsent(false)
-        if ('targetAgent' in value) { setResult(null); setSwitched(value); setNotice('switchReady') }
+        if ('targetAgent' in value) { setResult(null); setSwitched(value); setSwitchDialogOpen(true); setNotice('switchReady') }
         else {setResult(value);if(value.status==='fallback_zip')setNotice('switchFallback')}
         return
       }
@@ -167,7 +191,7 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
         <label className="handoff-field"><span>{t('continueIn')}</span><select aria-label={t('continueIn')} className="handoff-select" value={target} disabled={busy} onChange={event => { setTarget(event.currentTarget.value as SwitchTarget); invalidate() }}><option value="claude">Claude Code</option><option value="codex">Codex</option></select></label>
         <div className="handoff-notice"><p>{t('localOnly')}</p></div>
       </div>
-      {!blocked && <div className="handoff-actions"><Button variant="primary" disabled={busy || summary === null || empty || includeCode && !selectedFiles.length} onClick={() => share()}>{t(operation === 'switch' ? 'switchAgent' : 'createShare')}</Button></div>}
+      {!blocked && <div className="handoff-actions"><Button variant="primary" disabled={busy || summary === null || empty || includeCode && !selectedFiles.length} onClick={() => { if (operation === 'switch' && switched) setSwitchDialogOpen(true); else share() }}>{t(operation === 'switch' ? switched ? 'viewContinueCommand' : 'switchAgent' : 'createShare')}</Button></div>}
       {blocked && result.secretTicket && <div className="handoff-actions"><Button variant="primary" disabled={busy || !consent} onClick={() => { if (consent) share(result.secretTicket) }}>{t('overrideShare')}</Button></div>}
       <ErrorBox error={task.error} t={t} />
       <Status phase={task.phase} notice={notice ? t(notice) : undefined} t={t} />
@@ -194,7 +218,6 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
     </section>
     <aside className="handoff-card handoff-context handoff-stack" aria-label={t('taskOverview')}>
       <div><h2>{t('taskOverview')}</h2>{summary ? <><p className="handoff-task-title">{summary.title}</p><p className="handoff-caption">{t('messages')}: {summary.messageCount}</p></> : <p className="handoff-caption">{t('loading')}</p>}</div>
-      {switched && <section className="handoff-result"><strong>{t('switchReady')}</strong><label className="handoff-field"><span>{t('continueCommand')}</span><Input readOnly value={switched.command} aria-label={t('continueCommand')} onFocus={event=>event.currentTarget.select()} /></label><p className="handoff-caption">{switched.directory}</p><div className="handoff-actions"><Button size="sm" variant="outline" disabled={busy} onClick={()=>void task.run('copying',async signal=>{const accepted=await copy(switched.command);signal.throwIfAborted();setCopyError(!accepted);setNotice(accepted?'copied':null)})}>{t('copyCommand')}</Button></div></section>}
       {summary && !result && <Warnings warnings={summary.warnings} t={t} />}
       {result && !blocked && <section className="handoff-result" aria-label={t('resultHeading')}>
         <hr className="handoff-divider" />
@@ -213,6 +236,7 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
       <BriefView value={summary?.brief} t={t} />
       <details className="handoff-details"><summary>{t('handoffDetails')}</summary><p style={identity}>{t('session')}: <span>{sessionId}</span></p></details>
     </aside>
+    {switched && switchDialogOpen && <SwitchResultDialog value={switched} t={t} copy={copy} onClose={() => setSwitchDialogOpen(false)} />}
   </div>
 }
 
