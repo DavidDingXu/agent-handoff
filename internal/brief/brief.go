@@ -52,13 +52,14 @@ func Generate(t neutral.Transcript) Brief {
 		if e.Kind == neutral.KindMessage && e.Text != "" {
 			text, truncated := bounded(e.Text, MaxTextBytes)
 			x := &Excerpt{EntryIndex: i, Text: text, Truncated: truncated}
-			if e.Role == "user" {
+			switch e.Role {
+			case "user":
 				if b.Objective == nil {
 					first := *x
 					b.Objective = &first
 				}
 				b.LatestRequest = x
-			} else if e.Role == "assistant" {
+			case "assistant":
 				b.LatestUpdate = x
 			}
 		}

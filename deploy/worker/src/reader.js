@@ -204,6 +204,45 @@ export const browserReaderSource = String.raw`function createReaderCore() {
     return { schema: "agent-handoff.neutral.v1", entries };
   }
 
+  function recordedBrief(transcript, supplied) {
+    const bounded = (value, maximum) => {
+      value = typeof value === "string" ? value : "";
+      const bytes = new TextEncoder().encode(value);
+      if (bytes.length <= maximum) return { text: value, truncated: false };
+      let end = maximum;
+      while (end > 0 && (bytes[end] & 0xc0) === 0x80) end--;
+      return { text: utf8(bytes.subarray(0, end)), truncated: true };
+    };
+    const expected = { schema: "agent-handoff.brief.v1", evidence: [] };
+    transcript.entries.forEach((entry, entry_index) => {
+      if (!object(entry)) return;
+      if (entry.kind === "message" && typeof entry.text === "string" && entry.text) {
+        const excerpt = { entry_index, ...bounded(entry.text, 8192) };
+        if (entry.role === "user") { expected.objective ||= excerpt; expected.latest_request = excerpt; }
+        else if (entry.role === "assistant") expected.latest_update = excerpt;
+      } else if (entry.kind === "tool") {
+        const tool = bounded(entry.tool, 256), status = bounded(entry.status, 64), input = bounded(entry.input, 4096), output = bounded(entry.output, 4096);
+        expected.evidence.push({ entry_index, tool: tool.text, status: status.text, input: input.text, output: output.text, truncated: tool.truncated || status.truncated || input.truncated || output.truncated });
+        if (expected.evidence.length > 6) expected.evidence.shift();
+      }
+    });
+    if (!supplied) return expected;
+    const sameTruncation = (actual, wanted) => (actual.truncated === undefined || typeof actual.truncated === "boolean") && (actual.truncated ?? false) === wanted.truncated;
+    for (const field of ["objective", "latest_request", "latest_update"]) {
+      const actual = supplied[field], wanted = expected[field];
+      if (!wanted ? actual != null : !object(actual) || actual.entry_index !== wanted.entry_index || actual.text !== wanted.text || !sameTruncation(actual, wanted)) fail("archive");
+    }
+    if (!Array.isArray(supplied.evidence) || supplied.evidence.length !== expected.evidence.length) fail("archive");
+    supplied.evidence.forEach((actual, index) => {
+      const wanted = expected.evidence[index];
+      if (!object(actual) || actual.entry_index !== wanted.entry_index || !sameTruncation(actual, wanted)) fail("archive");
+      for (const field of ["tool", "status", "input", "output"]) if ((actual[field] ?? "") !== wanted[field]) fail("archive");
+    });
+    const notes = supplied.notes ?? "";
+    if (typeof notes !== "string" || new TextEncoder().encode(notes).length > 8192) fail("archive");
+    return { ...expected, notes };
+  }
+
   async function readBundle(bytes) {
     const files = await unzip(bytes);
     if (!files.has("manifest.json")) fail("archive");
@@ -229,7 +268,7 @@ export const browserReaderSource = String.raw`function createReaderCore() {
       if (!object(value) || value.schema !== schema) fail("archive");
       return value;
     };
-    return { manifest, transcript, checksummed: Boolean(checksumBytes), brief: optional("agent/brief.json", "agent-handoff.brief.v1"), code: optional("code/manifest.json", "agent-handoff.code.v1") };
+    return { manifest, transcript, checksummed: Boolean(checksumBytes), brief: recordedBrief(transcript, optional("agent/brief.json", "agent-handoff.brief.v1")), code: optional("code/manifest.json", "agent-handoff.code.v1") };
   }
 
   function publicURL(raw) {

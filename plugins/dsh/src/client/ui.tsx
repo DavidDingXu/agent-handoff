@@ -77,10 +77,10 @@ function BriefView({ value, t }: { value?: TaskBrief; t: Translate }) {
   if (!value) return null
   return <section className="handoff-brief handoff-stack" aria-label={t('brief')}>
     <div><h3>{t('brief')}</h3><p className="handoff-caption">{t('briefHelp')}</p></div>
-    {(['objective', 'latest_request', 'latest_update'] as const).map((key, at) => {
+    {(['objective', 'latest_request', 'latest_update'] as const).map(key => {
       const excerpt = value[key]
       if (!excerpt || key === 'latest_request' && excerpt.entry_index === value.objective?.entry_index) return null
-      return <details key={key} open={at === 0}><summary>{t(key === 'latest_request' ? 'latestRequest' : key === 'latest_update' ? 'latestUpdate' : 'objective')}</summary>
+      return <details key={key}><summary>{t(key === 'latest_request' ? 'latestRequest' : key === 'latest_update' ? 'latestUpdate' : 'objective')}<span className="handoff-brief-teaser">“{excerpt.text.slice(0, 100)}{excerpt.text.length > 100 ? '…' : ''}”</span></summary>
         <p className="handoff-excerpt">{excerpt.text}</p><span className="handoff-caption">{t('sourceEntry')} {excerpt.entry_index + 1}{excerpt.truncated ? ' …' : ''}</span></details>
     })}
     {value.evidence?.length > 0 && <details><summary>{t('evidence')} · {value.evidence.length}</summary>{value.evidence.map((entry, at) => <details key={at}><summary>{entry.tool} · {entry.status}</summary><pre className="handoff-excerpt">{entry.input}{'\n'}{entry.output}</pre></details>)}</details>}
@@ -128,7 +128,7 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
   const invalidate = () => { setResult(null); setSwitched(null); setConsent(false); setNotice(null); setCopyError(false); task.clearError() }
   const inspectCode = () => void task.run('inspectingCode', async signal => {
     const value = await call<CodeInspection>({ action: 'code-preview', sessionId }, signal)
-    signal.throwIfAborted(); setCode(value); setSelectedFiles(value.files.filter(file => file.eligible && file.status !== 'untracked').map(file => file.path))
+    signal.throwIfAborted(); setCode(value); setSelectedFiles(value.files.filter(file => file.eligible && (file.status === 'modified' || file.status === 'deleted')).map(file => file.path))
   })
   const share = (secretTicket?: string) => {
     if (!summary || empty) return
@@ -153,6 +153,7 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
   return <div className="agent-handoff handoff-columns">
     <section className="handoff-card handoff-stack" aria-label={t('exportSettings')}>
       <div className="handoff-card-header"><h2>{t(operation === 'switch' ? 'switchAgent' : 'exportSettings')}</h2><p>{t(operation === 'switch' ? 'switchHelp' : 'exportHelp')}</p></div>
+      <div className="handoff-primary-controls handoff-stack">
       <SegmentedTabs<'share' | 'switch'> label={t('actions')} value={operation} onChange={value => { if(busy)return;setOperation(value); invalidate() }} items={[
         {value:'share',label:t('share'),id:`${actionId}-share`,panelId:`${actionId}-share-body`},{value:'switch',label:t('switchAgent'),id:`${actionId}-switch`,panelId:`${actionId}-switch-body`},
       ]} />
@@ -166,6 +167,11 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
         <label className="handoff-field"><span>{t('continueIn')}</span><select aria-label={t('continueIn')} className="handoff-select" value={target} disabled={busy} onChange={event => { setTarget(event.currentTarget.value as SwitchTarget); invalidate() }}><option value="claude">Claude Code</option><option value="codex">Codex</option></select></label>
         <div className="handoff-notice"><p>{t('localOnly')}</p></div>
       </div>
+      {!blocked && <div className="handoff-actions"><Button variant="primary" disabled={busy || summary === null || empty || includeCode && !selectedFiles.length} onClick={() => share()}>{t(operation === 'switch' ? 'switchAgent' : 'createShare')}</Button></div>}
+      {blocked && result.secretTicket && <div className="handoff-actions"><Button variant="primary" disabled={busy || !consent} onClick={() => { if (consent) share(result.secretTicket) }}>{t('overrideShare')}</Button></div>}
+      <ErrorBox error={task.error} t={t} />
+      <Status phase={task.phase} notice={notice ? t(notice) : undefined} t={t} />
+      </div>
       <label className="handoff-field"><span>{t('handoffNote')}</span><textarea aria-label={t('handoffNote')} className="handoff-textarea" rows={2} maxLength={8192} value={briefNote} disabled={busy} placeholder={t('noteHint')} onChange={event => { setBriefNote(event.currentTarget.value); invalidate() }} /></label>
       <section className="handoff-stack handoff-code" aria-label={t('codeFiles')}>
         <label className="handoff-check"><input type="checkbox" checked={includeCode} disabled={busy} onChange={event => { const checked=event.currentTarget.checked;setIncludeCode(checked);invalidate();if(checked)inspectCode() }} /><span>{t('includeCode')}</span></label>
@@ -177,21 +183,17 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
         </> : !busy && <Button size="sm" variant="outline" onClick={inspectCode}>{t('retry')}</Button>}</>}
       </section>
       {empty && <div className="handoff-stack"><p className="handoff-caption">{t('emptyTask')}</p><div className="handoff-actions"><Button size="sm" variant="outline" disabled={busy} onClick={() => setReload(value => value + 1)}>{t('refreshSummary')}</Button></div></div>}
-      {!blocked && <div className="handoff-actions"><Button variant="primary" disabled={busy || summary === null || empty || includeCode && !selectedFiles.length} onClick={() => share()}>{t(operation === 'switch' ? 'switchAgent' : 'createShare')}</Button></div>}
       {blocked && <section className="handoff-warning handoff-stack" aria-label={t('blocked')}>
         <strong>{t('blocked')}</strong><p style={muted}>{t('blockedDescription')}</p>
         {result.findings?.length ? <ul>{result.findings.map((finding, at) => <li key={at} style={{ overflowWrap: 'anywhere' }}><strong>{finding.rule}</strong>{finding.field && <p style={identity}>{t('field')}: {finding.field}</p>}{finding.line !== undefined && <p style={identity}>{t('line')}: {finding.line}</p>}</li>)}</ul> : <p style={muted}>{t('noFindingDetails')}</p>}
         {result.secretTicket && <><label style={{ ...row, alignItems: 'flex-start' }}><input type="checkbox" checked={consent} disabled={busy} onChange={event => setConsent(event.currentTarget.checked)} /><span>{t('allowSecrets')}</span></label>
-          <div className="handoff-actions"><Button variant="primary" disabled={busy || !consent} onClick={() => { if (consent) share(result.secretTicket) }}>{t('overrideShare')}</Button></div></>}
+          </>}
         <div className="handoff-actions"><Button size="sm" variant="outline" disabled={busy} onClick={() => share()}>{t('retry')}</Button></div>
       </section>}
-      <ErrorBox error={task.error} t={t} />
       {!summary && !busy && <div className="handoff-actions"><Button size="sm" variant="outline" onClick={() => setReload(value => value + 1)}>{t('retry')}</Button></div>}
-      <Status phase={task.phase} notice={notice ? t(notice) : undefined} t={t} />
     </section>
     <aside className="handoff-card handoff-context handoff-stack" aria-label={t('taskOverview')}>
-      <div><h2>{t('taskOverview')}</h2>{summary ? <><p className="handoff-task-title">{summary.title}</p><p style={identity}>{t('session')}: {sessionId}</p><p className="handoff-caption">{t('messages')}: {summary.messageCount}</p></> : <p className="handoff-caption">{t('loading')}</p>}</div>
-      <BriefView value={summary?.brief} t={t} />
+      <div><h2>{t('taskOverview')}</h2>{summary ? <><p className="handoff-task-title">{summary.title}</p><p className="handoff-caption">{t('messages')}: {summary.messageCount}</p></> : <p className="handoff-caption">{t('loading')}</p>}</div>
       {switched && <section className="handoff-result"><strong>{t('switchReady')}</strong><label className="handoff-field"><span>{t('continueCommand')}</span><Input readOnly value={switched.command} aria-label={t('continueCommand')} onFocus={event=>event.currentTarget.select()} /></label><p className="handoff-caption">{switched.directory}</p><div className="handoff-actions"><Button size="sm" variant="outline" disabled={busy} onClick={()=>void task.run('copying',async signal=>{const accepted=await copy(switched.command);signal.throwIfAborted();setCopyError(!accepted);setNotice(accepted?'copied':null)})}>{t('copyCommand')}</Button></div></section>}
       {summary && !result && <Warnings warnings={summary.warnings} t={t} />}
       {result && !blocked && <section className="handoff-result" aria-label={t('resultHeading')}>
@@ -208,6 +210,8 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
         })}>{t('download')}</Button></div>}
       </section>}
       {copyError && <p role="alert" className="handoff-alert">{t('copyFailed')}</p>}
+      <BriefView value={summary?.brief} t={t} />
+      <details className="handoff-details"><summary>{t('handoffDetails')}</summary><p style={identity}>{t('session')}: <span>{sessionId}</span></p></details>
     </aside>
   </div>
 }
@@ -252,6 +256,8 @@ export function ImportPanel({ call, t, openSession, renderWorkspacePicker }: Imp
   const [expiredTicket, setExpiredTicket] = useState(false)
   const [reload, setReload] = useState(0)
   const pickerAnchor = useRef<HTMLButtonElement>(null)
+  const modeInput = useRef<HTMLSelectElement>(null)
+  const focusedPreview = useRef('')
   const [applyCode, setApplyCode] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   useEffect(() => {
@@ -262,6 +268,12 @@ export function ImportPanel({ call, t, openSession, renderWorkspacePicker }: Imp
     return task.cancel
   }, [call, reload, task.run, task.cancel])
   const busy = task.phase !== null
+  useEffect(() => {
+    if (!busy && preview && focusedPreview.current !== preview.ticketId) {
+      modeInput.current?.focus()
+      focusedPreview.current = preview.ticketId
+    }
+  }, [busy, preview?.ticketId])
   const selected = workspaces.find(item => item.id === workspaceId)
   const resetPreview = () => { setPreview(null); setMode(''); setApplyCode(false); setResult(null); setRecoverySessionId(undefined); setRecoveryMessage(''); setExpiredTicket(false); task.clearError() }
   const changeWorkspace = (id: string) => {
@@ -320,25 +332,26 @@ export function ImportPanel({ call, t, openSession, renderWorkspacePicker }: Imp
     </div>
     <aside className="handoff-card handoff-context handoff-stack" aria-label={t('previewTitle')}>
       {preview && !result ? <>
-        <div><h2>{t('previewTitle')}</h2><p className="handoff-task-title">{preview.title}</p></div>
+        <div><h2>{t('previewTitle')}</h2><p className="handoff-task-title">{preview.title}</p><p className="handoff-meta-line"><span>{({ dsh: 'DSH', codex: 'Codex', claude: 'Claude Code' } as Record<string, string>)[preview.sourceAgent] ?? preview.sourceAgent}</span><span aria-hidden>·</span><span>{t('messages')}: {preview.messageCount}</span><span aria-hidden>·</span><span>{['ok', 'verified'].includes(preview.checksumStatus) ? t('verified') : preview.checksumStatus === 'not_available_v1' ? t('legacyChecksum') : preview.checksumStatus}</span></p></div>
+        <div className="handoff-primary-controls handoff-stack">
+        <label className="handoff-field"><span>{t('importMode')}</span><select ref={modeInput} aria-label={t('importMode')} className="handoff-select" disabled={busy} value={mode} onChange={event => setMode(event.currentTarget.value as ImportMode)}><option value="">{t('chooseMode')}</option>{preview.modes.map(item => <option value={item} key={item}>{t(item === 'native' ? 'native' : 'conversation')}</option>)}</select></label>
+        <p className="handoff-caption">{t(!mode && preview.modes.length !== 1 ? 'modeHelp' : (mode || preview.modes[0]) === 'native' ? 'nativeDescription' : 'conversationDescription')}</p>
+        {preview.code && <label className="handoff-check"><input type="checkbox" disabled={busy || !preview.codeDirectory} checked={applyCode} onChange={event=>setApplyCode(event.currentTarget.checked)} /><span>{t('applyCode')}</span></label>}
+        {applyCode && preview.codeDirectory && <p className="handoff-path" title={preview.codeDirectory}>{t('codeDestination')}: {preview.codeDirectory}</p>}
+        {expired && <p role="alert" className="handoff-alert">{t('expired')}</p>}
+        {(applyCode ? preview.existingCodeSessionId : preview.existingSessionId) && <p className="handoff-caption">{t('duplicatePreview')}</p>}
+        <div className="handoff-actions"><Button variant="primary" disabled={busy || !mode || expired || !!recoverySessionId || preview.workspace.id !== workspaceId} onClick={confirm}>{t('confirmation')}</Button></div>
+        </div>
         <BriefView value={preview.brief} t={t} />
         {preview.code && <section className="handoff-stack"><h3>{t('codeIncluded')}</h3><CodeInventory code={preview.code} t={t} /><p className="handoff-caption">{t('codeNotApplied')}</p>
-          <label className="handoff-check"><input type="checkbox" disabled={busy || !preview.codeDirectory} checked={applyCode} onChange={event=>setApplyCode(event.currentTarget.checked)} /><span>{t('applyCode')}</span></label><p className="handoff-caption">{t('applyCodeHelp')}</p>
+          <p className="handoff-caption">{t('applyCodeHelp')}</p>
           {preview.codeDirectory && <div><h3>{t('codeDestination')}</h3><p className="handoff-excerpt">{preview.codeDirectory}</p></div>}
         </section>}
         <dl className="handoff-facts">
-          <div><dt>{t('sourceAgent')}</dt><dd>{({ dsh: 'DSH', codex: 'Codex', claude: 'Claude Code' } as Record<string, string>)[preview.sourceAgent] ?? preview.sourceAgent}</dd></div>
-          <div><dt>{t('sourceIdentity')}</dt><dd>{preview.sourceSessionId}</dd></div>
-          <div><dt>{t('messages')}</dt><dd>{preview.messageCount}</dd></div>
           <div><dt>{t('selectedWorkspace')}</dt><dd>{preview.workspace.name}<span className="handoff-path" title={preview.workspace.directory}>{preview.workspace.directory}</span></dd></div>
-          <div><dt>{t('checksum')}</dt><dd>{['ok', 'verified'].includes(preview.checksumStatus) ? t('verified') : preview.checksumStatus === 'not_available_v1' ? t('legacyChecksum') : preview.checksumStatus}</dd></div>
         </dl>
+        <details className="handoff-details"><summary>{t('handoffDetails')}</summary><p style={identity}>{t('sourceIdentity')}: <span>{preview.sourceSessionId}</span></p></details>
         <Warnings warnings={preview.warnings} t={t} />
-        {(applyCode ? preview.existingCodeSessionId : preview.existingSessionId) && <p className="handoff-caption">{t('duplicatePreview')}</p>}
-        <label className="handoff-field"><span>{t('importMode')}</span><select aria-label={t('importMode')} className="handoff-select" disabled={busy} value={mode} onChange={event => setMode(event.currentTarget.value as ImportMode)}><option value="">{t('chooseMode')}</option>{preview.modes.map(item => <option value={item} key={item}>{t(item === 'native' ? 'native' : 'conversation')}</option>)}</select></label>
-        <p className="handoff-caption">{t(mode === 'native' ? 'nativeDescription' : 'conversationDescription')}</p>
-        {expired && <p role="alert" className="handoff-alert">{t('expired')}</p>}
-        <div className="handoff-actions"><Button variant="primary" disabled={busy || !mode || expired || !!recoverySessionId || preview.workspace.id !== workspaceId} onClick={confirm}>{t('confirmation')}</Button></div>
       </> : result ? <section className="handoff-result"><h2>{t('resultHeading')}</h2><strong className="handoff-result-title">{result.title}</strong><p style={identity}>{result.sessionId}</p><Warnings warnings={result.warnings} t={t} /><div className="handoff-actions"><Button variant="primary" disabled={busy} onClick={() => open(result.sessionId)}>{t('openTask')}</Button><Button variant="outline" size="sm" disabled={busy} onClick={resetPreview}>{t('importAnother')}</Button></div></section>
         : <><h2>{t('previewContext')}</h2><ol className="handoff-steps">{(['stepSource', 'stepPreview', 'stepConfirm'] as const).map((key, index) => <li key={key}><span className="handoff-step-number" aria-hidden>{index + 1}</span><div><strong>{t(key)}</strong><p>{t((`${key}Help`) as CopyKey)}</p></div></li>)}</ol></>}
     </aside>

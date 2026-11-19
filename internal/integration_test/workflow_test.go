@@ -25,6 +25,7 @@ func TestCodeImportCreatesSeparateWorktreeAndKeepsOriginal(t *testing.T) {
 		}
 	}
 	git("init")
+	git("config", "core.autocrlf", "false")
 	git("config", "user.name", "Synthetic")
 	git("config", "user.email", "synthetic@example.test")
 	if e := os.WriteFile(filepath.Join(repo, "fix.txt"), []byte("base\n"), 0600); e != nil {
@@ -53,6 +54,10 @@ func TestCodeImportCreatesSeparateWorktreeAndKeepsOriginal(t *testing.T) {
 		t.Run(target, func(t *testing.T) {
 			home, _ := buildCLIHome(t, target)
 			destination := filepath.Join(t.TempDir(), "separate-worktree")
+			conversation := runCLI(t, binary, "import", p, "--target", target, "--home", home, "--cwd", repo, "--execute")
+			if conversation["status"] != "ok" || conversation["code_applied"] != false {
+				t.Fatalf("conversation-only import: %#v", conversation)
+			}
 			plan := runCLI(t, binary, "import", p, "--target", target, "--home", home, "--cwd", repo, "--apply-code", "--code-directory", destination)
 			if plan["code_directory"] != destination || plan["status"] != "planned" {
 				t.Fatal(plan)
@@ -63,6 +68,21 @@ func TestCodeImportCreatesSeparateWorktreeAndKeepsOriginal(t *testing.T) {
 			result := runCLI(t, binary, "import", p, "--target", target, "--home", home, "--cwd", repo, "--apply-code", "--code-directory", destination, "--execute")
 			if result["target_cwd"] != destination || result["code_applied"] != true || result["brief_path"] == nil {
 				t.Fatal(result)
+			}
+			idField := "thread_id"
+			if target == bundle.AgentClaude {
+				idField = "session_id"
+			}
+			if result[idField] == conversation[idField] {
+				t.Fatal("code application reused the conversation-only task")
+			}
+			duplicate := runCLI(t, binary, "import", p, "--target", target, "--home", home, "--cwd", repo, "--apply-code", "--code-directory", destination, "--execute")
+			if duplicate["status"] != "duplicate" || duplicate["existing_thread_id"] != result[idField] {
+				t.Fatalf("code application was not idempotent: %#v", duplicate)
+			}
+			original := runCLI(t, binary, "import", p, "--target", target, "--home", home, "--cwd", repo, "--execute")
+			if original["status"] != "duplicate" || original["existing_thread_id"] != conversation[idField] {
+				t.Fatalf("conversation-only identity changed: %#v", original)
 			}
 			for name, want := range map[string]string{"fix.txt": "changed\n", "new.txt": "explicit new file\n"} {
 				got, e := os.ReadFile(filepath.Join(destination, name))

@@ -264,11 +264,15 @@ func TestSwitchForwardsSelectedContextAndOpensOnlyExactResume(t *testing.T) {
 			if target == "claude" {
 				resume = "--resume"
 			}
-			physicalCWD, err := filepath.EvalSymlinks(cwd)
+			expectedCWD, err := os.Stat(cwd)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(opened.Args) != 2 || opened.Args[0] != resume || opened.Args[1] != result["target_thread_id"] || opened.CWD != physicalCWD || opened.Home != targetHome || opened.SourceID != "" || opened.Nested != "" {
+			actualCWD, err := os.Stat(opened.CWD)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(opened.Args) != 2 || opened.Args[0] != resume || opened.Args[1] != result["target_thread_id"] || !os.SameFile(expectedCWD, actualCWD) || opened.Home != targetHome || opened.SourceID != "" || opened.Nested != "" {
 				t.Fatalf("opened target=%#v; result=%#v", opened, result)
 			}
 		})
@@ -433,5 +437,61 @@ func clearSwitchAgentEnv(t *testing.T) {
 	t.Helper()
 	for _, key := range []string{"CODEX_THREAD_ID", "CODEX_SESSION_ID", "CLAUDE_SESSION_ID", "CLAUDE_CODE_SESSION_ID", "CLAUDECODE"} {
 		t.Setenv(key, "")
+	}
+}
+
+func TestWindowsShimKeepsPathAndArgumentsLiteral(t *testing.T) {
+	cmd := windowsShimCommand(`C:\Program Files\A&B's CLI\‘quoted’\codex.cmd`, []string{"resume", "fresh-id"})
+	want := `& 'C:\Program Files\A&B''s CLI\‘‘quoted’’\codex.cmd' 'resume' 'fresh-id'; exit $LASTEXITCODE`
+	if got := cmd.Args[len(cmd.Args)-1]; got != want {
+		t.Fatalf("launcher command = %q, want %q", got, want)
+	}
+}
+
+func TestSwitchOpensWindowsNpmShims(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("requires Windows batch process execution")
+	}
+	clearSwitchAgentEnv(t)
+	binary := buildSwitchCore(t)
+	for _, target := range []string{"codex", "claude"} {
+		t.Run(target, func(t *testing.T) {
+			home, targetHome, cwd := t.TempDir(), t.TempDir(), t.TempDir()
+			writeSwitchCodexTask(t, home, "source", "Synthetic source", cwd, 10)
+			dir := filepath.Join(t.TempDir(), "npm shim & spaces")
+			if err := os.Mkdir(dir, 0700); err != nil {
+				t.Fatal(err)
+			}
+			buildSwitchTargetRecorder(t, dir, target)
+			if err := os.Rename(filepath.Join(dir, target+".exe"), filepath.Join(dir, "recorder.exe")); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, target+".cmd"), []byte("@\"%~dp0recorder.exe\" %*\r\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			record := filepath.Join(t.TempDir(), "open.json")
+			result, err := runSwitchBinary(t, binary, []string{"switch", "--source", "codex", "--target", target, "--thread", "source", "--home", home, "--target-home", targetHome, "--cwd", cwd, "--open"}, []string{"PATH=" + dir, "SWITCH_OPEN_RECORD=" + record})
+			if err != nil || result["status"] != "ok" {
+				t.Fatalf("batch launcher result=%#v error=%v", result, err)
+			}
+			var opened struct {
+				Args []string `json:"args"`
+				Home string   `json:"home"`
+			}
+			data, err := os.ReadFile(record)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal(data, &opened); err != nil {
+				t.Fatal(err)
+			}
+			resume := "resume"
+			if target == "claude" {
+				resume = "--resume"
+			}
+			if len(opened.Args) != 2 || opened.Args[0] != resume || opened.Args[1] != result["target_thread_id"] || opened.Home != targetHome {
+				t.Fatalf("batch launcher changed target identity: %#v", opened)
+			}
+		})
 	}
 }

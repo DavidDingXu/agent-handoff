@@ -35,6 +35,7 @@ func repo(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
 	gitTest(t, root, "init", "-q")
+	gitTest(t, root, "config", "core.autocrlf", "false")
 	gitTest(t, root, "config", "user.name", "Synthetic")
 	gitTest(t, root, "config", "user.email", "synthetic@example.invalid")
 	put(t, root, "src/main.txt", "before\n")

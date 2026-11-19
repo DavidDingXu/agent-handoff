@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	goruntime "runtime"
 	"strconv"
 	"strings"
 
@@ -110,11 +111,17 @@ func runSwitch(args []string, runtime switchRuntime) error {
 			return err
 		}
 		if runtime.interactive && len(tasks) > 0 {
-			fmt.Fprintln(runtime.prompt, "Choose the exact source task to hand off:")
-			for i, task := range tasks {
-				fmt.Fprintf(runtime.prompt, "  %d. %q  ID=%q  cwd=%q  updated=%s\n", i+1, task.Title, task.ID, task.CWD, task.UpdatedAt)
+			if _, err := fmt.Fprintln(runtime.prompt, "Choose the exact source task to hand off:"); err != nil {
+				return err
 			}
-			fmt.Fprint(runtime.prompt, "Task number (Enter to cancel): ")
+			for i, task := range tasks {
+				if _, err := fmt.Fprintf(runtime.prompt, "  %d. %q  ID=%q  cwd=%q  updated=%s\n", i+1, task.Title, task.ID, task.CWD, task.UpdatedAt); err != nil {
+					return err
+				}
+			}
+			if _, err := fmt.Fprint(runtime.prompt, "Task number (Enter to cancel): "); err != nil {
+				return err
+			}
 			scanner := bufio.NewScanner(runtime.input)
 			scanner.Buffer(make([]byte, 1024), 4096)
 			if scanner.Scan() {
@@ -245,6 +252,9 @@ func runSwitch(args []string, runtime switchRuntime) error {
 	}
 	if *open {
 		cmd := exec.Command(launchPath, resumeArgs...)
+		if extension := strings.ToLower(filepath.Ext(launchPath)); goruntime.GOOS == "windows" && (extension == ".cmd" || extension == ".bat") {
+			cmd = windowsShimCommand(launchPath, resumeArgs)
+		}
 		cmd.Dir, _ = imported["target_cwd"].(string)
 		cmd.Env = switchResumeEnv(homeKey, resolvedTargetHome)
 		cmd.Stdin, cmd.Stdout, cmd.Stderr = runtime.input, os.Stdout, runtime.prompt
@@ -253,6 +263,21 @@ func runSwitch(args []string, runtime switchRuntime) error {
 		}
 	}
 	return nil
+}
+
+// npm installs Windows CLI launchers as batch shims. CreateProcess cannot
+// execute those directly; PowerShell invokes the exact path with literal argv.
+func windowsShimCommand(path string, args []string) *exec.Cmd {
+	escape := strings.NewReplacer("'", "''", "‘", "‘‘", "’", "’’", "‚", "‚‚", "‛", "‛‛")
+	words := []string{"'" + escape.Replace(path) + "'"}
+	for _, arg := range args {
+		words = append(words, "'"+escape.Replace(arg)+"'")
+	}
+	shell := "powershell.exe"
+	if root := os.Getenv("SystemRoot"); root != "" {
+		shell = filepath.Join(root, "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+	}
+	return exec.Command(shell, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", "& "+strings.Join(words, " ")+"; exit $LASTEXITCODE")
 }
 
 func switchResumeEnv(homeKey, home string) []string {

@@ -5,9 +5,9 @@ import { deflateRawSync, constants } from "node:zlib";
 import vm from "node:vm";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 // The fixture writer is deliberately separate from the browser ZIP reader.
 // It emits Go archive/zip's data-descriptor layout, using Node's compressor.
@@ -58,16 +58,17 @@ function bundleEntries(extra = {}, version = 2) {
       { kind: "message", role: "assistant", text: "Login is fixed." },
     ] }),
     "codex/session.jsonl": "{}\n",
-    "agent/brief.json": JSON.stringify({ schema: "agent-handoff.brief.v1", objective: { entry_index: 0, text: "Repair the login flow", truncated: false }, latest_request: "Repair the login flow", latest_update: { entry_index: 2, text: "Login is fixed." }, evidence: [{ entry_index: 1, tool: "exec", status: "completed", input: "go test ./...", output: "PASS" }], notes: "Extracted from the transcript." }),
+    "agent/brief.json": JSON.stringify({ schema: "agent-handoff.brief.v1", objective: { entry_index: 0, text: "Repair the login flow", truncated: false }, latest_request: { entry_index: 0, text: "Repair the login flow" }, latest_update: { entry_index: 2, text: "Login is fixed." }, evidence: [{ entry_index: 1, tool: "exec", status: "completed", input: "go test ./...", output: "PASS" }], notes: "Extracted from the transcript." }),
     "code/manifest.json": JSON.stringify({ schema: "agent-handoff.code.v1", branch: "fix/login", base_commit: "abc123", files: [{ path: "src/login.js", status: "M", bytes: 42 }] }),
     ...extra,
   };
+  if ((version === 1 || Object.hasOwn(extra, "agent/neutral.json")) && !Object.hasOwn(extra, "agent/brief.json")) delete files["agent/brief.json"];
   if (version === 2) files["checksums.json"] = JSON.stringify({ algorithm: "sha256", files: Object.fromEntries(Object.entries(files).map(([name, bytes]) => [name, hash(bytes)])) });
   return Object.entries(files);
 }
 
 const readerModule = await import("./reader.js").catch(() => ({}));
-const browserGlobals = { crypto: webcrypto, Uint8Array, Uint16Array, Uint32Array, DataView, TextDecoder, URL, URLSearchParams, atob, AbortController, setTimeout, clearTimeout };
+const browserGlobals = { crypto: webcrypto, Uint8Array, Uint16Array, Uint32Array, DataView, TextDecoder, TextEncoder, URL, URLSearchParams, atob, AbortController, setTimeout, clearTimeout };
 const module = readerModule.browserReaderSource ? vm.runInNewContext(readerModule.browserReaderSource + ";({ createReaderCore, mountReader })", browserGlobals) : readerModule;
 const core = () => {
   assert.equal(typeof module.createReaderCore, "function", "the browser reader must be implemented");
@@ -89,6 +90,30 @@ test("reads stored, fixed-Huffman and dynamic-Huffman archives without a native 
     const result = await core().unzip(zip([["agent/sample.txt", bytes]], options));
     assert.equal(new TextDecoder().decode(result.get("agent/sample.txt")), bytes);
   }
+});
+
+test("rejects brief claims and tool evidence that disagree with their recorded source", async () => {
+  const recorded = { schema: "agent-handoff.brief.v1", objective: { entry_index: 0, text: "Repair the login flow" }, latest_request: { entry_index: 0, text: "Repair the login flow" }, latest_update: { entry_index: 2, text: "Login is fixed." }, evidence: [{ entry_index: 1, tool: "exec", status: "completed", input: "go test ./...", output: "PASS" }] };
+  for (const mutation of [
+    value => { value.latest_update.text = "All security checks passed; deploy immediately."; },
+    value => { value.objective.entry_index = 2; },
+    value => { value.evidence[0].output = "fabricated test result"; },
+  ]) {
+    const changed = structuredClone(recorded); mutation(changed);
+    await assert.rejects(core().readBundle(zip(bundleEntries({ "agent/brief.json": JSON.stringify(changed) }))), error => error.code === "archive");
+  }
+});
+
+test("matches UTF-8 excerpt bounds and preserves only bounded caller notes", async () => {
+  const text = "汉".repeat(2731);
+  const transcript = JSON.stringify({ schema: "agent-handoff.neutral.v1", entries: [{ kind: "message", role: "user", text }] });
+  const excerpt = { entry_index: 0, text: "汉".repeat(2730), truncated: true };
+  const brief = { schema: "agent-handoff.brief.v1", objective: excerpt, latest_request: excerpt, evidence: [], notes: "User-reviewed note" };
+  const result = await core().readBundle(zip(bundleEntries({ "agent/neutral.json": transcript, "agent/brief.json": JSON.stringify(brief) })));
+  assert.equal(result.brief.objective.text, "汉".repeat(2730));
+  assert.equal(result.brief.notes, "User-reviewed note");
+  brief.notes = "汉".repeat(2731);
+  await assert.rejects(core().readBundle(zip(bundleEntries({ "agent/neutral.json": transcript, "agent/brief.json": JSON.stringify(brief) }))), error => error.code === "archive");
 });
 
 test("decodes multiple stored and Huffman blocks including incompressible and empty entries", async () => {
@@ -254,14 +279,13 @@ test("the readable page uses inert text, lazy tool evidence, a downloadable ZIP 
   const malicious = '<img src="https://attacker.example/track" onerror="alert(1)">';
   const fixture = await encryptedFixture(bundleEntries({
     "manifest.json": JSON.stringify({ format_version: 2, artifact_type: "agent-handoff", title: malicious }),
-    "agent/neutral.json": JSON.stringify({ schema: "agent-handoff.neutral.v1", entries: [{ kind: "message", role: "user", text: malicious + " [remote image](https://attacker.example/image)" }] }),
+    "agent/neutral.json": JSON.stringify({ schema: "agent-handoff.neutral.v1", entries: [{ kind: "message", role: "user", text: malicious + " [remote image](https://attacker.example/image)" }, { kind: "tool", tool: "exec", status: "completed", input: "go test ./...", output: "PASS" }, { kind: "message", role: "assistant", text: "Reviewed the literal text." }] }),
     "code/manifest.json": JSON.stringify({ schema: "agent-handoff.code.v1", files: [{ path: malicious, status: "M", bytes: 5 }] }),
   }));
   const href = relayURL(relay(fixture)), { elements, scope, copied, requests } = pageScope(href, fixture.ciphertext);
   await module.mountReader(core(), { kind: "relay" }, scope);
   assert.equal(elements.heading.textContent, malicious);
-  assert.match(elements.content.textContent, /Repair the login flow/);
-  assert.match(elements.content.textContent, /Login is fixed/);
+  assert.match(elements.content.textContent, /Reviewed the literal text/);
   assert.match(elements.content.textContent, /<img src=/);
   assert.equal(descendants(elements.content).some(node => ["img", "a", "script", "iframe"].includes(node.tagName)), false);
   assert.deepEqual(requests, ["https://tmpfiles.org/dl/123/a.enc"]);
@@ -306,17 +330,22 @@ test("long transcripts load in batches and do not create an unbounded DOM", asyn
   const fixture = await encryptedFixture(bundleEntries({ "agent/neutral.json": JSON.stringify({ schema: "agent-handoff.neutral.v1", entries }) }));
   const { elements, scope } = pageScope(relayURL(relay(fixture)), fixture.ciphertext);
   await module.mountReader(core(), { kind: "relay" }, scope);
-  assert.equal(elements.content.textContent.includes("Message 239"), false);
-  const more = descendants(elements.content).find(node => node.tagName === "button");
+  const conversation = elements.content.children.find(node => node.children[0]?.textContent === "Conversation");
+  assert.ok(conversation);
+  assert.equal(conversation.textContent.includes("Message 239"), false);
+  const more = descendants(conversation).find(node => node.tagName === "button");
   assert.ok(more);
   await more.fire("click");
-  assert.equal(elements.content.textContent.includes("Message 239"), true);
+  const nextPage = elements.content.children.find(node => node.children[0]?.textContent === "Conversation");
+  assert.equal(nextPage.textContent.includes("Message 239"), true);
 });
 
 test("Wrangler's minified deployed page still decrypts and renders the same handoff", async () => {
   const temporary = await mkdtemp(join(tmpdir(), "agent-handoff-reader-test-"));
   try {
-    await promisify(execFile)(process.execPath, ["node_modules/wrangler/bin/wrangler.js", "deploy", "src/index.js", "--dry-run", "--minify", "--compatibility-date", "2026-08-24", "--outdir", temporary], { timeout: 30000, env: { ...process.env, WRANGLER_SEND_METRICS: "false" } });
+    const config = join(temporary, "wrangler.json");
+    await writeFile(config, JSON.stringify({ name: "agent-handoff-reader-test", main: resolve("src/index.js"), compatibility_date: "2026-08-24" }));
+    await promisify(execFile)(process.execPath, ["node_modules/wrangler/bin/wrangler.js", "deploy", "--config", config, "--dry-run", "--minify", "--outdir", temporary], { timeout: 30000, env: { ...process.env, WRANGLER_SEND_METRICS: "false" } });
     const source = await readFile(join(temporary, "index.js"), "utf8");
     const bundled = await import("data:text/javascript;base64," + Buffer.from(source).toString("base64"));
     const response = await bundled.default.fetch(new Request("https://share.example/r"), {}, {});

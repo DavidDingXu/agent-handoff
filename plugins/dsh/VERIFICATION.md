@@ -10,7 +10,7 @@ Claude Code 2.1.322 and the released DSH rc.1 / rc.5 SDKs:
 - `AGENT_HANDOFF_NATIVE_TESTS=1` passed native discovery and local-model
   continuation for Codex/Claude/DSH sources. The external Desktop-export case
   was not repeated in this run; the previous native baseline remains below.
-- Both DSH SDKs passed **96 tests / 10 files** and Host typecheck. The rc.5
+- Both DSH SDKs passed **98 tests / 10 files** and Host typecheck. The rc.5
   Host/Client builds passed; rc.1 reused the npm cache in offline mode.
 - Claude's native Mod validator and **8 no-model command tests** passed. Root
   marketplace installation is checked separately by CI. The local workspace's
@@ -23,11 +23,16 @@ Claude Code 2.1.322 and the released DSH rc.1 / rc.5 SDKs:
   acceptance previewed a synthetic ZIP with notes and selected code, confirmed
   that code application defaults off, explicitly imported visible history and
   opened the fresh task with an idle composer and no configured model.
+- Long-preview acceptance at 1280×720 checked collapsed excerpts and header
+  metadata, export/download actions before optional content, and import-mode
+  focus. After scrolling the preview by 720 px, its enabled confirmation button
+  remained visible at y=205–241. Final physical Desktop acceptance remains
+  separate from this installed Web check.
 - The installed task-header form created both Codex and Claude tasks using
   dedicated temporary target homes. Changing the target cleared the old result;
   both actions returned fresh identities and continuation commands without any
   model call. Real Codex/Claude histories were not used or changed.
-- The Worker passed **37 tests**, including the actual minified reader bundle,
+- The Worker passed **39 tests**, including the actual minified reader bundle,
   and was deployed to the existing project service with its KV and Durable Object
   bindings preserved. A synthetic upload/download passed decryption and all
   checksums. Browser reading was separately checked with loopback synthetic

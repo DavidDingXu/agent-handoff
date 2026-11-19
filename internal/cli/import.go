@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -82,6 +83,12 @@ func cmdImport(args []string) error {
 
 	// Duplicate detection against the target agent's ledger.
 	fingerprint := handoffFingerprint(b)
+	if *applyCode {
+		// An explicit code application is distinct from retaining the same
+		// attachment as inert evidence in a conversation-only import.
+		sum := sha256.Sum256([]byte(fingerprint + "\x00code-applied"))
+		fingerprint = fmt.Sprintf("%x", sum[:])
+	}
 	if prev := ledger.Find(targetHome, fingerprint); prev != nil && !*allowDuplicate {
 		previousCWD := *cwd
 		if targetAgent == bundle.AgentCodex {

@@ -86,7 +86,7 @@ func cmdShare(args []string) error {
 				seen[p] = true
 			}
 			for _, file := range inspection.Files {
-				if file.Eligible && file.Status != "untracked" && !seen[file.Path] {
+				if file.Eligible && (file.Status == "modified" || file.Status == "deleted") && !seen[file.Path] {
 					paths = append(paths, file.Path)
 					seen[file.Path] = true
 				}

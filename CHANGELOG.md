@@ -19,7 +19,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Optional selected text changes and new files, based on a Git commit. Code is
   reviewed separately and applied only into a new independent worktree.
 - DSH controls for switching, brief review, notes, file selection and explicit
-  isolated code import, including recovery after partial worktree creation.
+  isolated code import, with accessible primary actions, collapsible previews
+  and recovery after partial worktree creation.
 
 ### Fixed
 

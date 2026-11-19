@@ -59,6 +59,9 @@ before adding another source or target agent.
   installed interface as well as component tests when changing this flow.
 - Use one searchable dropdown for DSH task selection. Filtering or dismissing
   its results must not change the export task without an explicit choice.
+- Keep export actions and import confirmation near their primary controls and
+  reachable while scrolling. Long briefs, file lists and session metadata must
+  not push the next action to the bottom; collapse secondary details by default.
 - When changing handoff compatibility, cover Codex, Claude and DSH in all nine
   source/destination directions. Distinguish history reopening from a completed
   continuation turn, and record exact client versions and material limits.

@@ -28,19 +28,21 @@ it('keeps code off by default, previews recorded brief, and switches the exact s
 
 it('includes only explicitly selected code files and clears stale share results after notes change', async () => {
   const api=service(r=>r.action==='summary'?{sessionId:'picked-task',title:'Synthetic task',messageCount:4,warnings:[],brief}
-    :r.action==='code-preview'?{root:'/synthetic/project',base_commit:'a'.repeat(40),branch:'main',files:[{path:'src/fix.go',status:'modified',bytes:22,eligible:true},{path:'new.txt',status:'untracked',bytes:12,eligible:true},{path:'.env',status:'untracked',bytes:20,eligible:false,reason:'sensitive_path'}]}
+    :r.action==='code-preview'?{root:'/synthetic/project',base_commit:'a'.repeat(40),branch:'main',files:[{path:'src/fix.go',status:'modified',bytes:22,eligible:true},{path:'staged-new.txt',status:'added',bytes:14,eligible:true},{path:'new.txt',status:'untracked',bytes:12,eligible:true},{path:'.env',status:'untracked',bytes:20,eligible:false,reason:'sensitive_path'}]}
     :r.action==='share'?{status:'ok',title:'Synthetic task',messageCount:4,warnings:[],shareUrl:'https://share.example/s/example#k=synthetic'}:undefined)
   render(<ShareForm sessionId="picked-task" call={api.call} t={t} />)
   await screen.findByText('Synthetic task')
   fireEvent.click(screen.getByLabelText('Include code changes'))
   await screen.findByLabelText('src/fix.go')
   expect((screen.getByLabelText('new.txt') as HTMLInputElement).checked).toBe(false)
+  expect((screen.getByLabelText('staged-new.txt') as HTMLInputElement).checked).toBe(false)
   expect((screen.getByLabelText('.env') as HTMLInputElement).disabled).toBe(true)
   fireEvent.click(screen.getByLabelText('new.txt'))
+  fireEvent.click(screen.getByLabelText('staged-new.txt'))
   fireEvent.change(screen.getByLabelText('Handoff note'),{target:{value:'Please review the new file.'}})
   fireEvent.click(screen.getByRole('button',{name:'Create share'}))
   await screen.findByDisplayValue('https://share.example/s/example#k=synthetic')
-  expect(api.calls.at(-1)).toMatchObject({action:'share',sessionId:'picked-task',options:{briefNote:'Please review the new file.',codeFiles:['src/fix.go','new.txt']}})
+  expect(api.calls.at(-1)).toMatchObject({action:'share',sessionId:'picked-task',options:{briefNote:'Please review the new file.',codeFiles:['src/fix.go','new.txt','staged-new.txt']}})
   fireEvent.change(screen.getByLabelText('Handoff note'),{target:{value:'Changed note'}})
   expect(screen.queryByDisplayValue('https://share.example/s/example#k=synthetic')).toBeNull()
 })
@@ -61,4 +63,33 @@ it('shows the receiving code destination and requires explicit consent to apply 
   fireEvent.change(screen.getByLabelText('Import mode'),{target:{value:'conversation'}})
   fireEvent.click(screen.getByRole('button',{name:'Import as a new task'}))
   await waitFor(()=>expect(api.calls.at(-1)).toMatchObject({action:'import',ticketId:'review',workspaceId:'local',mode:'conversation',applyCode:true}))
+})
+
+it('keeps export actions ahead of optional notes and file inventories', async () => {
+  const api = service(r => r.action === 'summary' ? { sessionId:'picked-task',title:'Synthetic task',messageCount:4,warnings:[],brief } : undefined)
+  render(<ShareForm sessionId="picked-task" call={api.call} t={t} />)
+  await screen.findByText('Synthetic task')
+  const action = screen.getByRole('button', { name:'Create share' })
+  const note = screen.getByLabelText('Handoff note')
+  expect(action.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+})
+
+it('keeps import decisions ahead of long briefs and collapses recorded excerpts initially', async () => {
+  const workspace={id:'local',name:'Local project',directory:'/synthetic/repo'}
+  const longBrief={...brief,objective:{entry_index:0,text:'Recorded request '.repeat(500)}}
+  const api=service(r=>r.action==='workspaces'?[workspace]:r.action==='preview'?{ticketId:'review',sourceAgent:'claude',sourceSessionId:'source',title:'Synthetic task',messageCount:4,fingerprint:'a'.repeat(64),checksumStatus:'ok',workspace,modes:['conversation'],warnings:[],expiresAt:'2099-01-01T00:00:00Z',brief:longBrief}:undefined)
+  render(<ImportPanel call={api.call} t={t} openSession={async()=>{}} />)
+  await screen.findByRole('option',{name:/Local project/})
+  fireEvent.change(screen.getByLabelText('Workspace'),{target:{value:'local'}})
+  fireEvent.change(screen.getByLabelText('Source'),{target:{value:'link'}})
+  fireEvent.change(screen.getByLabelText('Share link'),{target:{value:'https://share.example/s/source#k=synthetic'}})
+  fireEvent.click(screen.getByRole('button',{name:'Preview handoff'}))
+  const action=await screen.findByRole('button',{name:'Import as a new task'})
+  const recorded=screen.getByRole('region',{name:'Task brief'})
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Import mode')))
+  expect(action.compareDocumentPosition(recorded) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(recorded.querySelector('details')?.open).toBe(false)
+  expect((action as HTMLButtonElement).disabled).toBe(true)
+  fireEvent.change(screen.getByLabelText('Import mode'),{target:{value:'conversation'}})
+  expect((action as HTMLButtonElement).disabled).toBe(false)
 })

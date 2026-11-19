@@ -181,3 +181,43 @@ func nativeCodeSource(t *testing.T, source, repo string) (home, id, path string)
 	}
 	return home, result.SessionID, data.SessionPath
 }
+
+// Staging a new file must not turn it into an implicit sharing choice.
+func TestShareRequiresExplicitSelectionForStagedNewFiles(t *testing.T) {
+	binary := buildCLIBinary(t)
+	for _, source := range []string{bundle.AgentCodex, bundle.AgentClaude} {
+		t.Run(source, func(t *testing.T) {
+			repo, _ := shareCodeRepository(t, "existing tracked change\n")
+			if err := os.WriteFile(filepath.Join(repo, "staged-new.txt"), []byte("select me explicitly\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			stage := exec.Command("git", "add", "staged-new.txt")
+			stage.Dir = repo
+			if out, err := stage.CombinedOutput(); err != nil {
+				t.Fatalf("stage new file: %v %s", err, out)
+			}
+			home, id, _ := nativeCodeSource(t, source, repo)
+			for _, explicit := range []bool{false, true} {
+				path := filepath.Join(t.TempDir(), "selected.zip")
+				args := []string{"share", "--source", source, "--thread", id, "--home", home, "--include-code", "--out", path}
+				if explicit {
+					args = append(args, "--code-file", "staged-new.txt")
+				}
+				runCLI(t, binary, args...)
+				shared, err := bundle.ReadZip(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				found := false
+				for _, file := range shared.Code.Manifest.Files {
+					if file.Path == "staged-new.txt" {
+						found = true
+					}
+				}
+				if found != explicit {
+					t.Fatalf("staged file present=%v, explicitly selected=%v", found, explicit)
+				}
+			}
+		})
+	}
+}
