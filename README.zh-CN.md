@@ -221,7 +221,7 @@ make build     # bin/agent-handoff
 
 CI 在 Ubuntu/macOS/Windows 上带 `-race` 跑测试。架构：`internal/bundle`（容器格式）、`internal/{codex,claude}`（智能体适配器）、`internal/neutral`（跨智能体转录）、`internal/link`（端到端加密 + 兼容 hosted endpoint 和配置化 Provider）、`internal/safety`（密钥扫描）、`internal/cli`。新增智能体还要实现原生恢复、中立转换、宿主探测和跨智能体测试矩阵，详见 [新增其他智能体](docs/adding-agent.zh-CN.md)。
 
-后续已明确规划 OpenCode、DeepSeek Harness 原生支持，以及更好的安装诊断和分享前预览，
-详见面向用户结果的[路线图](docs/ROADMAP.zh-CN.md)。
+当前保留 DeepSeek Harness 接入研究，包括评估 DSH 原生插件方案；OpenCode 接入、
+安装诊断和更完整的分享前预览暂缓，详见面向用户结果的[路线图](docs/ROADMAP.zh-CN.md)。
 
 欢迎贡献，见 [CONTRIBUTING.zh-CN.md](docs/CONTRIBUTING.zh-CN.md)（[English](CONTRIBUTING.md)）。License：Apache-2.0。

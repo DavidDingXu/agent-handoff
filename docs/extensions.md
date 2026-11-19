@@ -32,7 +32,7 @@ See [custom providers](link-service.md#custom-providers).
 
 Agent adapters directly read and write native Codex, Claude Code, or future agent state. They own task discovery, native restore, append-only writes, backups, identity rewriting, and verification. Today they are source contributions; see [adding another agent](adding-agent.md).
 
-This is the only capability worth evaluating as a future runtime plugin because agent implementations genuinely differ. [OpenCode](https://github.com/anomalyco/opencode) is the first planned adapter; [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) follows once its developer-preview session and storage APIs are stable enough for native restore. Two current adapters are not enough to prove a stable shared interface. Revisit the design after a third real adapter lands:
+Native [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin integration is an option under investigation in [#10](https://github.com/DavidDingXu/agent-handoff/issues/10). Such a plugin would use DSH's own plugin and session services; it is distinct from adding a generic runtime plugin loader to agent-handoff. DSH support remains research until a pinned runtime proves safe native restore. OpenCode adapter work is deferred. Two current adapters are not enough to prove a stable shared interface. Revisit that interface after a third real adapter lands:
 
 - it must support macOS, Linux, and Windows, so Go's Windows-incompatible `plugin` package is not an option;
 - an out-of-process protocol must be versioned and define permissions, backups, and failure atomicity;

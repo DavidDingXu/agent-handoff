@@ -1,8 +1,14 @@
 # 路线图
 
 agent-handoff 的目标，是让用户在换人、换机器、换编码智能体时仍然像在继续同一个任务，
-同时不把私有对话变成必须托管到云账号的数据。路线图围绕用户结果组织，不是固定功能清单；
-时间只表示规划窗口，不是发版承诺。
+同时不把私有对话变成必须托管到云账号的数据。路线图围绕用户结果组织，不是固定功能清单，
+也不是发版承诺。
+
+## 当前安排（2026-11-19）
+
+- 维护现有 Codex 和 Claude Code 交接路径。
+- 保留 [DeepSeek Harness 接入研究（#10）](https://github.com/DavidDingXu/agent-handoff/issues/10)，包括评估通过宿主官方会话服务实现 DSH 原生插件。这是待验证的接入方案，尚未实现，也不构成交付承诺。
+- [OpenCode 接入（#9）](https://github.com/DavidDingXu/agent-handoff/issues/9)、[安装与 provider 诊断（#11）](https://github.com/DavidDingXu/agent-handoff/issues/11)、[更完整的分享前预览（#12）](https://github.com/DavidDingXu/agent-handoff/issues/12) 暂缓，三个 issue 当前按 `not_planned` 关闭，后续调整优先级时可以重新打开。
 
 ## 产品原则
 
@@ -13,7 +19,7 @@ agent-handoff 的目标，是让用户在换人、换机器、换编码智能体
 - 优先使用配置而不是可执行插件；只有多个真实接入证明接口稳定后，才增加运行时扩展点。
 - macOS、Linux 和 Windows 都是一等支持目标。
 
-## 现在：让第一次交接稳定成功（2026 Q3）
+## 持续维护：让现有交接稳定成功
 
 **用户结果：** 新用户只看 README，就能在 Codex 或 Claude Code 中安装插件并完成文件或
 加密链接交接，不需要先理解实现细节。
@@ -27,11 +33,6 @@ agent-handoff 的目标，是让用户在换人、换机器、换编码智能体
 - 在主 README 增加真实端到端使用截图、浅色架构图和最短排障入口。
 - 简化公共 Worker，只保留文件大小与过期清理两类运行约束，并通过部署配置统一管理。
 
-本阶段剩余工作：
-
-- 增加 [`doctor`、`config validate` 和 provider 连通性检查](https://github.com/DavidDingXu/agent-handoff/issues/11)，让配置失败能给出可执行的
-  诊断，而不是笼统的上传错误。
-
 成功信号：
 
 - 每次发版都通过 Codex 和 Claude Code 插件安装冒烟测试。
@@ -39,19 +40,15 @@ agent-handoff 的目标，是让用户在换人、换机器、换编码智能体
 - 链接服务不可用时，总能返回其他有效加密路径或明确的本地 zip。
 - 新用户只依赖 README 就能完成一次冷启动交接。
 
-## 下一步：跨更多智能体继续任务（2026 Q4）
+## 研究方向：DeepSeek Harness 接入
 
 **用户结果：** 用户可以在日常使用的多个编码智能体之间迁移真实任务，并保留目标宿主的
 原生继续体验。
 
-优先接入：
+围绕 **[DeepSeek Harness（`dsh`）](https://github.com/deepseek-ai/deepseek-harness)**（[#10](https://github.com/DavidDingXu/agent-handoff/issues/10)）的固定版本和已记录 fixture 开展验证。DSH 原生插件是宿主交互与会话访问的候选方案，agent-handoff 继续负责捆绑包、中立转录、加密和传输合同。先验证只读检查与导出，涉及导入时先使用临时隔离配置，再评估正式支持。
 
-1. **[OpenCode](https://github.com/anomalyco/opencode)**（[#9](https://github.com/DavidDingXu/agent-handoff/issues/9)）：支持原生会话发现、导出、预览、恢复与校验。优先使用其正式的会话或
-   导出契约；必须访问本地存储时，导出阶段只读且感知 schema。
-2. **[DeepSeek Harness（`dsh`）](https://github.com/deepseek-ai/deepseek-harness)**（[#10](https://github.com/DavidDingXu/agent-handoff/issues/10)）：基于其 append-only 会话事件流完成原型；在开发者
-   预览期的存储与会话 API 足够稳定后，再升级为正式支持。
-3. 根据真实需求评估 Gemini CLI、GitHub Copilot CLI 等 Agent。仅能调用同一种模型并
-   不算兼容，宿主必须提供可持久化、可恢复、可验证的会话。
+DSH 仍处于开发者预览期。正式接入需要会话和存储 API 支持安全原生恢复的证据；
+可以导出日志本身不能证明它能在另一台宿主上继续。
 
 每增加一个 Agent，都必须满足同一份验收合同：
 
@@ -60,23 +57,22 @@ agent-handoff 的目标，是让用户在换人、换机器、换编码智能体
 - 导入只创建一个新任务，支持预览、重复检测，并能从目标宿主重新打开验证。
 - CI 跑完整 N x N 矩阵：3 个 Agent 是 9 条路径，4 个 Agent 是 16 条路径。
 
-只有 OpenCode 或 DeepSeek Harness 提供第三个真实实现后，才提取 Agent adapter 边界。
+只有第三个真实实现证明共用合同后，才提取 Agent adapter 边界。
 届时由真实差异决定 adapter SDK，而不是先设计一个通用接口再强迫各家适配。
 
-## 然后：让高频交接更快、更清楚（2027 Q1）
+## 暂未排期的候选：让高频交接更清楚
 
 **用户结果：** 团队能把交接用于日常开发，并且在上传前知道会分享什么、链接能用多久，
 失败后也能马上知道问题在哪。
 
-候选工作：
+以下候选当前没有交付排期：
 
-- [更完整的分享前预览](https://github.com/DavidDingXu/agent-handoff/issues/12)：消息数、图片、改动文件证据、敏感信息、预计上传大小、分享路径
+- 暂缓：[更完整的分享前预览（#12）](https://github.com/DavidDingXu/agent-handoff/issues/12)，包括消息数、图片、改动文件证据、敏感信息、预计上传大小、分享路径
   与过期时间。
 - 创建捆绑包前提供引导式脱敏和附件选择，同时不改动原任务。
 - 提供可被 Agent 原生 UI 渲染的结构化进度与重试信息，并为自动化提供稳定错误码。
-- 提供 provider 配置诊断，以及经过审核的 S3 兼容、企业和区域文件服务配置样例。
-- 为 Codex、Claude Code、OpenCode、DSH 的历史会话格式保留兼容性 fixture，让宿主升级
-  引发的问题先在 CI 暴露。
+- 暂缓：[provider 配置诊断（#11）](https://github.com/DavidDingXu/agent-handoff/issues/11)，以及经过审核的 S3 兼容、企业和区域文件服务配置样例。
+- 为已支持的 Codex、Claude Code 会话格式保留兼容性 fixture；其他宿主在接入获准后再覆盖，让宿主升级引发的问题先在 CI 暴露。
 
 成功信号：
 
