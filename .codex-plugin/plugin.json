@@ -1,7 +1,7 @@
 {
   "name": "agent-handoff",
-  "version": "0.4.6",
-  "description": "Share a coding-agent task as a file or encrypted link; the receiver imports it as a new native task. Works across Codex and Claude Code.",
+  "version": "0.5.0",
+  "description": "Share tasks between Codex, Claude Code and DeepSeek Harness as files or end-to-end encrypted links. Continue in a new native task; DSH includes native share/import UI.",
   "author": {
     "name": "Agent Handoff"
   },

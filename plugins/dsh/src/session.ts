@@ -1,10 +1,11 @@
 /** Pinned SDK transcript conversion. Imported state never supplies runtime authority. */
 import { randomUUID } from 'node:crypto'
-import { Session, SessionId, SessionLogOffset, SESSION_FORMAT_VERSION, type SessionEvent, type SessionHeader, type SessionEventInput, KNOWN_SESSION_EVENT_TYPES, isSurfaceEvent, isAppendSurfaceEvent } from '@deepseek-ai/dsh-session'
+import { createRequire } from 'node:module'
+import { Session, SessionId, SessionLogOffset, SESSION_FORMAT_VERSION, type SessionEvent, type SessionHeader, type SessionEventType, type SessionEventMap, type SurfaceEventType, type SurfaceIntent, KNOWN_SESSION_EVENT_TYPES, isSurfaceEvent, isAppendSurfaceEvent } from '@deepseek-ai/dsh-session'
 import { createUserMessage, createAssistantMessage, createToolResultMessage, createSystemMessage, type ToolCallId } from '@deepseek-ai/dsh-llm'
 import { restoreReleasedV4Artifact } from '@deepseek-ai/dsh-session-format-v3-to-v4'
 import { assertContiguous, validateStoredEvents } from '@deepseek-ai/dsh-session-persistence'
-import { DSH_VERSION } from './types.ts'
+import { SUPPORTED_DSH_VERSIONS } from './types.ts'
 
 export interface NeutralEntry { kind: 'message' | 'tool'; role?: string; text?: string; tool?: string; status?: string; input?: string; output?: string; timestamp?: string }
 export interface NeutralTranscript { schema: 'agent-handoff.neutral.v1'; source_agent: string; source_id: string; title?: string; source_cwd?: string; entries: NeutralEntry[] }
@@ -23,8 +24,13 @@ export class HandoffFailure extends Error {
 }
 function fail(message: string): never { throw new HandoffFailure('invalid_session', message) }
 export function record(value: unknown): value is Record<string, unknown> { return value !== null && typeof value === 'object' && !Array.isArray(value) }
+export function installedDshVersion(): string {
+  const sdk = createRequire(import.meta.url)('@deepseek-ai/dsh-session/package.json') as { version: string }
+  if (!SUPPORTED_DSH_VERSIONS.some(version => version === sdk.version)) throw new HandoffFailure('unsupported_runtime', `This plugin requires DSH ${SUPPORTED_DSH_VERSIONS.join(' or ')}.`)
+  return sdk.version
+}
 export function nativeEnvelope(snapshot: SessionSnapshot): NativeEnvelope {
-  return { schema: 'agent-handoff.dsh.native.v1', runtime_version: DSH_VERSION, session_format_version: SESSION_FORMAT_VERSION,
+  return { schema: 'agent-handoff.dsh.native.v1', runtime_version: installedDshVersion(), session_format_version: SESSION_FORMAT_VERSION,
     header: snapshot.session, inherited_event_count: snapshot.inheritedEventCount, events: snapshot.events }
 }
 /** Text-only conversion deliberately labels media rather than reading source paths or URLs. */
@@ -77,7 +83,7 @@ const passiveEvents = new Set(['turn/start', 'turn/end', 'step/start', 'step/end
 /** Fail closed: SDK-known events can still restore permissions, queued work or plugins. */
 export function validateNative(native: NativeEnvelope): SessionEvent[] {
   if (!record(native) || native.schema !== 'agent-handoff.dsh.native.v1') fail('Invalid native session envelope.')
-  if (native.runtime_version !== DSH_VERSION || native.session_format_version !== SESSION_FORMAT_VERSION) throw new HandoffFailure('native_unsupported', 'Native history requires the supported DSH runtime and session format.')
+  if (!SUPPORTED_DSH_VERSIONS.some(version => version === native.runtime_version) || native.session_format_version !== SESSION_FORMAT_VERSION) throw new HandoffFailure('native_unsupported', 'Native history requires the supported DSH runtime and session format.')
   if (!record(native.header) || !Array.isArray(native.events) || native.events.length > 100_000 || !Number.isSafeInteger(native.inherited_event_count) || native.inherited_event_count < 0) fail('Invalid native session envelope.')
   if (native.header.isSeeded || native.inherited_event_count !== 0 || native.header.origin === 'subagent') throw new HandoffFailure('native_unsupported', 'Fork and subagent lineage require conversation import in this version.')
   const owned = structuredClone(native.events)
@@ -143,7 +149,9 @@ function validateNeutral(neutral: NeutralTranscript): void {
 export function fromNeutral(neutral: NeutralTranscript): SessionEvent[] {
   validateNeutral(neutral)
   const s = Session.create(SessionId(`convert-${randomUUID()}`)), events: SessionEvent[] = []
-  const add = (...args: SessionEventInput) => { events.push(...s.append([args])) }
+  function add<T extends SessionEventType>(type: T, data: SessionEventMap[T], ...opts: T extends SurfaceEventType ? [opts: SurfaceIntent<T>] : []): void {
+    events.push(s.append<T>(type, data, ...opts))
+  }
   let turn = 0
   for (const entry of neutral.entries) {
     if (!record(entry) || !['message', 'tool'].includes(entry.kind)) fail('Invalid neutral entry.')

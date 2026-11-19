@@ -5,10 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-19
+
 ### Added
 
-- Experimental DSH 0.2.2-rc.5 native plugin with bilingual share/import UI,
+- Experimental DSH 0.2.2-rc.1 / rc.5 native plugin with bilingual export/import UI,
   preview confirmation, workspace selection and append-only session recovery.
+- A unified DSH task handoff panel with separate export/import areas, plus concise
+  bilingual READMEs and public build/install instructions.
 - Versioned Go bridge for DSH bundle sharing and verified reading, plus
   DSH/Codex/Claude conversation transfer and conservative native restore.
 - Pinned SDK persistence/continuation, native UI interaction and cross-platform

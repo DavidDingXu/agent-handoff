@@ -2,7 +2,7 @@
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { Context } from '@deepseek-ai/cordis'
 import { createSnapshotStore, type ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
-import { Button, IconUploadOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconShareOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { SidebarPanelIconOwnerProps } from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type { PropsHooks, PropsLocale, PropsRenderFactories, PropsRuntime, HocShare, SlotMap } from '@deepseek-ai/dsh-client-ui-slots'
@@ -15,7 +15,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import { createApiCall, HandoffApiError, type ApiCall } from './client/api.ts'
-import { ImportAction, ImportPanel, ShareDialog } from './client/ui.tsx'
+import { ImportAction, HandoffHub, ShareDialog, type HubTab } from './client/ui.tsx'
 import { NS, en, zh, type CopyKey } from './client/locales.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -32,20 +32,26 @@ function ShareOverlay({ useShare, call, close, t }: OverlayProps) {
   const target = useShare(value => value)
   return target ? <ShareDialog key={target.sessionId} sessionId={target.sessionId} call={call} onClose={close} t={t} /> : null
 }
-type PanelProps = PropsRuntime<'main'> & PropsLocale<typeof NS> & PropsRenderFactories
-  & { call: ApiCall; openSession: (id: string) => Promise<void> }
-function NativeImportPanel({ call, openSession, renderFactorySlot, t }: PanelProps) {
-  return <ImportPanel call={call} openSession={openSession} t={t} renderWorkspacePicker={input => renderFactorySlot('workspace.picker', {
-    ...input, selectedId: input.selectedId as WorkspaceId | undefined,
-    onPick: id => input.onPick(id),
-  })} />
+type PanelProps = PropsRuntime<'main'> & PropsLocale<typeof NS> & PropsRenderFactories & PropsHooks<{ hubTab: ObservableSnapshot<HubTab> }>
+  & { call: ApiCall; openSession: (id: string) => Promise<void>; hasWorkspacePicker: () => boolean; setHubTab: (tab: HubTab) => void; refreshSessions: () => Promise<void> }
+function NativeHandoffPanel({ call, openSession, renderFactorySlot, t, hasWorkspacePicker, useSessions, useHubTab, setHubTab, refreshSessions }: PanelProps) {
+  const catalog = useSessions(value => value)
+  const rows = catalog.ids.map(id => catalog.byId[id]).filter(row => row !== undefined)
+  const current = rows.find(row => (row.retainedBy.mainView ?? 0) > 0)?.id
+  const tab = useHubTab(value => value)
+  return <HandoffHub call={call} openSession={openSession} t={t} tab={tab} onTabChange={setHubTab}
+    sessions={rows.map(row => ({ id: row.id, title: row.title ?? row.displayTitle, directory: row.cwd }))}
+    currentSessionId={current} catalogLoading={catalog.phase === 'pending'} refreshSessions={refreshSessions}
+    renderWorkspacePicker={hasWorkspacePicker() ? input => renderFactorySlot('workspace.picker', {
+      ...input, selectedId: input.selectedId as WorkspaceId | undefined, onPick: id => input.onPick(id),
+    }) : undefined} />
 }
 type SidebarActionProps = PropsRuntime<'sidebar.session.action'> & HocShare<SlotMap['sidebar.session.action']>
   & PropsLocale<typeof NS> & { onOpen: () => void }
 function SidebarImportAction({ children, wide, t, onOpen }: SidebarActionProps) {
   return <ImportAction wide={wide} t={t} onOpen={onOpen}>{children}</ImportAction>
 }
-function PanelIcon({ size }: SidebarPanelIconOwnerProps) { return <IconUploadOutlineRegular size={size} /> }
+function PanelIcon({ size }: SidebarPanelIconOwnerProps) { return <IconShareOutlineRegular size={size} /> }
 
 export const inject = ['slots', 'locale', 'sessions', 'uiWorkspace', 'layout']
 /** All effects belong to the plugin fiber; unload removes entries and the dialogs they own. */
@@ -54,6 +60,7 @@ export function apply(ctx: Context & { sessions: ISessions }): void {
   const t = ctx.locale.bind(NS)
   const call = createApiCall()
   const share = createSnapshotStore<ShareTarget | null>(null)
+  const hubTab = createSnapshotStore<HubTab>('export')
   const panelId = 'agent-handoff' as MainPanelId
   const openShare = (sessionId: string) => { share.set({ sessionId }) }
   const openSession = async (id: string) => {
@@ -71,13 +78,13 @@ export function apply(ctx: Context & { sessions: ISessions }): void {
     inject: () => ({ call, hooks: { share }, close: () => { share.set(null) } }),
   }, ShareOverlay))
   ctx.slots.inject('main', () => ctx.slots.register({
-    name: 'main', key: panelId, locale: NS, inject: () => ({ call, openSession }),
-  }, NativeImportPanel))
+    name: 'main', key: panelId, locale: NS, inject: () => ({ call, openSession, hooks: { hubTab }, setHubTab: (value: HubTab) => { hubTab.set(value) }, refreshSessions: () => ctx.sessions.refresh(), hasWorkspacePicker: () => ctx.slots.snapshot('factory:workspace.picker').length > 0 }),
+  }, NativeHandoffPanel))
   ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
     name: 'sidebar.panellist', id: panelId, order: 20, label: () => t('panel'),
   }, PanelIcon))
   ctx.slots.inject('sidebar.session.action', () => ctx.slots.register({
     name: 'sidebar.session.action', id: 'agent-handoff-import', locale: NS,
-    inject: () => ({ onOpen: () => { ctx.layout.selectPanel(panelId) } }),
+    inject: () => ({ onOpen: () => { hubTab.set('import'); ctx.layout.selectPanel(panelId) } }),
   }, SidebarImportAction))
 }

@@ -7,7 +7,7 @@ and importing received DSH, Codex, or Claude Code tasks into a new DSH session.
 
 ## Compatibility
 
-Experimental first version: **DSH 0.2.2-rc.5**, Node **>=24.9.0**. Other DSH
+Experimental first version: **DSH 0.2.2-rc.1 / rc.5**, Node **>=24.9.0**. Other DSH
 versions are rejected until their session and plugin APIs have been verified.
 Bundled transfer cores cover macOS/Linux x64 and arm64, and Windows x64.
 
@@ -18,39 +18,48 @@ import. Codex/Claude → DSH always uses that mode. Source permissions, presets,
 queued work, credentials, media files and provider state are never restored.
 The original source log is retained privately for audit, not executed.
 
-## Build and install
+## Install
 
-This package is not published to npm yet. Build it from the repository:
+Download `dsh-agent-handoff-0.5.0.tgz` and `checksums.txt` from
+[GitHub Releases](https://github.com/DavidDingXu/agent-handoff/releases).
+Compare the file's SHA-256 with the published checksum before installing.
+The package is not published to npm; use the downloaded file, not an npm name.
+
+For Desktop, open **Plugins → Add plugin → Install third-party plugin**, enter
+the tarball's absolute path, install and enable it. The npm CLI in rc.1 cannot
+manage the Desktop profile. Restart DSH if the new entry does not appear.
+
+For a Web profile (pnpm must be available):
 
 ```sh
-make cross VERSION=v0.4.6
-cd plugins/dsh
+dsh plugin --profile web add /absolute/path/dsh-agent-handoff-0.5.0.tgz
+```
+
+Never reset an existing profile with `--from-default-profile` when installing.
+
+### Build from source
+
+The matching Go cores are included in the repository; no Go toolchain is needed:
+
+```sh
+git clone https://github.com/DavidDingXu/agent-handoff.git
+cd agent-handoff/plugins/dsh
 npm ci
-npm run check
 npm run package
 npm run check:package
 ```
 
-Install the resulting `dist/dsh-agent-handoff-0.1.0.tgz` into your chosen DSH
-profile using its absolute path (pnpm must be available):
-
-```sh
-dsh plugin --profile web add /absolute/path/dsh-agent-handoff-0.1.0.tgz
-```
-
-Restart DSH. For Desktop, fully quit it first and use the command bundled with
-that Desktop installation, selecting `--profile desktop`. Do not reset an
-existing profile with `--from-default-profile` when installing.
+Install the generated `dist/dsh-agent-handoff-0.5.0.tgz` as above. For development,
+run `npm run check` and `npm run check:compat` before packaging.
 
 ## Use
 
-- Open a session and click **Share task** in its header. Choose a plaintext ZIP
-  or encrypted link. Secret findings block export until explicitly acknowledged.
-  An unavailable upload produces a downloadable ZIP fallback.
-- Click **Import task** in the sidebar, or open **Task handoff**. Choose a ZIP,
-  encrypted link, or absolute path on the DSH host; select a local workspace.
-- Preview the title, source, message count, checksum and warnings. Select an
-  available import mode and click **Import as a new task**, then **Open task**.
+- Open **Task handoff → Export task**. Choose a session and a plaintext ZIP or
+  encrypted link. Secret findings require explicit acknowledgment; an unavailable
+  upload produces a downloadable ZIP. The session-header Share action is a shortcut.
+- Open **Task handoff → Import task**. Choose a ZIP, encrypted link, or advanced
+  host file path, then select a local workspace.
+- Review the content and available import modes, confirm the new task, then open it.
 
 Only the owner connection can use these actions. Existing tasks are never
 overwritten. Repeated imports return the earlier imported session. A partial
@@ -88,5 +97,8 @@ binding, duplicate/partial recovery, secret confirmation, subprocess limits and
 the pinned SDK's persistence/resume lifecycle with synthetic sessions and a local
 mock model. The Go tests cover the existing four directions and DSH → Codex/Claude;
 the plugin tests cover the other three. No model credentials are needed.
-The web UI and Desktop transport contract are tested separately; this does not
-claim an Electron or physical Windows desktop acceptance run.
+Both supported SDK versions pass 78 tests. Actual macOS Desktop rc.1 acceptance
+covers installation, all three source imports, opening and ZIP export; that ZIP
+also completes new turns in current Codex and Claude clients using local model
+fixtures. No paid model or physical Windows Desktop acceptance is claimed.
+See the [full verification receipt](https://github.com/DavidDingXu/agent-handoff/blob/main/plugins/dsh/VERIFICATION.md).

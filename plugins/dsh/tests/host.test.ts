@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdtemp, readFile, writeFile, rm, readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
+import { createRequire } from 'node:module'
 import { spawn } from 'node:child_process'
 import { withFileLock } from '@deepseek-ai/dsh-atomic-write'
 import { tmpdir } from 'node:os'
@@ -109,6 +110,9 @@ describe('owner Host service', () => {
   it('requires the exact secret confirmation snapshot and sanitizes findings', async () => {
     const h = await harness()
     h.run.mockImplementation(async (args: string[], input?: unknown) => {
+      const wire = input as { source_cli: string; native: { runtime_version: string } }
+      const version = createRequire(import.meta.url)('@deepseek-ai/dsh-session/package.json').version
+      expect(wire.source_cli).toBe(`dsh@${version}`); expect(wire.native.runtime_version).toBe(version)
       if (!args.includes('--include-secrets')) return { status: 'blocked', error_code: 'secret_detected', safety: { findings: [{ rule: 'token', path: '$.native.events[0]', line: 1, hint: 'DO NOT LEAK' }] } }
       const out = args[args.indexOf('--out') + 1]!; await writeFile(out, 'synthetic zip')
       expect(JSON.stringify(input)).not.toContain('modified after scan')

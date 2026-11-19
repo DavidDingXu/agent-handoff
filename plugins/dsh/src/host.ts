@@ -3,13 +3,12 @@ import { randomUUID, createHash } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, writeFile, stat, rm, open, chmod } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
-import { createRequire } from 'node:module'
 import { Session, SessionId, SessionLogOffset, type SessionEvent, type SessionHeader } from '@deepseek-ai/dsh-session'
 import { validateStoredEvents, assertContiguous } from '@deepseek-ai/dsh-session-persistence'
 import { withFileLock } from '@deepseek-ai/dsh-atomic-write'
 import { createBridge, type BridgeConfig, type BridgeRunner } from './bridge.ts'
-import { HandoffFailure, nativeEnvelope, nativeSupport, validateNative, validateSessionRelationships, fromNeutral, toNeutral, freshHeader, validateReadResult, record, type ReadResult, type SessionSnapshot } from './session.ts'
-import { DSH_VERSION, MAX_UPLOAD_BYTES, type ApiResponse, type HandoffService, type ImportMode, type ImportSource, type ImportResult, type ImportPreview, type ShareResult, type ShareFormat, type WorkspaceChoice, type SafeFinding } from './types.ts'
+import { HandoffFailure, installedDshVersion, nativeEnvelope, nativeSupport, validateNative, validateSessionRelationships, fromNeutral, toNeutral, freshHeader, validateReadResult, record, type ReadResult, type SessionSnapshot } from './session.ts'
+import { MAX_UPLOAD_BYTES, type ApiResponse, type HandoffService, type ImportMode, type ImportSource, type ImportResult, type ImportPreview, type ShareResult, type ShareFormat, type WorkspaceChoice, type SafeFinding } from './types.ts'
 
 export interface HandoffConfig extends BridgeConfig { stateDir?: string }
 export interface Workspace { id: string; title: string; path: string; attachSession(id: SessionId): Promise<void> }
@@ -38,8 +37,7 @@ function digest(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(canonical(value))).digest('hex')
 }
 export function createHandoffService(ctx: HandoffHostContext, config: HandoffConfig, dependencies: { runBridge?: BridgeRunner; now?: () => number } = {}): HandoffService {
-  const sdk = createRequire(import.meta.url)('@deepseek-ai/dsh-session/package.json') as { version: string }
-  if (sdk.version !== DSH_VERSION) throw new HandoffFailure('unsupported_runtime', `This plugin requires DSH ${DSH_VERSION}.`)
+  const runtimeVersion = installedDshVersion()
   if (config.configPath !== undefined && (!config.configPath || !isAbsolute(config.configPath))) throw new HandoffFailure('setup_required', 'configPath must name an absolute provider configuration file.')
   const profileDirectory = ctx.profileDirectory ?? process.env.DSH_PROFILE_DIR
   const stateDir = config.stateDir ?? (profileDirectory ? join(profileDirectory, 'agent-handoff') : undefined)
@@ -95,7 +93,7 @@ export function createHandoffService(ctx: HandoffHostContext, config: HandoffCon
     const title = (await ctx.sessionQuery.readTitle?.(SessionId(id)))?.title ?? 'Conversation'
     check(signal)
     const converted = toNeutral(snapshot, title)
-    return { input: { schema: 'agent-handoff.bridge.share.v1', source_thread_id: id, title, source_cwd: snapshot.session.cwd ?? '', source_cli: `dsh@${DSH_VERSION}`, native: nativeEnvelope(snapshot), neutral: converted.neutral },
+    return { input: { schema: 'agent-handoff.bridge.share.v1', source_thread_id: id, title, source_cwd: snapshot.session.cwd ?? '', source_cli: `dsh@${runtimeVersion}`, native: nativeEnvelope(snapshot), neutral: converted.neutral },
       title, count: converted.neutral.entries.filter(e => e.kind === 'message').length, warnings: converted.warnings }
   }
   async function share(id: string, format: ShareFormat, secretTicket?: string, signal?: AbortSignal): Promise<ShareResult> {

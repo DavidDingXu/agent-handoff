@@ -1,25 +1,32 @@
-/** Real rc5 JSONL persistence, cold Session replay and controller resume. */
+/** Real rc1/rc5 JSONL persistence, cold Session replay and controller resume. */
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { LlmAdapter, createUserMessage, createSystemMessage, createAssistantMessage, createToolResultMessage, type ToolCallId, type GenerateOptions, type LlmResolvedModelInfo, type StreamChunk } from '@deepseek-ai/dsh-llm'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-tools'
-import { Session, SessionId, type SessionEvent, type SessionEventInput } from '@deepseek-ai/dsh-session'
+import { Session, SessionId, type SessionEvent, type SessionEventType, type SessionEventMap, type SurfaceEventType, type SurfaceIntent } from '@deepseek-ai/dsh-session'
 import * as JsonlPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import QueryEngine from '@deepseek-ai/dsh-session-query-sqlite'
 import AgentDefaultModel from '@deepseek-ai/dsh-agent-default-model'
 import SessionTitle from '@deepseek-ai/dsh-session-title'
-import { ApiSessionAgentController } from '@deepseek-ai/dsh-api-session-controller/src/agent.ts'
-import { SessionCommandController } from '@deepseek-ai/dsh-api-session-controller/src/commands.ts'
 import { createRequire } from 'node:module'
 import { createHash } from 'node:crypto'
 import { mkdtemp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { createHandoffService, type HandoffHostContext, type Workspace } from '../src/host.ts'
 import { freshHeader, nativeEnvelope, toNeutral, type NeutralTranscript, type ReadResult } from '../src/session.ts'
-import { DSH_VERSION, type HandoffService } from '../src/types.ts'
+import { SUPPORTED_DSH_VERSIONS, type HandoffService } from '../src/types.ts'
+
+// rc1's official npm tarball omits src files. Both exact releases provide
+// these compiled production controller modules beside their declarations.
+const require = createRequire(import.meta.url)
+const controllerRoot = dirname(require.resolve('@deepseek-ai/dsh-api-session-controller/package.json'))
+const { ApiSessionAgentController } = await import(pathToFileURL(join(controllerRoot, 'lib/types/agent.js')).href)
+const { SessionCommandController } = await import(pathToFileURL(join(controllerRoot, 'lib/types/commands.js')).href)
+const runtimeVersion = (require('@deepseek-ai/dsh-session/package.json') as { version: string }).version
 
 const roots: string[] = [], contexts: Context[] = [], services: HandoffService[] = []
 afterEach(async () => {
@@ -60,7 +67,10 @@ async function files(dir: string): Promise<string[]> {
 // those require the separately tested explicit conversation fallback.
 async function passiveNativeSource(ctx: Context, root: string, sourceId: string) {
   const header = freshHeader(sourceId,root), source = Session.create(header.id), events: SessionEvent[]=[]
-  const add = (...args: SessionEventInput) => { events.push(...source.append([args])) }
+  // The single-event API is shared by rc1 and rc5; rc1 has no batch overload.
+  function add<T extends SessionEventType>(type: T, data: SessionEventMap[T], ...opts: T extends SurfaceEventType ? [opts: SurfaceIntent<T>] : []): void {
+    events.push(source.append<T>(type, data, ...opts))
+  }
   const callId='historical-inert-probe' as ToolCallId
   add('turn/start',{turn:1});add('step/start',{turn:1,step:1})
   add('system/message',{turn:1,step:1,message:createSystemMessage('')},{surfaceOp:'append'})
@@ -106,10 +116,11 @@ async function serviceFor(host: HandoffHostContext, stateDir: string, payload: R
   } }); services.push(service); return service
 }
 
-describe('rc5 durable handoff runtime', () => {
+describe(`DSH ${runtimeVersion} durable handoff runtime`, () => {
   it('uses the exact installed SDK version', () => {
-    const require = createRequire(import.meta.url)
-    for (const name of ['dsh-session', 'dsh-session-persistence-jsonl', 'dsh-agent-loop', 'dsh-session-query-sqlite', 'dsh-api-session-controller']) expect(require(`@deepseek-ai/${name}/package.json`).version).toBe(DSH_VERSION)
+    expect(SUPPORTED_DSH_VERSIONS).toEqual(['0.2.2-rc.1', '0.2.2-rc.5'])
+    expect(SUPPORTED_DSH_VERSIONS).toContain(runtimeVersion)
+    for (const name of ['dsh-session', 'dsh-session-persistence-jsonl', 'dsh-agent-loop', 'dsh-session-query-sqlite', 'dsh-api-session-controller']) expect(require(`@deepseek-ai/${name}/package.json`).version).toBe(runtimeVersion)
   })
   it('requires explicit conversation fallback for an ordinary native loop log with unsupported source authority', async () => {
     const root=await mkdtemp(join(tmpdir(),'agent-handoff-runtime-'));roots.push(root)

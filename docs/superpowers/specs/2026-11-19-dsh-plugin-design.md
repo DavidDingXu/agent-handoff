@@ -6,7 +6,7 @@ The maintainer approved implementing the previously discussed DSH-native plugin,
 
 An installable third-party DSH bundle exposes a native share action and an import panel. A person can share the selected session as a file or encrypted link, preview a received bundle, select a local workspace, and explicitly create a new resumable session. Progress, useful errors, retries, secret warnings, copy/download actions, and Chinese/English text belong in the UI.
 
-Target `@deepseek-ai/*` SDK and runtime `0.2.2-rc.5`, upstream revision `2e39e70496aa02986ca6a820c5d497e816b69d7e`, Node >=24.9.0. Declare host packages as peers; never bundle a second DSH runtime or edit a user's profile during development. Reuse cached dependencies where compatible. Test with synthetic sessions and disposable profiles, never real user session homes or model credentials.
+Support exactly `@deepseek-ai/*` SDK/runtime `0.2.2-rc.1` and `0.2.2-rc.5`, with primary development pinned to rc.5, upstream revision `2e39e70496aa02986ca6a820c5d497e816b69d7e`, Node >=24.9.0. Declare host packages as peers; never bundle a second DSH runtime or edit a user's profile during development. Reuse cached dependencies where compatible. Test with synthetic sessions and disposable profiles, never real user session homes or model credentials.
 
 ## Boundaries
 
@@ -41,7 +41,7 @@ Preview creates an opaque, expiring owner-bound ticket containing the validated 
 
 ## UI direction
 
-Use DSH's native slots, controls, theme variables, typography, locale and overlay behavior. Share shows selected session and file/link choice, redacted scan findings, busy state, generated link/expiry or file download, and retry/copy actions. Import accepts a file or link, shows source/title/message count/fidelity warnings and local workspace, and requires an explicit create-new-session action. Disable duplicate submits, expose keyboard focus and accessible status text, and preserve useful input after recoverable failure.
+Use DSH's native slots, controls, theme variables, typography, locale and overlay behavior. The main Task handoff panel clearly separates Export task and Import task with tabs, uses compact operation/preview columns on desktop, and collapses to one column in narrow windows. Export selects a source from the native session catalog metadata; only the selected session body is read. The header Share action remains a shortcut. Rc.1 uses a themed workspace select when the newer official factory is unavailable. Share shows selected session and file/link choice, redacted scan findings, busy state, generated link/expiry or file download, and retry/copy actions. Import accepts a file or link, shows source/title/message count/fidelity warnings and local workspace, and requires an explicit create-new-session action. Disable duplicate submits, expose keyboard focus and accessible status text, and preserve useful input after recoverable failure.
 
 ## Verification and delivery
 

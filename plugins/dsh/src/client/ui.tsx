@@ -1,6 +1,7 @@
 /** Native DSH controls, shared by the installed slot entries and focused interaction tests. */
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
-import { Button, Input, Modal, IconUploadOutlineRegular, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
+import { Button, Input, Modal, SegmentedTabs, IconShareOutlineRegular, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
+import { handoffStyles } from './styles.ts'
 import { HandoffApiError, readUpload, saveDownload, type ApiCall } from './api.ts'
 import { warningText, type Translate, type CopyKey } from './locales.ts'
 import type { DownloadResult, HandoffError, ImportMode, ImportPreview, ImportResult, ImportSource, SessionSummary, ShareFormat, ShareResult, WorkspaceChoice } from '../types.ts'
@@ -51,7 +52,7 @@ function errorText(error: HandoffError, t: Translate): string {
 }
 function ErrorBox({ error, t, openSession, busy }: { error?: HandoffError; t: Translate; openSession?: (id: string) => void; busy?: boolean }) {
   if (!error) return null
-  return <div role="alert" style={{ ...column, gap: 8, color: 'var(--dsw-alias-state-error-primary)' }}>
+  return <div role="alert" className="handoff-alert" style={{ ...column, gap: 8 }}>
     <p style={{ margin: 0 }}>{errorText(error, t)}</p>
     {error.recoverySessionId && openSession && <>
       <p style={identity}>{error.recoverySessionId}</p>
@@ -61,10 +62,10 @@ function ErrorBox({ error, t, openSession, busy }: { error?: HandoffError; t: Tr
 }
 function Warnings({ warnings, t }: { warnings: string[]; t: Translate }) {
   if (!warnings.length) return null
-  return <div style={{ ...column, gap: 4 }}><strong>{t('warnings')}</strong><ul style={{ margin: 0, paddingInlineStart: 20, ...muted }}>{warnings.map((text, at) => <li key={at}>{warningText(text, t)}</li>)}</ul></div>
+  return <div className="handoff-warning"><strong>{t('warnings')}</strong><ul>{warnings.map((text, at) => <li key={at}>{warningText(text, t)}</li>)}</ul></div>
 }
 function Status({ phase, notice, t }: { phase: CopyKey | null; notice?: string; t: Translate }) {
-  return <div role="status" aria-live="polite" style={muted}>
+  return <div role="status" aria-live="polite" className="handoff-status">
     {phase ? <><progress aria-label={t(phase)} style={{ width: '100%' }} /><p style={{ margin: '4px 0 0' }}>{t(phase)}</p></> : notice ?? ''}
   </div>
 }
@@ -77,13 +78,13 @@ export interface ShareDialogProps {
   save?: (result: DownloadResult) => void
 }
 /** The captured identity remains fixed while the user changes DSH's current selection. */
-export function ShareDialog({ sessionId, call, t, onClose, copy = writeClipboard, save = saveDownload }: ShareDialogProps) {
+export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = saveDownload }: Omit<ShareDialogProps, 'onClose'>) {
   const task = useTask()
   const [summary, setSummary] = useState<SessionSummary | null>(null)
   const [format, setFormat] = useState<ShareFormat>('zip')
   const [result, setResult] = useState<ShareResult | null>(null)
   const [consent, setConsent] = useState(false)
-  const [notice, setNotice] = useState('')
+  const [notice, setNotice] = useState<CopyKey | null>(null)
   const [copyError, setCopyError] = useState(false)
   const [reload, setReload] = useState(0)
   useEffect(() => {
@@ -94,50 +95,65 @@ export function ShareDialog({ sessionId, call, t, onClose, copy = writeClipboard
     return task.cancel
   }, [call, sessionId, reload, task.run, task.cancel])
   const busy = task.phase !== null
-  const close = () => { task.cancel(); onClose() }
-  const share = (secretTicket?: string) => void task.run('preparing', async signal => {
-    setNotice(''); setCopyError(false)
-    const value = await call<ShareResult>({ action: 'share', sessionId, format, ...(secretTicket ? { secretTicket } : {}) }, signal)
-    signal.throwIfAborted(); setResult(value); setConsent(false)
-    setSummary({ sessionId, title: value.title, messageCount: value.messageCount, warnings: value.warnings })
-    if (value.status !== 'blocked') setNotice(t(value.status === 'fallback_zip' ? 'fallback' : 'shareReady'))
-  })
+  const empty = summary?.messageCount === 0
+  const share = (secretTicket?: string) => {
+    if (!summary || empty) return
+    void task.run('preparing', async signal => {
+      setNotice(null); setCopyError(false)
+      const value = await call<ShareResult>({ action: 'share', sessionId, format, ...(secretTicket ? { secretTicket } : {}) }, signal)
+      signal.throwIfAborted(); setResult(value); setConsent(false)
+      setSummary({ sessionId, title: value.title, messageCount: value.messageCount, warnings: value.warnings })
+      if (value.status !== 'blocked') setNotice(value.status === 'fallback_zip' ? 'fallback' : 'shareReady')
+    })
+  }
   const blocked = result?.status === 'blocked'
-  return <Modal open onClose={close} closeLabel={t('close')} title={t('share')} description={t('shareDescription')}
-    className="agent-handoff-share" contentClassName="agent-handoff-share-content"
-    footer={<Button variant="outline" onClick={close}>{t('close')}</Button>}>
-    <div style={{ ...column, font: 'inherit' }}>
-      <style>{'.agent-handoff-share{width:min(560px,100%);max-height:100%}.agent-handoff-share-content{overflow-y:auto;min-height:0}'}</style>
-      {summary ? <div style={{ ...column, gap: 4 }}><strong>{summary.title}</strong><p style={identity}>{t('session')}: {sessionId}</p><p style={muted}>{t('messages')}: {summary.messageCount}</p><Warnings warnings={summary.warnings} t={t} /></div>
-        : !busy && <Button variant="outline" onClick={() => setReload(value => value + 1)}>{t('retry')}</Button>}
-      <label style={field}><span>{t('format')}</span><select aria-label={t('format')} value={format} disabled={busy} style={selectStyle} onChange={event => {
-        setFormat(event.currentTarget.value as ShareFormat); setResult(null); setConsent(false); setNotice(''); setCopyError(false); task.clearError()
+  return <div className="agent-handoff handoff-columns">
+    <section className="handoff-card handoff-stack" aria-label={t('exportSettings')}>
+      <div className="handoff-card-header"><h2>{t('exportSettings')}</h2><p>{t('exportHelp')}</p></div>
+      <label className="handoff-field"><span>{t('format')}</span><select aria-label={t('format')} value={format} disabled={busy} className="handoff-select" onChange={event => {
+        setFormat(event.currentTarget.value as ShareFormat); setResult(null); setConsent(false); setNotice(null); setCopyError(false); task.clearError()
       }}><option value="zip">{t('zip')}</option><option value="link">{t('link')}</option></select></label>
-      <p style={muted}>{t(format === 'zip' ? 'zipNotice' : 'linkNotice')}</p>
-      {!blocked && <Button variant="primary" disabled={busy || summary === null} onClick={() => share()}>{t('createShare')}</Button>}
-      {blocked && <section style={column} aria-label={t('blocked')}>
+      <div className="handoff-notice"><IconShareOutlineRegular size={16} /><p>{t(format === 'zip' ? 'zipNotice' : 'linkNotice')}</p></div>
+      {empty && <div className="handoff-stack"><p className="handoff-caption">{t('emptyTask')}</p><div className="handoff-actions"><Button size="sm" variant="outline" disabled={busy} onClick={() => setReload(value => value + 1)}>{t('refreshSummary')}</Button></div></div>}
+      {!blocked && <div className="handoff-actions"><Button variant="primary" disabled={busy || summary === null || empty} onClick={() => share()}>{t('createShare')}</Button></div>}
+      {blocked && <section className="handoff-warning handoff-stack" aria-label={t('blocked')}>
         <strong>{t('blocked')}</strong><p style={muted}>{t('blockedDescription')}</p>
-        {result.findings?.length ? <ul style={{ margin: 0, paddingInlineStart: 20 }}>{result.findings.map((finding, at) => <li key={at} style={{ overflowWrap: 'anywhere' }}><strong>{finding.rule}</strong>{finding.field && <p style={identity}>{t('field')}: {finding.field}</p>}{finding.line !== undefined && <p style={identity}>{t('line')}: {finding.line}</p>}</li>)}</ul> : <p style={muted}>{t('noFindingDetails')}</p>}
-        <Button variant="outline" disabled={busy} onClick={() => share()}>{t('retry')}</Button>
+        {result.findings?.length ? <ul>{result.findings.map((finding, at) => <li key={at} style={{ overflowWrap: 'anywhere' }}><strong>{finding.rule}</strong>{finding.field && <p style={identity}>{t('field')}: {finding.field}</p>}{finding.line !== undefined && <p style={identity}>{t('line')}: {finding.line}</p>}</li>)}</ul> : <p style={muted}>{t('noFindingDetails')}</p>}
         {result.secretTicket && <><label style={{ ...row, alignItems: 'flex-start' }}><input type="checkbox" checked={consent} disabled={busy} onChange={event => setConsent(event.currentTarget.checked)} /><span>{t('allowSecrets')}</span></label>
-          <Button variant="primary" disabled={busy || !consent} onClick={() => { if (consent) share(result.secretTicket) }}>{t('overrideShare')}</Button></>}
+          <div className="handoff-actions"><Button variant="primary" disabled={busy || !consent} onClick={() => { if (consent) share(result.secretTicket) }}>{t('overrideShare')}</Button></div></>}
+        <div className="handoff-actions"><Button size="sm" variant="outline" disabled={busy} onClick={() => share()}>{t('retry')}</Button></div>
       </section>}
-      {result && !blocked && <section style={column}>
-        <Warnings warnings={result.warnings} t={t} />
-        {result.shareUrl && <><label style={field}><span>{t('resultLink')}</span><Input aria-label={t('resultLink')} readOnly value={result.shareUrl} onFocus={event => event.currentTarget.select()} /></label>
-          {result.expiresAt && <p style={muted}>{t('expires')}: {result.expiresAt}</p>}
-          <Button variant="outline" disabled={busy} onClick={() => void task.run('copying', async signal => {
-            const accepted = await copy(result.shareUrl!); signal.throwIfAborted(); setCopyError(!accepted); setNotice(accepted ? t('copied') : '')
-          })}>{t('copyLink')}</Button></>}
-        {result.downloadId && <Button variant="outline" disabled={busy} onClick={() => void task.run('downloading', async signal => {
-          const file = await call<DownloadResult>({ action: 'download', downloadId: result.downloadId! }, signal)
-          signal.throwIfAborted(); save(file); setNotice(t('downloadStarted'))
-        })}>{t('download')}</Button>}
-      </section>}
-      {copyError && <p role="alert" style={muted}>{t('copyFailed')}</p>}
       <ErrorBox error={task.error} t={t} />
-      <Status phase={task.phase} notice={notice} t={t} />
-    </div>
+      {!summary && !busy && <div className="handoff-actions"><Button size="sm" variant="outline" onClick={() => setReload(value => value + 1)}>{t('retry')}</Button></div>}
+      <Status phase={task.phase} notice={notice ? t(notice) : undefined} t={t} />
+    </section>
+    <aside className="handoff-card handoff-context handoff-stack" aria-label={t('taskOverview')}>
+      <div><h2>{t('taskOverview')}</h2>{summary ? <><p className="handoff-task-title">{summary.title}</p><p style={identity}>{t('session')}: {sessionId}</p><p className="handoff-caption">{t('messages')}: {summary.messageCount}</p></> : <p className="handoff-caption">{t('loading')}</p>}</div>
+      {summary && !result && <Warnings warnings={summary.warnings} t={t} />}
+      {result && !blocked && <section className="handoff-result" aria-label={t('resultHeading')}>
+        <hr className="handoff-divider" />
+        <Warnings warnings={result.warnings} t={t} />
+        {result.shareUrl && <><label className="handoff-field"><span>{t('resultLink')}</span><Input className="handoff-input" aria-label={t('resultLink')} readOnly value={result.shareUrl} onFocus={event => event.currentTarget.select()} /></label>
+          {result.expiresAt && <p className="handoff-caption">{t('expires')}: {result.expiresAt}</p>}
+          <div className="handoff-actions"><Button variant="outline" size="sm" disabled={busy} onClick={() => void task.run('copying', async signal => {
+            const accepted = await copy(result.shareUrl!); signal.throwIfAborted(); setCopyError(!accepted); setNotice(accepted ? 'copied' : null)
+          })}>{t('copyLink')}</Button></div></>}
+        {result.downloadId && <div className="handoff-actions"><Button variant="outline" size="sm" disabled={busy} onClick={() => void task.run('downloading', async signal => {
+          const file = await call<DownloadResult>({ action: 'download', downloadId: result.downloadId! }, signal)
+          signal.throwIfAborted(); save(file); setNotice('downloadStarted')
+        })}>{t('download')}</Button></div>}
+      </section>}
+      {copyError && <p role="alert" className="handoff-alert">{t('copyFailed')}</p>}
+    </aside>
+  </div>
+}
+
+/** Header shortcut shares the same safe form as the hub, inside DSH's native overlay. */
+export function ShareDialog({ onClose, ...props }: ShareDialogProps) {
+  return <Modal open onClose={onClose} closeLabel={props.t('close')} title={props.t('share')} description={props.t('shareDescription')}
+    className="agent-handoff-share" contentClassName="agent-handoff-share-content"
+    footer={<Button variant="outline" onClick={onClose}>{props.t('close')}</Button>}>
+    <div className="handoff-dialog"><style>{handoffStyles}</style><ShareForm {...props} /></div>
   </Modal>
 }
 
@@ -161,6 +177,7 @@ export function ImportPanel({ call, t, openSession, renderWorkspacePicker }: Imp
   const [workspaceId, setWorkspaceId] = useState('')
   const [sourceKind, setSourceKind] = useState<ImportSource['kind']>('upload')
   const [file, setFile] = useState<File | null>(null)
+  const [dragging, setDragging] = useState(false)
   const [link, setLink] = useState('')
   const [path, setPath] = useState('')
   const [preview, setPreview] = useState<ImportPreview | null>(null)
@@ -213,43 +230,101 @@ export function ImportPanel({ call, t, openSession, renderWorkspacePicker }: Imp
   }
   const open = (id: string) => void task.run('opening', async signal => { await openSession(id); signal.throwIfAborted() })
   const expired = expiredTicket || (preview !== null && (!Number.isFinite(Date.parse(preview.expiresAt)) || Date.parse(preview.expiresAt) <= Date.now()))
-  return <section aria-label={t('import')} style={{ ...column, padding: '28px 24px', maxWidth: 760, width: '100%', boxSizing: 'border-box', margin: '0 auto', font: 'inherit', color: 'var(--dsw-alias-label-primary)', overflowY: 'auto', maxHeight: '100%' }}>
-    <div><h1 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 600 }}>{t('import')}</h1><p style={muted}>{t('importDescription')}</p></div>
-    <div style={field}><label htmlFor="agent-handoff-workspace">{t('workspace')}</label>
-      {renderWorkspacePicker ? <><Button ref={pickerAnchor} variant="outline" disabled={busy} aria-label={t('workspace')} aria-haspopup="menu" aria-expanded={pickerOpen} onClick={() => setPickerOpen(value => !value)}>{selected?.name ?? t('chooseWorkspace')}</Button>
-        {renderWorkspacePicker({ open: pickerOpen, anchorRef: pickerAnchor, ...(workspaceId ? { selectedId: workspaceId } : {}), onPick: changeWorkspace, onClose: () => setPickerOpen(false) })}</>
-        : <select id="agent-handoff-workspace" aria-label={t('workspace')} style={selectStyle} disabled={busy} value={workspaceId} onChange={event => changeWorkspace(event.currentTarget.value)}><option value="">{t('chooseWorkspace')}</option>{workspaces.map(item => <option key={item.id} value={item.id}>{item.name} — {item.directory}</option>)}</select>}
-      {selected && <p style={identity}>{selected.directory}</p>}
-      {!workspaces.length && !busy && <Button variant="outline" onClick={() => setReload(value => value + 1)}>{t('refreshWorkspaces')}</Button>}
+  return <section className="agent-handoff handoff-columns" aria-label={t('import')}>
+    <style>{handoffStyles}</style>
+    <div className="handoff-card handoff-stack">
+      <div className="handoff-card-header"><h2>{t('importSource')}</h2><p>{t('importHelp')}</p></div>
+      <div className="handoff-fields">
+        <label className="handoff-field"><span>{t('source')}</span><select aria-label={t('source')} className="handoff-select" disabled={busy} value={sourceKind} onChange={event => { setSourceKind(event.currentTarget.value as ImportSource['kind']); resetPreview() }}><option value="upload">{t('file')}</option><option value="link">{t('shareLink')}</option><option value="path" hidden>{t('path')}</option></select></label>
+        <div className="handoff-field"><label className="handoff-label" htmlFor="agent-handoff-workspace">{t('workspace')}</label>
+          {renderWorkspacePicker ? <><Button id="agent-handoff-workspace" ref={pickerAnchor} className="handoff-workspace-button" variant="outline" disabled={busy} aria-label={t('workspace')} aria-haspopup="menu" aria-expanded={pickerOpen} onClick={() => setPickerOpen(value => !value)}>{selected?.name ?? t('chooseWorkspace')}</Button>
+            {renderWorkspacePicker({ open: pickerOpen, anchorRef: pickerAnchor, ...(workspaceId ? { selectedId: workspaceId } : {}), onPick: changeWorkspace, onClose: () => setPickerOpen(false) })}</>
+            : <select id="agent-handoff-workspace" aria-label={t('workspace')} className="handoff-select" disabled={busy} value={workspaceId} onChange={event => changeWorkspace(event.currentTarget.value)}><option value="">{t('chooseWorkspace')}</option>{workspaces.map(item => <option key={item.id} value={item.id}>{item.name} — {item.directory}</option>)}</select>}
+          {selected && <span className="handoff-path" title={selected.directory}>{selected.directory}</span>}
+        </div>
+      </div>
+      {!workspaces.length && !busy && <div className="handoff-stack"><p className="handoff-caption">{t('noWorkspaces')}</p><div className="handoff-actions"><Button size="sm" variant="outline" onClick={() => setReload(value => value + 1)}>{t('refreshWorkspaces')}</Button></div></div>}
+      {sourceKind === 'upload' ? <div className="handoff-upload" data-dragging={dragging} onDragOver={event => { event.preventDefault(); if (!busy) setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={event => { event.preventDefault(); setDragging(false); if (busy) return; const chosen = event.dataTransfer.files[0]; if (chosen) { setFile(chosen); resetPreview() } }}>
+        <IconShareOutlineRegular size={25} />
+        <span className="handoff-file-name">{file?.name ?? t('uploadHint')}</span><p>{t('uploadLimit')}</p>
+        <Button variant="outline" size="sm" disabled={busy} onClick={() => fileInput.current?.click()}>{t('chooseFile')}</Button>
+        <input ref={fileInput} type="file" accept=".zip,application/zip,application/x-zip-compressed" aria-label={t('chooseFile')} disabled={busy} style={{ display: 'none' }} onChange={event => { setFile(event.currentTarget.files?.[0] ?? null); event.currentTarget.value = ''; resetPreview() }} />
+      </div> : sourceKind === 'link' ? <label className="handoff-field"><span>{t('shareLink')}</span><Input className="handoff-input" aria-label={t('shareLink')} value={link} disabled={busy} placeholder="https://…#…" onChange={event => { setLink(event.currentTarget.value); resetPreview() }} /></label>
+        : <label className="handoff-field"><span>{t('hostPath')}</span><Input className="handoff-input" aria-label={t('hostPath')} value={path} disabled={busy} onChange={event => { setPath(event.currentTarget.value); resetPreview() }} /><span className="handoff-caption">{t('hostPathNotice')}</span></label>}
+      <details className="handoff-advanced"><summary>{t('advanced')}</summary><div className="handoff-actions"><Button size="sm" disabled={busy} onClick={() => { setSourceKind('path'); resetPreview() }}>{t('useHostPath')}</Button></div></details>
+      {!result && <div className="handoff-actions"><Button variant="primary" disabled={busy || !selected || !sourceReady} onClick={loadPreview}>{t('preview')}</Button></div>}
+      <ErrorBox error={recoverySessionId ? { ...(task.error ?? { code: 'import/recovery', message: recoveryMessage }), recoverySessionId } : task.error} t={t} openSession={open} busy={busy} />
+      <Status phase={task.phase} notice={result ? t(result.status === 'duplicate' ? 'duplicate' : 'imported') : undefined} t={t} />
     </div>
-    <label style={field}><span>{t('source')}</span><select aria-label={t('source')} style={selectStyle} disabled={busy} value={sourceKind} onChange={event => { setSourceKind(event.currentTarget.value as ImportSource['kind']); resetPreview() }}><option value="upload">{t('file')}</option><option value="link">{t('shareLink')}</option><option value="path">{t('path')}</option></select></label>
-    {sourceKind === 'upload' ? <div style={field}><span>{t('file')}</span><div style={row}><Button variant="outline" disabled={busy} onClick={() => fileInput.current?.click()}>{t('chooseFile')}</Button><span style={muted}>{file?.name ?? t('noFile')}</span><input ref={fileInput} type="file" accept=".zip,application/zip,application/x-zip-compressed" aria-label={t('chooseFile')} disabled={busy} style={{ display: 'none' }} onChange={event => { setFile(event.currentTarget.files?.[0] ?? null); event.currentTarget.value = ''; resetPreview() }} /></div></div>
-      : sourceKind === 'link' ? <label style={field}><span>{t('shareLink')}</span><Input aria-label={t('shareLink')} value={link} disabled={busy} placeholder="https://…#…" onChange={event => { setLink(event.currentTarget.value); resetPreview() }} /></label>
-        : <label style={field}><span>{t('hostPath')}</span><Input aria-label={t('hostPath')} value={path} disabled={busy} onChange={event => { setPath(event.currentTarget.value); resetPreview() }} /><span style={muted}>{t('hostPathNotice')}</span></label>}
-    {!result && <Button variant="outline" disabled={busy || !selected || !sourceReady} onClick={loadPreview}>{t('preview')}</Button>}
-    {preview && !result && <section style={{ ...column, borderTop: '0.5px solid var(--dsw-alias-border-l4)', paddingTop: 16 }} aria-label={t('previewTitle')}>
-      <h2 style={{ margin: 0, fontSize: 16 }}>{t('previewTitle')}</h2><strong>{preview.title}</strong>
-      <dl style={{ display: 'grid', gridTemplateColumns: 'max-content minmax(0, 1fr)', gap: '8px 16px', margin: 0 }}>
-        <dt>{t('sourceAgent')}</dt><dd style={{ margin: 0 }}>{({ dsh: 'DSH', codex: 'Codex', claude: 'Claude Code' } as Record<string, string>)[preview.sourceAgent] ?? preview.sourceAgent}</dd>
-        <dt>{t('sourceIdentity')}</dt><dd style={identity}>{preview.sourceSessionId}</dd>
-        <dt>{t('messages')}</dt><dd style={{ margin: 0 }}>{preview.messageCount}</dd>
-        <dt>{t('selectedWorkspace')}</dt><dd style={{ margin: 0, overflowWrap: 'anywhere' }}>{preview.workspace.name} — {preview.workspace.directory}</dd>
-        <dt>{t('checksum')}</dt><dd style={{ margin: 0 }}>{['ok', 'verified'].includes(preview.checksumStatus) ? t('verified') : preview.checksumStatus === 'not_available_v1' ? t('legacyChecksum') : preview.checksumStatus}</dd>
-      </dl>
-      <Warnings warnings={preview.warnings} t={t} />
-      {preview.existingSessionId && <p style={muted}>{t('duplicatePreview')}</p>}
-      <label style={field}><span>{t('importMode')}</span><select aria-label={t('importMode')} style={selectStyle} disabled={busy} value={mode} onChange={event => setMode(event.currentTarget.value as ImportMode)}><option value="">{t('chooseMode')}</option>{preview.modes.map(item => <option value={item} key={item}>{t(item === 'native' ? 'native' : 'conversation')}</option>)}</select></label>
-      <p style={muted}>{t(mode === 'native' ? 'nativeDescription' : 'conversationDescription')}</p>
-      {expired && <p role="alert">{t('expired')}</p>}
-      <Button variant="primary" disabled={busy || !mode || expired || !!recoverySessionId || preview.workspace.id !== workspaceId} onClick={confirm}>{t('confirmation')}</Button>
-    </section>}
-    {result && <section style={column}><strong>{result.title}</strong><p style={identity}>{result.sessionId}</p><Warnings warnings={result.warnings} t={t} /><div style={row}><Button variant="primary" disabled={busy} onClick={() => open(result.sessionId)}>{t('openTask')}</Button><Button variant="outline" disabled={busy} onClick={resetPreview}>{t('importAnother')}</Button></div></section>}
-    <ErrorBox error={recoverySessionId ? { ...(task.error ?? { code: 'import/recovery', message: recoveryMessage }), recoverySessionId } : task.error} t={t} openSession={open} busy={busy} />
-    <Status phase={task.phase} notice={result ? t(result.status === 'duplicate' ? 'duplicate' : 'imported') : undefined} t={t} />
+    <aside className="handoff-card handoff-context handoff-stack" aria-label={t('previewTitle')}>
+      {preview && !result ? <>
+        <div><h2>{t('previewTitle')}</h2><p className="handoff-task-title">{preview.title}</p></div>
+        <dl className="handoff-facts">
+          <div><dt>{t('sourceAgent')}</dt><dd>{({ dsh: 'DSH', codex: 'Codex', claude: 'Claude Code' } as Record<string, string>)[preview.sourceAgent] ?? preview.sourceAgent}</dd></div>
+          <div><dt>{t('sourceIdentity')}</dt><dd>{preview.sourceSessionId}</dd></div>
+          <div><dt>{t('messages')}</dt><dd>{preview.messageCount}</dd></div>
+          <div><dt>{t('selectedWorkspace')}</dt><dd>{preview.workspace.name}<span className="handoff-path" title={preview.workspace.directory}>{preview.workspace.directory}</span></dd></div>
+          <div><dt>{t('checksum')}</dt><dd>{['ok', 'verified'].includes(preview.checksumStatus) ? t('verified') : preview.checksumStatus === 'not_available_v1' ? t('legacyChecksum') : preview.checksumStatus}</dd></div>
+        </dl>
+        <Warnings warnings={preview.warnings} t={t} />
+        {preview.existingSessionId && <p className="handoff-caption">{t('duplicatePreview')}</p>}
+        <label className="handoff-field"><span>{t('importMode')}</span><select aria-label={t('importMode')} className="handoff-select" disabled={busy} value={mode} onChange={event => setMode(event.currentTarget.value as ImportMode)}><option value="">{t('chooseMode')}</option>{preview.modes.map(item => <option value={item} key={item}>{t(item === 'native' ? 'native' : 'conversation')}</option>)}</select></label>
+        <p className="handoff-caption">{t(mode === 'native' ? 'nativeDescription' : 'conversationDescription')}</p>
+        {expired && <p role="alert" className="handoff-alert">{t('expired')}</p>}
+        <div className="handoff-actions"><Button variant="primary" disabled={busy || !mode || expired || !!recoverySessionId || preview.workspace.id !== workspaceId} onClick={confirm}>{t('confirmation')}</Button></div>
+      </> : result ? <section className="handoff-result"><h2>{t('resultHeading')}</h2><strong className="handoff-result-title">{result.title}</strong><p style={identity}>{result.sessionId}</p><Warnings warnings={result.warnings} t={t} /><div className="handoff-actions"><Button variant="primary" disabled={busy} onClick={() => open(result.sessionId)}>{t('openTask')}</Button><Button variant="outline" size="sm" disabled={busy} onClick={resetPreview}>{t('importAnother')}</Button></div></section>
+        : <><h2>{t('previewContext')}</h2><ol className="handoff-steps">{(['stepSource', 'stepPreview', 'stepConfirm'] as const).map((key, index) => <li key={key}><span className="handoff-step-number" aria-hidden>{index + 1}</span><div><strong>{t(key)}</strong><p>{t((`${key}Help`) as CopyKey)}</p></div></li>)}</ol></>}
+    </aside>
   </section>
 }
 
 /** HOC contribution adds a control beside, never instead of, the existing New session action. */
 export function ImportAction({ children, wide, t, onOpen }: { children: ReactNode; wide: boolean; t: Translate; onOpen: () => void }) {
-  return <>{children}<Button size="sm" aria-label={t('import')} title={t('import')} onClick={onOpen} icon={<IconUploadOutlineRegular size={16} />}>{wide ? t('import') : null}</Button></>
+  return <>{children}<Button size="sm" aria-label={t('import')} title={t('import')} onClick={onOpen} icon={<IconShareOutlineRegular size={16} />}>{wide ? t('import') : null}</Button></>
+}
+
+export interface ExportSessionChoice { id: string; title: string; directory?: string }
+export type HubTab = 'export' | 'import'
+export interface HandoffHubProps extends ImportPanelProps {
+  sessions: ExportSessionChoice[]
+  currentSessionId?: string
+  catalogLoading?: boolean
+  refreshSessions?: () => Promise<void>
+  initialTab?: HubTab
+  tab?: HubTab
+  onTabChange?: (tab: HubTab) => void
+}
+/** One native hub makes both transfer directions discoverable without loading every transcript. */
+export function HandoffHub({ sessions, currentSessionId, catalogLoading, refreshSessions, initialTab = 'export', tab: controlledTab, onTabChange, ...props }: HandoffHubProps) {
+  const { t } = props
+  const id = useId()
+  const [localTab, setLocalTab] = useState<HubTab>(initialTab)
+  const tab = controlledTab ?? localTab
+  const [visited, setVisited] = useState({ export: true, import: initialTab === 'import' || controlledTab === 'import' })
+  const [selectedId, setSelectedId] = useState(() => sessions.some(item => item.id === currentSessionId) ? currentSessionId! : '')
+  const task = useTask()
+  useEffect(() => { if (!sessions.some(item => item.id === selectedId)) setSelectedId(sessions.some(item => item.id === currentSessionId) ? currentSessionId! : '') }, [sessions, currentSessionId, selectedId])
+  useEffect(() => { setVisited(value => value[tab] ? value : { ...value, [tab]: true }) }, [tab])
+  const selectTab = (next: HubTab) => { setLocalTab(next); setVisited(value => ({ ...value, [next]: true })); onTabChange?.(next) }
+  const selected = sessions.find(item => item.id === selectedId)
+  return <section className="agent-handoff handoff-hub" aria-label={t('panel')}>
+    <style>{handoffStyles}</style>
+    <header className="handoff-heading"><h1>{t('panel')}</h1><p>{t('hubDescription')}</p></header>
+    <SegmentedTabs<HubTab> className="handoff-tabs" label={t('actions')} value={tab} onChange={selectTab} items={[
+      { value: 'export', label: t('export'), id: `${id}-export`, panelId: `${id}-export-panel` },
+      { value: 'import', label: t('import'), id: `${id}-import`, panelId: `${id}-import-panel` },
+    ]} />
+    <div className="handoff-panel" id={`${id}-export-panel`} role="tabpanel" aria-labelledby={`${id}-export`} hidden={tab !== 'export'}>
+      <div className="handoff-session-picker"><label className="handoff-field"><span>{t('taskToExport')}</span><select className="handoff-select" aria-label={t('taskToExport')} disabled={catalogLoading || !sessions.length} value={selectedId} onChange={event => setSelectedId(event.currentTarget.value)}><option value="" disabled>{t('chooseTask')}</option>{sessions.map(item => <option value={item.id} key={item.id}>{item.title}{item.directory ? ` — ${item.directory}` : ''}</option>)}</select></label>
+        {refreshSessions && <Button size="sm" variant="outline" disabled={task.phase !== null} onClick={() => void task.run('loading', async signal => { await refreshSessions(); signal.throwIfAborted() })}>{t('refreshTasks')}</Button>}
+      </div>
+      {selected ? <ShareForm key={selected.id} sessionId={selected.id} call={props.call} t={t} /> : <div className="handoff-columns">
+        <section className="handoff-card handoff-stack"><div className="handoff-card-header"><h2>{t('exportSettings')}</h2><p>{t('exportHelp')}</p></div><p className="handoff-caption">{t(catalogLoading ? 'loading' : sessions.length ? 'chooseTask' : 'noTasks')}</p></section>
+        <aside className="handoff-card handoff-context handoff-stack"><h2>{t('taskOverview')}</h2><p className="handoff-caption">{t('chooseTask')}</p></aside>
+      </div>}
+      <ErrorBox error={task.error} t={t} />
+      <Status phase={task.phase} t={t} />
+    </div>
+    {visited.import && <div className="handoff-panel" id={`${id}-import-panel`} role="tabpanel" aria-labelledby={`${id}-import`} hidden={tab !== 'import'}><ImportPanel {...props} /></div>}
+  </section>
 }

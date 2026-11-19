@@ -47,6 +47,8 @@ archives:
 checksum:
   name_template: "checksums.txt"
   algorithm: sha256
+  extra_files:
+    - glob: ./plugins/dsh/dist/dsh-agent-handoff-*.tgz
 
 changelog:
   sort: asc
@@ -63,6 +65,8 @@ release:
   draft: false
   prerelease: auto
   mode: append
+  extra_files:
+    - glob: ./plugins/dsh/dist/dsh-agent-handoff-*.tgz
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"

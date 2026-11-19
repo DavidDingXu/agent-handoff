@@ -1,6 +1,7 @@
 /** Data-only protocol shared by the DSH Host and Client. Never import Host SDK code here. */
 export const API_PATH = '/api/agent-handoff'
 export const DSH_VERSION = '0.2.2-rc.5'
+export const SUPPORTED_DSH_VERSIONS = ['0.2.2-rc.1', '0.2.2-rc.5'] as const
 export const MAX_UPLOAD_BYTES = 16 * 1024 * 1024
 
 export interface WorkspaceChoice { id: string; name: string; directory: string }

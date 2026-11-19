@@ -45,6 +45,21 @@ beforeEach(() => {
 })
 
 describe('native share controls', () => {
+  it.each(['en', 'zh'] as const)('does not share an empty task and offers a summary refresh (%s)', async language => {
+    const service = api(request => request.action === 'summary' ? { ...summary, messageCount: 0 } : undefined)
+    const copy = makeTranslator(language)
+    render(<ShareDialog sessionId="session-a" call={service.call} onClose={() => {}} t={copy} />)
+    await screen.findByText('Original session')
+    const button = screen.getByRole('button', { name: copy('createShare') })
+    expect(button).toHaveProperty('disabled', true)
+    fireEvent.click(button)
+    expect(service.calls.some(request => request.action === 'share')).toBe(false)
+    expect(screen.getByText(language === 'zh' ? '此任务还没有消息，请选择其他任务。' : 'This task has no messages yet. Choose another task.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: language === 'zh' ? '刷新任务信息' : 'Refresh task details' }))
+    await waitFor(() => expect(service.calls.filter(request => request.action === 'summary')).toHaveLength(2))
+    expect(service.calls.some(request => request.action === 'share')).toBe(false)
+  })
+
   it('captures the clicked session, blocks duplicate submits, and preserves retry after an error', async () => {
     const operation = deferred<ShareResult>()
     let shares = 0

@@ -7,7 +7,7 @@ agent-handoff 的目标，是让用户在换人、换机器、换编码智能体
 ## 当前安排（2026-11-19）
 
 - 维护现有 Codex 和 Claude Code 交接路径。
-- 交付并验证实验性的 [DSH 原生插件](../plugins/dsh/README.zh-CN.md)，固定支持 DSH 0.2.2-rc.5，包含原生分享／导入界面和新会话安全续聊（[#10](https://github.com/DavidDingXu/agent-handoff/issues/10)）。
+- 交付并验证实验性的 [DSH 原生插件](../plugins/dsh/README.zh-CN.md)，固定支持 DSH 0.2.2-rc.1 / rc.5，包含原生分享／导入界面和新会话安全续聊（[#10](https://github.com/DavidDingXu/agent-handoff/issues/10)）。
 - [OpenCode 接入（#9）](https://github.com/DavidDingXu/agent-handoff/issues/9)、[安装与 provider 诊断（#11）](https://github.com/DavidDingXu/agent-handoff/issues/11)、[更完整的分享前预览（#12）](https://github.com/DavidDingXu/agent-handoff/issues/12) 暂缓，三个 issue 当前按 `not_planned` 关闭，后续调整优先级时可以重新打开。
 
 ## 产品原则

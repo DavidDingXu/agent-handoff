@@ -35,6 +35,7 @@ await cp(resolve(root, '../../third_party_licenses'), resolve(root, 'lib/legal/t
 const manifest = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'))
 await writeFile(resolve(root, 'lib/build-receipt.json'), JSON.stringify({
   name: manifest.name, version: manifest.version, dsh: '0.2.2-rc.5',
+  supportedDsh: manifest.engines.dsh.split(/\s*\|\|\s*/),
   upstream: '2e39e70496aa02986ca6a820c5d497e816b69d7e',
   platformModules,
 }, null, 2) + '\n')

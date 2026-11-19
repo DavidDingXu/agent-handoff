@@ -1,14 +1,16 @@
 // @vitest-environment jsdom
+import React, { type ComponentType } from 'react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/src/client/registry.ts'
+import { SlotRegistry } from './native-registry.ts'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { apply, inject } from '../src/client.tsx'
 import { en, zh, type Translate } from '../src/client/locales.ts'
 const makeTranslator = (language: 'en' | 'zh'): Translate => key => (language === 'zh' ? zh : en)[key]
 
 const roots: Context[] = []
-afterEach(async () => { for (const ctx of roots.splice(0)) await ctx.fiber.dispose() })
+afterEach(async () => { cleanup(); vi.unstubAllGlobals(); for (const ctx of roots.splice(0)) await ctx.fiber.dispose() })
 it('contributes a real header action, import panel and preserved New session HOC with a shared root overlay, then withdraws on unload', async () => {
   const ctx = new Context(); roots.push(ctx)
   await ctx.plugin(SlotRegistry).await()
@@ -47,4 +49,27 @@ it('contributes a real header action, import panel and preserved New session HOC
   expect(ctx.slots.entries('conversation.session.header.utilities')).toHaveLength(0)
   expect(ctx.slots.entries('shell.overlay')).toHaveLength(0)
   expect(ctx.slots.entries('main')).toHaveLength(0)
+})
+
+it('offers a usable workspace selector when an older Host has no workspace picker factory', async () => {
+  const ctx = new Context(); roots.push(ctx); await ctx.plugin(SlotRegistry).await()
+  ctx.slots.register({ name: 'root', children: {
+    'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
+    'shell.overlay': { kind: 'list', scope: 'root' }, main: { kind: 'keyed', scope: 'root' },
+    'sidebar.panellist': { kind: 'list', scope: 'root' },
+  } } as never, () => null)
+  ctx.provide('locale', { register: () => () => {}, bind: () => makeTranslator('en') } as never)
+  ctx.provide('sessions', { refresh: vi.fn(async () => {}), list: createSnapshotStore({ phase: 'ready', byId: { imported: { id: 'imported' } }, ids: [], projectionsBySession: {} }) } as never)
+  ctx.provide('uiWorkspace', { openSession: vi.fn() } as never); ctx.provide('layout', { selectPanel: vi.fn() } as never)
+  vi.stubGlobal('fetch', async () => Response.json({ ok: true, data: [{ id: 'local', name: 'Local project', directory: '/tmp/project' }] }))
+  const fiber = ctx.plugin({ inject: [...inject], apply }); await fiber.await()
+  const entry = ctx.slots.entries('main')[0]!, face = (entry.inject as () => object)()
+  const Panel = entry.component as ComponentType<Record<string, unknown>>, renderFactorySlot = vi.fn(() => null)
+  render(<Panel {...face} useSessions={(select: (value: object) => unknown) => select({ phase: 'ready', byId: {}, ids: [] })} useHubTab={(select: (value: string) => unknown) => select('import')} t={makeTranslator('en')} renderFactorySlot={renderFactorySlot} />)
+  const selector = await screen.findByRole('combobox', { name: 'Workspace' })
+  fireEvent.change(selector, { target: { value: 'local' } })
+  expect(selector).toHaveProperty('value', 'local')
+  expect(renderFactorySlot).not.toHaveBeenCalled()
+  expect(ctx.slots.entries('sidebar.panellist')).toHaveLength(1)
+  expect(ctx.slots.entries('sidebar.session.action')).toHaveLength(0)
 })

@@ -7,7 +7,7 @@
 
 ## 兼容范围
 
-实验性首版固定支持 **DSH 0.2.2-rc.5**、Node **>=24.9.0**。其他 DSH 版本需验证
+实验性首版固定支持 **DSH 0.2.2-rc.1 / rc.5**、Node **>=24.9.0**。其他 DSH 版本需验证
 会话和插件 API 后再开放。随包提供 macOS/Linux x64、arm64 和 Windows x64 传输核心。
 
 DSH → DSH 仅对经过审查的被动事件提供原生恢复。普通 DSH 日志常含系统提示词、
@@ -15,37 +15,44 @@ provider 配置、权限或插件状态，因此需要显式选择**对话与工
 Codex/Claude → DSH 始终使用此模式。不会恢复来源权限、预设、待执行任务、凭据、
 媒体文件或 provider 状态；原始日志仅作为私有审计文件保存，不会执行。
 
-## 构建与安装
+## 安装
 
-目前尚未发布到 npm。先在仓库中构建：
+从 [GitHub Releases](https://github.com/DavidDingXu/agent-handoff/releases) 下载
+`dsh-agent-handoff-0.5.0.tgz` 和 `checksums.txt`，核对文件的 SHA-256 后安装。
+目前尚未发布到 npm，请安装下载的文件，不要直接填写 npm 包名。
+
+桌面版打开**插件 → 添加插件 → 安装第三方插件**，填写安装包的绝对路径，安装后启用。
+rc.1 的 npm CLI 不能管理 Desktop profile。新入口未出现时重启 DSH。
+
+Web profile 使用以下命令（需要 pnpm）：
 
 ```sh
-make cross VERSION=v0.4.6
-cd plugins/dsh
+dsh plugin --profile web add /absolute/path/dsh-agent-handoff-0.5.0.tgz
+```
+
+安装时不要用 `--from-default-profile` 重置已有配置。
+
+### 从源码构建
+
+仓库已包含匹配的 Go 核心，无需 Go 环境：
+
+```sh
+git clone https://github.com/DavidDingXu/agent-handoff.git
+cd agent-handoff/plugins/dsh
 npm ci
-npm run check
 npm run package
 npm run check:package
 ```
 
-将生成的 `dist/dsh-agent-handoff-0.1.0.tgz` 通过绝对路径安装到指定 DSH profile
-（需要 pnpm）：
-
-```sh
-dsh plugin --profile web add /absolute/path/dsh-agent-handoff-0.1.0.tgz
-```
-
-重启 DSH。桌面版先完全退出，再使用该桌面版自带的命令，选择 `--profile desktop`。
-安装时不要用 `--from-default-profile` 重置已有配置。
+按上方步骤安装生成的 `dist/dsh-agent-handoff-0.5.0.tgz`。开发时在打包前运行
+`npm run check` 和 `npm run check:compat`。
 
 ## 使用
 
-- 打开会话，点击标题栏的**分享任务**，选择明文 ZIP 或加密链接。检测到密钥时会阻止
-  分享，必须明确确认后才能继续。上传不可用时，提供可下载的 ZIP 兜底。
-- 点击侧栏的**导入任务**或打开**任务交接**面板。选择 ZIP、加密链接，或 DSH 主机上
-  的绝对文件路径，并选择本地工作区。
-- 预览标题、来源、消息数、完整性检查和提示，选择可用导入方式，点击**确认为新任务
-  导入**，再点击**打开任务**。
+- 打开**任务交接 → 导出任务**，选择会话及明文 ZIP 或加密链接。密钥检测命中后需
+  显式确认；上传失败时提供 ZIP 兜底。会话标题栏的分享入口作为快捷方式保留。
+- 打开**任务交接 → 导入任务**，选择 ZIP、加密链接或高级选项中的主机文件路径，再选择本地工作区。
+- 核对预览与可用导入方式，确认创建新任务后打开。
 
 操作只允许 DSH owner 连接执行。已有任务不会覆盖；重复导入返回之前创建的会话。
 部分失败会返回已创建会话供恢复，不会悄悄重建。预览、密钥确认和下载票据十分钟过期。
@@ -77,4 +84,6 @@ Windows 使用本机绝对路径；非托管运行时必须配置 `stateDir`。T
 `npm test` 覆盖原生控件与插槽、认证路由边界、预览绑定、重复／部分失败恢复、密钥确认、
 子进程限制，以及固定 SDK 的持久化／续聊生命周期，使用合成会话和本地模拟模型，无需
 模型凭据。Go 测试覆盖原有四条方向及 DSH → Codex/Claude，插件测试覆盖另外三条。
-Web 界面和桌面传输合同分别验证；不等于做过 Electron 或实体 Windows 桌面的验收。
+两个 SDK 版本均通过 78 项测试。实际 macOS Desktop rc.1 已验收安装、三种来源导入、
+打开与 ZIP 导出；导出的 ZIP 也在当前 Codex、Claude 客户端通过本地模拟模型完成续聊。
+不代表已验收付费模型或实体 Windows 桌面。详见[完整验证记录](https://github.com/DavidDingXu/agent-handoff/blob/main/plugins/dsh/VERIFICATION.md)。

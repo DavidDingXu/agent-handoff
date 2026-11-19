@@ -1,3 +1,5 @@
+import { createRequire } from 'node:module'
+import { SUPPORTED_DSH_VERSIONS } from '../src/types.ts'
 import { describe, expect, it } from 'vitest'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
@@ -29,14 +31,14 @@ describe('pinned DSH session conversion', () => {
     const original = envelope.events.find(e => e.type === 'user/message')!
     const toolResult = envelope.events.find(e => e.type === 'tool/result')!
     if (toolResult.type !== 'tool/result') throw new Error()
-    session.append([
-      ['turn/start', { turn: 4 }], ['step/start', { turn: 4, step: 1 }],
-      ['user/message', createUserMessage({ source: { kind: 'user' }, content: [{ type: 'text', text: 'Model-only replacement summary' }] }),
-        { surfaceOp: { op: 'replace', startSeq: original.seq, endSeq: original.seq }, sourceEventSeqs: [original.seq] }],
-      ['tool/result', { ...toolResult.data, message: { ...toolResult.data.message, content: [{ type: 'text', text: 'Model-only trimmed tool output' }] } },
-        { surfaceOp: { op: 'replace', startSeq: toolResult.seq, endSeq: toolResult.seq }, sourceEventSeqs: [toolResult.seq] }],
-      ['step/end', { turn: 4, step: 1 }], ['turn/end', { turn: 4, reason: { kind: 'completed' } }],
-    ])
+    session.append('turn/start', { turn: 4 })
+    session.append('step/start', { turn: 4, step: 1 })
+    session.append('user/message', createUserMessage({ source: { kind: 'user' }, content: [{ type: 'text', text: 'Model-only replacement summary' }] }),
+      { surfaceOp: { op: 'replace', startSeq: original.seq, endSeq: original.seq }, sourceEventSeqs: [original.seq] })
+    session.append('tool/result', { ...toolResult.data, message: { ...toolResult.data.message, content: [{ type: 'text', text: 'Model-only trimmed tool output' }] } },
+      { surfaceOp: { op: 'replace', startSeq: toolResult.seq, endSeq: toolResult.seq }, sourceEventSeqs: [toolResult.seq] })
+    session.append('step/end', { turn: 4, step: 1 })
+    session.append('turn/end', { turn: 4, reason: { kind: 'completed' } })
     // Complete SDK fixture includes its constructor-owned seed boundary.
     const snapshot = { session: envelope.header, inheritedEventCount: 0 as never, events: [...session.snapshotEvents()] }
     validateNative(nativeEnvelope(snapshot))
@@ -70,6 +72,8 @@ describe('pinned DSH session conversion', () => {
   })
   it('accepts supported native history through real rc5 storage and Session validators', () => {
     const envelope = native(), events = validateNative(envelope)
+    expect(envelope.runtime_version).toBe(createRequire(import.meta.url)('@deepseek-ai/dsh-session/package.json').version)
+    for (const version of SUPPORTED_DSH_VERSIONS) expect(validateNative({ ...envelope, runtime_version: version })).toEqual(events)
     expect(events).toEqual(envelope.events)
     expect(events).not.toBe(envelope.events)
     expect(Session.create(SessionId('new'), events, freshHeader('new', '/tmp')).deriveMessages().length).toBe(4)

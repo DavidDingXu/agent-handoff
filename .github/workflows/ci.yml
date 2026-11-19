@@ -96,6 +96,7 @@ jobs:
         run: |
           version=$(jq -r .version .codex-plugin/plugin.json)
           test "$(jq -r .metadata.version .claude-plugin/marketplace.json)" = "$version"
+          test "$(jq -r .version plugins/dsh/package.json)" = "$version"
           test "$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)" = "$version"
 
       - name: Rebuild bundled binaries
@@ -152,3 +153,5 @@ jobs:
       - run: npm run check
       - run: npm run package
       - run: npm run check:package
+      - name: Verify DSH rc.1 persistence and continuation
+        run: npm run check:compat

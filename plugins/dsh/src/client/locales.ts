@@ -4,6 +4,7 @@ export const en = {
   panel: 'Task handoff', share: 'Share task', import: 'Import task', close: 'Close', cancel: 'Cancel',
   shareDescription: 'Share this task as a ZIP file or an encrypted link.',
   loading: 'Loading task…', summaryFailed: 'The task could not be loaded.', retry: 'Retry',
+  emptyTask: 'This task has no messages yet. Choose another task.', refreshSummary: 'Refresh task details',
   session: 'Session', messages: 'Messages', title: 'Title', sourceIdentity: 'Source session',
   format: 'Format', zip: 'ZIP file', link: 'Encrypted link', zipNotice: 'ZIP files contain the conversation in plain text. Keep the file private.',
   linkNotice: 'The link includes a private decryption key. Anyone with the complete link can read this task.',
@@ -60,11 +61,19 @@ export const en = {
   warnRecovery: 'A previous import created a task but did not finish. Open that task before importing this handoff again.',
   warnProviders: 'Some upload services were unavailable.',
   warnAttachments: 'Images and attachments may not be preserved by conversation import.',
+  export: 'Export task', hubDescription: 'Take a task to another agent, or bring a received handoff into DSH.', actions: 'Handoff action',
+  taskToExport: 'Task to export', chooseTask: 'Choose a task', refreshTasks: 'Refresh task list', noTasks: 'No tasks are available to export. Open or create a task in DSH, then refresh this list.',
+  exportSettings: 'Export settings', exportHelp: 'Choose a file for direct transfer, or a private link to send.', taskOverview: 'Task overview',
+  importSource: 'Handoff source', importHelp: 'Choose a ZIP or paste a link, then select the local workspace.', previewContext: 'Review before creating a task',
+  stepSource: 'Choose the source', stepSourceHelp: 'Use a ZIP file or the complete private link.', stepPreview: 'Review the handoff', stepPreviewHelp: 'Check the source, task history and import limits.', stepConfirm: 'Create a new task', stepConfirmHelp: 'Existing tasks and workspace files are preserved.',
+  uploadHint: 'Drop a handoff ZIP here, or choose a file.', uploadLimit: 'ZIP files up to 16 MiB', advanced: 'Advanced source', useHostPath: 'Use a file on the DSH host',
+  noWorkspaces: 'Add a workspace in the DSH sidebar, then refresh this list.', resultHeading: 'Ready to continue',
 } as const
 export type CopyKey = keyof typeof en
 export const zh: Record<CopyKey, string> = {
   panel: '任务交接', share: '分享任务', import: '导入任务', close: '关闭', cancel: '取消',
   shareDescription: '将当前任务分享为 ZIP 文件或加密链接。', loading: '正在读取任务…', summaryFailed: '无法读取当前任务。', retry: '重试',
+  emptyTask: '此任务还没有消息，请选择其他任务。', refreshSummary: '刷新任务信息',
   session: '会话', messages: '消息数', title: '标题', sourceIdentity: '来源会话',
   format: '分享方式', zip: 'ZIP 文件', link: '加密链接', zipNotice: 'ZIP 文件包含明文对话，请妥善保管。',
   linkNotice: '链接包含私有解密密钥，获得完整链接的人可以读取此任务。',
@@ -117,6 +126,13 @@ export const zh: Record<CopyKey, string> = {
   warnRecovery: '上次导入已创建任务，但尚未完成。请先打开该任务，再决定是否重试此交接内容。',
   warnProviders: '部分上传服务暂不可用。',
   warnAttachments: '图片和附件可能无法随对话导入保留。',
+  export: '导出任务', hubDescription: '把当前任务带到另一个 Agent，或将收到的交接内容导入 DSH。', actions: '交接操作',
+  taskToExport: '导出的任务', chooseTask: '选择任务', refreshTasks: '刷新任务列表', noTasks: '暂无可导出的任务。请先在 DSH 中打开或创建任务，再刷新列表。',
+  exportSettings: '导出设置', exportHelp: '用文件直接传递，或生成便于发送的私有链接。', taskOverview: '任务概览',
+  importSource: '交接来源', importHelp: '选择 ZIP 或粘贴链接，再选定本地工作区。', previewContext: '确认后再创建任务',
+  stepSource: '选择交接来源', stepSourceHelp: '使用 ZIP 文件或完整的私有分享链接。', stepPreview: '核对交接内容', stepPreviewHelp: '查看来源、任务历史及导入限制。', stepConfirm: '确认创建新任务', stepConfirmHelp: '保留已有任务和工作区文件。',
+  uploadHint: '将交接 ZIP 拖到这里，或选择文件。', uploadLimit: '支持 16 MiB 以内的 ZIP', advanced: '高级来源', useHostPath: '使用 DSH 主机上的文件',
+  noWorkspaces: '请先在 DSH 侧栏添加工作区，再刷新此列表。', resultHeading: '可以继续了',
 }
 export type Translate = (key: CopyKey) => string
 
