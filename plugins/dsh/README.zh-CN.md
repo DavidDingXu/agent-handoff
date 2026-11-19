@@ -10,6 +10,9 @@
 桌面版打开**插件 → 添加插件**，填写 `dsh-agent-handoff`，安装后启用。
 新入口未出现时重启 DSH。[查看 npm 包](https://www.npmjs.com/package/dsh-agent-handoff)。
 
+升级时先卸载旧版第三方插件，再按上述步骤安装并启用新版。若镜像源暂时找不到新版本，
+在安装窗口切换为 npm 官方源。
+
 离线安装可从 [GitHub Releases](https://github.com/DavidDingXu/agent-handoff/releases) 下载
 `dsh-agent-handoff-0.5.1.tgz` 和 `checksums.txt`，核对文件的 SHA-256 后，在同一安装入口
 填写安装包的绝对路径。

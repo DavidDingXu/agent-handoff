@@ -11,6 +11,10 @@ For Desktop, open **Plugins → Add plugin**, enter
 `dsh-agent-handoff`, install and enable it. Restart DSH if the new entry does not
 appear. Package: [dsh-agent-handoff on npm](https://www.npmjs.com/package/dsh-agent-handoff).
 
+To upgrade, uninstall the old third-party plugin, then install and enable the new
+version using the same steps. If a regional mirror cannot find a new release,
+select the official npm registry in the installer.
+
 For offline installation, download `dsh-agent-handoff-0.5.1.tgz` and
 `checksums.txt` from [GitHub Releases](https://github.com/DavidDingXu/agent-handoff/releases).
 Compare the file's SHA-256 with the published checksum, then enter the tarball's

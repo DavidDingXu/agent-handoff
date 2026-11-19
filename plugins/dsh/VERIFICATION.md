@@ -5,6 +5,8 @@
 Validated on 2026-11-19 with Node 24.14.1 and the released DSH rc.5 SDK:
 
 - `npm run check` passed typecheck, **83 tests / 8 files**, and Host/Client builds.
+- The same 83 tests and Host typecheck passed against the released rc.1 SDK,
+  reusing the local npm cache in offline mode.
 - Five new interaction cases cover case-insensitive title/path search, Chinese
   Windows paths, clearing filters, no matches and preserving the selected export
   identity until another task is explicitly chosen.
