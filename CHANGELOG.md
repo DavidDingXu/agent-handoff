@@ -5,6 +5,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Fixed
+
+- Shared-session page titles are HTML-escaped once so special characters render
+  correctly in both the browser title and page heading.
+
+### Changed
+
+- Update the Zstandard decoder and SQLite driver, refresh the bundled binaries,
+  and require Go 1.26 or newer for source builds.
+- Update Wrangler and its development dependencies to resolve known security
+  advisories in the Worker toolchain.
+
 ## [0.4.6] - 2026-10-27
 
 ### Fixed
