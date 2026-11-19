@@ -29,16 +29,13 @@ claude plugin install agent-handoff@agent-handoff
 
 发送方和接收方均安装或更新至 **0.5.0**，然后重启智能体。
 
-### DeepSeek Harness · 实验性支持
+### DeepSeek Harness
 
-支持 **DSH 0.2.2-rc.1 / rc.5**、Node **>=24.9.0**。
+1. 在 DSH 打开**插件 → 添加插件 → 安装第三方插件**。
+2. 填写 `dsh-agent-handoff`，安装后启用。
 
-1. 从 [Releases](https://github.com/DavidDingXu/agent-handoff/releases) 下载 `dsh-agent-handoff-0.5.0.tgz`。
-2. 在 DSH 打开**插件 → 添加插件 → 安装第三方插件**。
-3. 填写下载文件的绝对路径，安装后启用。
-
-目前没有可直接安装的 npm 包名。Web profile 命令与源码构建见
-[DSH 安装指南](plugins/dsh/README.zh-CN.md)。
+[npm 包](https://www.npmjs.com/package/dsh-agent-handoff) ·
+[离线安装、Web profile 与源码构建](plugins/dsh/README.zh-CN.md)。
 
 ## 使用
 

@@ -30,16 +30,13 @@ claude plugin install agent-handoff@agent-handoff
 
 Install or update to **0.5.0** on both sides, then restart the agent.
 
-### DeepSeek Harness · experimental
+### DeepSeek Harness
 
-Supports **DSH 0.2.2-rc.1 / rc.5**, Node **>=24.9.0**.
+1. Open **Plugins → Add plugin → Install third-party plugin** in DSH.
+2. Enter `dsh-agent-handoff`, install and enable it.
 
-1. Download `dsh-agent-handoff-0.5.0.tgz` from [Releases](https://github.com/DavidDingXu/agent-handoff/releases).
-2. In DSH, open **Plugins → Add plugin → Install third-party plugin**.
-3. Enter the downloaded file's absolute path and enable the plugin.
-
-No npm package name is available yet. Web profile commands and source builds:
-[DSH guide](plugins/dsh/README.md).
+[npm package](https://www.npmjs.com/package/dsh-agent-handoff) ·
+[Offline install, Web profiles & source builds](plugins/dsh/README.md).
 
 ## Use
 

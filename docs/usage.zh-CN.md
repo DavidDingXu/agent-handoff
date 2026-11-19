@@ -177,7 +177,7 @@ make build     # bin/agent-handoff
 
 CI 在 Ubuntu/macOS/Windows 上带 `-race` 跑测试。架构：`internal/bundle`（容器格式）、`internal/{codex,claude}`（智能体适配器）、`internal/neutral`（跨智能体转录）、`internal/link`（端到端加密 + 兼容 hosted endpoint 和配置化 Provider）、`internal/safety`（密钥扫描）、`internal/cli`。新增智能体还要实现原生恢复、中立转换、宿主探测和跨智能体测试矩阵，详见 [新增其他智能体](adding-agent.zh-CN.md)。
 
-当前跟进固定版本下的实验性 [DSH 原生插件](../plugins/dsh/README.zh-CN.md) 验证与维护；OpenCode 接入、
+当前跟进固定版本下的 [DSH 原生插件](../plugins/dsh/README.zh-CN.md) 验证与维护；OpenCode 接入、
 安装诊断和更完整的分享前预览暂缓，详见面向用户结果的[路线图](ROADMAP.zh-CN.md)。
 
 欢迎贡献，见 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md)（[English](../CONTRIBUTING.md)）。License：Apache-2.0。

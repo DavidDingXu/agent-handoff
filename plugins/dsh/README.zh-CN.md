@@ -5,32 +5,22 @@
 在 **DeepSeek Harness 原生界面**中，将任务分享为 ZIP 或加密链接；收到的 DSH、Codex
 或 Claude Code 任务可导入为新的 DSH 会话。
 
-## 兼容范围
-
-实验性首版固定支持 **DSH 0.2.2-rc.1 / rc.5**、Node **>=24.9.0**。其他 DSH 版本需验证
-会话和插件 API 后再开放。随包提供 macOS/Linux x64、arm64 和 Windows x64 传输核心。
-涉及 DSH 的交接，两端都需要 agent-handoff 0.5.0 或更新版本。
-
-DSH → DSH 仅对经过审查的被动事件提供原生恢复。普通 DSH 日志常含系统提示词、
-provider 配置、权限或插件状态，因此需要显式选择**对话与工具记录**模式。
-Codex/Claude → DSH 始终使用此模式。不会恢复来源权限、预设、待执行任务、凭据、
-媒体文件或 provider 状态；原始日志仅作为私有审计文件保存，不会执行。
-
 ## 安装
 
-从 [GitHub Releases](https://github.com/DavidDingXu/agent-handoff/releases) 下载
-`dsh-agent-handoff-0.5.0.tgz` 和 `checksums.txt`，核对文件的 SHA-256 后安装。
-目前尚未发布到 npm，请安装下载的文件，不要直接填写 npm 包名。
+桌面版打开**插件 → 添加插件 → 安装第三方插件**，填写 `dsh-agent-handoff`，安装后启用。
+新入口未出现时重启 DSH。[查看 npm 包](https://www.npmjs.com/package/dsh-agent-handoff)。
 
-桌面版打开**插件 → 添加插件 → 安装第三方插件**，填写安装包的绝对路径，安装后启用。
-rc.1 的 npm CLI 不能管理 Desktop profile。新入口未出现时重启 DSH。
+离线安装可从 [GitHub Releases](https://github.com/DavidDingXu/agent-handoff/releases) 下载
+`dsh-agent-handoff-0.5.0.tgz` 和 `checksums.txt`，核对文件的 SHA-256 后，在同一安装入口
+填写安装包的绝对路径。
 
 Web profile 使用以下命令（需要 pnpm）：
 
 ```sh
-dsh plugin --profile web add /absolute/path/dsh-agent-handoff-0.5.0.tgz
+dsh plugin --profile web add dsh-agent-handoff
 ```
 
+Web 命令也接受安装包的绝对路径。rc.1 的 npm CLI 不能管理 Desktop profile。
 安装时不要用 `--from-default-profile` 重置已有配置。
 
 ### 从源码构建
@@ -61,6 +51,17 @@ npm run check:package
 ZIP 上传／下载上限为 16 MiB。预览绑定已验证内容及目标工作区，修改后必须重新预览。
 打开导入任务不会自动发送提示词或执行历史工具。
 
+## 兼容范围
+
+已验证 **DSH 0.2.2-rc.1 / rc.5**、Node **>=24.9.0**。其他 DSH 版本需验证
+会话和插件 API 后再开放。随包提供 macOS/Linux x64、arm64 和 Windows x64 传输核心。
+涉及 DSH 的交接，两端都需要 agent-handoff 0.5.0 或更新版本。
+
+DSH → DSH 仅对经过审查的被动事件提供原生恢复。普通 DSH 日志常含系统提示词、
+provider 配置、权限或插件状态，因此需要显式选择**对话与工具记录**模式。
+Codex/Claude → DSH 始终使用此模式。不会恢复来源权限、预设、待执行任务、凭据、
+媒体文件或 provider 状态；原始日志仅作为私有审计文件保存，不会执行。
+
 ## 宿主配置
 
 托管 profile 自动提供私有状态目录。需要自定义时，在 profile 的
@@ -78,7 +79,7 @@ ZIP 上传／下载上限为 16 MiB。预览绑定已验证内容及目标工作
 ```
 
 Windows 使用本机绝对路径；非托管运行时必须配置 `stateDir`。Token 放在既有 provider
-配置或环境变量中，不写入交接内容。详见仓库的 [provider 文档](../../docs/link-service.zh-CN.md)。
+配置或环境变量中，不写入交接内容。详见仓库的 [provider 文档](https://github.com/DavidDingXu/agent-handoff/blob/main/docs/link-service.zh-CN.md)。
 
 ## 验证
 

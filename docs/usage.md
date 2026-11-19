@@ -188,7 +188,7 @@ paid model requests. `CODEX_BIN` and `CLAUDE_BIN` can select specific executable
 
 CI runs tests with `-race` on Ubuntu/macOS/Windows. Architecture: `internal/bundle` (container format), `internal/{codex,claude}` (agent adapters), `internal/neutral` (cross-agent transcript), `internal/link` (E2E crypto + compatible hosted endpoints and configured providers), `internal/safety` (secret scan), `internal/cli`. Adding another agent also requires native restore, neutral conversion, host detection, and the cross-agent test matrix; see [docs/adding-agent.md](adding-agent.md).
 
-Current follow-up is validating and maintaining the experimental native
+Current follow-up is validating and maintaining the native
 [DSH plugin](../plugins/dsh/README.md) against its pinned runtime. OpenCode support, setup diagnostics, and richer
 pre-share review are deferred. See the outcome-focused [roadmap](../ROADMAP.md).
 

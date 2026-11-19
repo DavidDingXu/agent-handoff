@@ -5,38 +5,26 @@ English | [简体中文](README.zh-CN.md)
 Native **DeepSeek Harness** UI for sharing tasks as ZIP files or encrypted links,
 and importing received DSH, Codex, or Claude Code tasks into a new DSH session.
 
-## Compatibility
-
-Experimental first version: **DSH 0.2.2-rc.1 / rc.5**, Node **>=24.9.0**. Other DSH
-versions are rejected until their session and plugin APIs have been verified.
-Bundled transfer cores cover macOS/Linux x64 and arm64, and Windows x64.
-For handoffs involving DSH, both sides need agent-handoff 0.5.0 or later.
-
-DSH → DSH offers native restoration only for the reviewed passive event set.
-Ordinary DSH logs often contain system prompts, provider configuration, permission
-or plugin state; those require an explicit **Conversation and tool evidence**
-import. Codex/Claude → DSH always uses that mode. Source permissions, presets,
-queued work, credentials, media files and provider state are never restored.
-The original source log is retained privately for audit, not executed.
-
 ## Install
 
-Download `dsh-agent-handoff-0.5.0.tgz` and `checksums.txt` from
-[GitHub Releases](https://github.com/DavidDingXu/agent-handoff/releases).
-Compare the file's SHA-256 with the published checksum before installing.
-The package is not published to npm; use the downloaded file, not an npm name.
-
 For Desktop, open **Plugins → Add plugin → Install third-party plugin**, enter
-the tarball's absolute path, install and enable it. The npm CLI in rc.1 cannot
-manage the Desktop profile. Restart DSH if the new entry does not appear.
+`dsh-agent-handoff`, install and enable it. Restart DSH if the new entry does not
+appear. Package: [dsh-agent-handoff on npm](https://www.npmjs.com/package/dsh-agent-handoff).
+
+For offline installation, download `dsh-agent-handoff-0.5.0.tgz` and
+`checksums.txt` from [GitHub Releases](https://github.com/DavidDingXu/agent-handoff/releases).
+Compare the file's SHA-256 with the published checksum, then enter the tarball's
+absolute path in the same installer.
 
 For a Web profile (pnpm must be available):
 
 ```sh
-dsh plugin --profile web add /absolute/path/dsh-agent-handoff-0.5.0.tgz
+dsh plugin --profile web add dsh-agent-handoff
 ```
 
-Never reset an existing profile with `--from-default-profile` when installing.
+The Web command also accepts an absolute tarball path. The npm CLI in rc.1 cannot
+manage the Desktop profile. Never reset an existing profile with
+`--from-default-profile` when installing.
 
 ### Build from source
 
@@ -71,6 +59,20 @@ ZIP upload/download is limited to 16 MiB. A preview binds the verified content
 and selected workspace; changing either requires another preview. Opening an
 imported task does not send a prompt or run an imported tool.
 
+## Compatibility
+
+Verified with **DSH 0.2.2-rc.1 / rc.5**, Node **>=24.9.0**. Other DSH
+versions are rejected until their session and plugin APIs have been verified.
+Bundled transfer cores cover macOS/Linux x64 and arm64, and Windows x64.
+For handoffs involving DSH, both sides need agent-handoff 0.5.0 or later.
+
+DSH → DSH offers native restoration only for the reviewed passive event set.
+Ordinary DSH logs often contain system prompts, provider configuration, permission
+or plugin state; those require an explicit **Conversation and tool evidence**
+import. Codex/Claude → DSH always uses that mode. Source permissions, presets,
+queued work, credentials, media files and provider state are never restored.
+The original source log is retained privately for audit, not executed.
+
 ## Host configuration
 
 The managed profile supplies the default private state directory. Override the
@@ -89,7 +91,7 @@ plugin's `agent-handoff` row in the profile's `cordis.patch.yml` when needed:
 
 On Windows use an absolute Windows path. An unmanaged runtime must configure
 `stateDir`. Tokens belong in the existing provider configuration/environment,
-never in a handoff. See the repository's [provider documentation](../../docs/link-service.md).
+never in a handoff. See the repository's [provider documentation](https://github.com/DavidDingXu/agent-handoff/blob/main/docs/link-service.md).
 
 ## Verification
 

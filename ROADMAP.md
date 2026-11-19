@@ -8,7 +8,7 @@ fixed feature checklist. It does not promise release dates.
 ## Current focus (2026-11-19)
 
 - Maintain the existing Codex and Claude Code handoff paths.
-- Deliver and validate the experimental [native DSH plugin](plugins/dsh/README.md), pinned to DSH 0.2.2-rc.1 / rc.5, with native share/import UI and safe fresh-session continuation ([#10](https://github.com/DavidDingXu/agent-handoff/issues/10)).
+- Deliver and validate the [native DSH plugin](plugins/dsh/README.md), pinned to DSH 0.2.2-rc.1 / rc.5, with native share/import UI and safe fresh-session continuation ([#10](https://github.com/DavidDingXu/agent-handoff/issues/10)).
 - Defer [OpenCode support (#9)](https://github.com/DavidDingXu/agent-handoff/issues/9), [setup/provider diagnostics (#11)](https://github.com/DavidDingXu/agent-handoff/issues/11), and [richer pre-share preview (#12)](https://github.com/DavidDingXu/agent-handoff/issues/12). These issues are closed as `not_planned` for now and may be reopened when priorities change.
 
 ## Product principles
@@ -46,7 +46,7 @@ Success signals:
   route or an explicit local zip result.
 - A cold-start walkthrough can be completed from the README alone.
 
-## Experimental: DeepSeek Harness integration
+## DeepSeek Harness integration
 
 **Outcome:** enable users to move a live task among the coding agents they
 actually use while preserving each host's native resume experience.
