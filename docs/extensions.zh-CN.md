@@ -32,7 +32,7 @@ agent-handoff 不把“可扩展”等同于“所有东西都加载插件”。
 
 智能体适配器直接读写 Codex、Claude Code 或未来工具的原生状态，承担任务发现、原生恢复、追加写入、备份、身份重写和 verify。当前通过源码适配器贡献，完整流程见 [新增其他智能体](adding-agent.zh-CN.md)。
 
-它是未来唯一值得评估为“运行时插件”的能力，因为不同 Agent 的实现差异确实很大。首个计划适配的是 [OpenCode](https://github.com/anomalyco/opencode)；[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 会在开发者预览期的会话和存储 API 足够稳定、可以安全原生恢复后接入。现在只有 Codex 和 Claude 两个实现，还不足以证明稳定公共 interface。第三个真实适配器加入后再评估：
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 原生插件是 [#10](https://github.com/DavidDingXu/agent-handoff/issues/10) 正在评估的接入方案。这种插件使用 DSH 自身的插件和会话服务，与给 agent-handoff 增加通用运行时插件加载器是两件事。在固定版本的宿主上验证安全原生恢复之前，DSH 支持仍属于研究；OpenCode 适配工作暂缓。现在只有 Codex 和 Claude 两个实现，还不足以证明稳定公共 interface，第三个真实适配器加入后再评估：
 
 - 必须覆盖 macOS、Linux、Windows，不能使用不支持 Windows 的 Go `plugin` 包；
 - 若采用进程外协议，必须版本化并明确读写权限、备份和失败原子性；

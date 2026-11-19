@@ -3,7 +3,13 @@
 agent-handoff exists to make switching people, machines, and coding agents feel
 like continuing the same task, without turning private conversations into a
 cloud account. The roadmap is organized around user outcomes rather than a
-fixed feature checklist. Dates are planning windows, not release promises.
+fixed feature checklist. It does not promise release dates.
+
+## Current focus (2026-11-19)
+
+- Maintain the existing Codex and Claude Code handoff paths.
+- Keep [DeepSeek Harness research (#10)](https://github.com/DavidDingXu/agent-handoff/issues/10) open, including evaluation of a native DSH plugin through the host's official session services. This is an integration option to validate, not implemented support or a delivery commitment.
+- Defer [OpenCode support (#9)](https://github.com/DavidDingXu/agent-handoff/issues/9), [setup/provider diagnostics (#11)](https://github.com/DavidDingXu/agent-handoff/issues/11), and [richer pre-share preview (#12)](https://github.com/DavidDingXu/agent-handoff/issues/12). These issues are closed as `not_planned` for now and may be reopened when priorities change.
 
 ## Product principles
 
@@ -15,7 +21,7 @@ fixed feature checklist. Dates are planning windows, not release promises.
   are introduced only after multiple real integrations prove a stable contract.
 - macOS, Linux, and Windows remain first-class targets.
 
-## Now: make the first handoff dependable (2026 Q3)
+## Maintenance: keep existing handoffs dependable
 
 **Outcome:** enable a new Codex or Claude Code user to install the plugin and
 complete a file or encrypted-link handoff without reading implementation docs.
@@ -31,11 +37,6 @@ Delivered foundation:
 - Simplify the public Worker policy around two operational controls only: blob
   size and expiry cleanup, both managed through deployment configuration.
 
-Remaining work in this phase:
-
-- Add [`doctor`, `config validate`, and provider connectivity checks](https://github.com/DavidDingXu/agent-handoff/issues/11) so setup
-  failures produce an actionable diagnosis instead of a generic upload error.
-
 Success signals:
 
 - Plugin install smoke tests pass for Codex and Claude Code on every release.
@@ -45,22 +46,16 @@ Success signals:
   route or an explicit local zip result.
 - A cold-start walkthrough can be completed from the README alone.
 
-## Next: continue tasks across more agents (2026 Q4)
+## Research: DeepSeek Harness integration
 
 **Outcome:** enable users to move a live task among the coding agents they
 actually use while preserving each host's native resume experience.
 
-Priority integrations:
+Investigate **[DeepSeek Harness (`dsh`)](https://github.com/deepseek-ai/deepseek-harness)** ([#10](https://github.com/DavidDingXu/agent-handoff/issues/10)) against a pinned runtime and recorded fixtures. A native DSH plugin is a candidate for host interaction and session access, while agent-handoff retains its bundle, neutral transcript, encryption, and transfer contracts. Validate read-only inspection/export first and any import in a disposable profile before proposing production support.
 
-1. **[OpenCode](https://github.com/anomalyco/opencode)** ([#9](https://github.com/DavidDingXu/agent-handoff/issues/9)): add native session discovery, export, preview, restore, and
-   verification. Use its supported session/export contracts where possible and
-   keep direct storage access schema-aware and read-only during export.
-2. **[DeepSeek Harness (`dsh`)](https://github.com/deepseek-ai/deepseek-harness)** ([#10](https://github.com/DavidDingXu/agent-handoff/issues/10)): prototype against its append-only session event
-   stream, then promote support after its developer-preview storage and session
-   APIs are stable enough for safe native restore.
-3. Evaluate Gemini CLI, GitHub Copilot CLI, and other agents from real user
-   requests. Model-provider compatibility alone is not sufficient; the host
-   must expose a durable session that can be resumed and verified.
+DSH remains in developer preview. Promotion requires evidence that its session
+and storage APIs support safe native restore; exporting a log alone does not
+prove that it can be resumed on another host.
 
 Every new agent must satisfy the same acceptance contract:
 
@@ -71,27 +66,28 @@ Every new agent must satisfy the same acceptance contract:
   verified by reopening it through the target host.
 - The full N x N matrix runs in CI; three agents mean 9 paths, four mean 16.
 
-The adapter boundary will be extracted only after OpenCode or DeepSeek Harness
-provides the third real implementation. That evidence should shape an adapter
+The adapter boundary will be extracted only after a third real implementation
+proves the common contract. That evidence should shape an adapter
 SDK; a speculative generic interface should not shape the integrations.
 
-## Then: make frequent handoffs faster and clearer (2027 Q1)
+## Unscheduled candidates: make frequent handoffs clearer
 
 **Outcome:** enable teams to use handoffs during normal development without
 uncertainty about what will be shared, how long it will live, or what failed.
 
-Candidate work:
+These candidates have no current delivery schedule:
 
-- [A richer pre-share preview](https://github.com/DavidDingXu/agent-handoff/issues/12) for message count, images, changed-file evidence,
+- Deferred: [a richer pre-share preview (#12)](https://github.com/DavidDingXu/agent-handoff/issues/12) for message count, images, changed-file evidence,
   detected secrets, estimated upload size, route, and expiry.
 - Guided redaction and selective attachment inclusion before the bundle is
   created, while keeping the original task untouched.
 - Structured progress and retry reporting that agents can render as native UI,
   with stable machine-readable error codes for automation.
-- Provider configuration diagnostics and reusable, reviewed recipes for common
+- Deferred: [provider configuration diagnostics (#11)](https://github.com/DavidDingXu/agent-handoff/issues/11) and reusable, reviewed recipes for common
   S3-compatible, enterprise, and regional file services.
-- Compatibility fixtures for historical Codex, Claude Code, OpenCode, and DSH
-  session formats so host upgrades fail in CI before they fail for users.
+- Compatibility fixtures for supported Codex and Claude Code session formats,
+  and for additional hosts only after their support is accepted, so host
+  upgrades fail in CI before they fail for users.
 
 Success signals:
 

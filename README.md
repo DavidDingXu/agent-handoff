@@ -232,8 +232,8 @@ paid model requests. `CODEX_BIN` and `CLAUDE_BIN` can select specific executable
 
 CI runs tests with `-race` on Ubuntu/macOS/Windows. Architecture: `internal/bundle` (container format), `internal/{codex,claude}` (agent adapters), `internal/neutral` (cross-agent transcript), `internal/link` (E2E crypto + compatible hosted endpoints and configured providers), `internal/safety` (secret scan), `internal/cli`. Adding another agent also requires native restore, neutral conversion, host detection, and the cross-agent test matrix; see [docs/adding-agent.md](docs/adding-agent.md).
 
-Planned work includes native OpenCode and DeepSeek Harness support, better
-setup diagnostics, and richer pre-share review. See the outcome-focused
-[roadmap](ROADMAP.md).
+Current follow-up is research into DeepSeek Harness integration, including a
+native DSH plugin as an option. OpenCode support, setup diagnostics, and richer
+pre-share review are deferred. See the outcome-focused [roadmap](ROADMAP.md).
 
 Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) ([中文](docs/CONTRIBUTING.zh-CN.md)). Apache-2.0 licensed.
