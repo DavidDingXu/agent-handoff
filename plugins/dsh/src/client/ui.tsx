@@ -1,6 +1,6 @@
 /** Native DSH controls, shared by the installed slot entries and focused interaction tests. */
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
-import { Button, Input, Modal, SegmentedTabs, IconShareOutlineRegular, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Input, MenuSurface, Modal, SegmentedTabs, IconShareOutlineRegular, IconChevronDownOutlineRegular, IconCloseOutlineRegular, IconCheckOutlineRegular, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import { handoffStyles } from './styles.ts'
 import { HandoffApiError, readUpload, saveDownload, type ApiCall } from './api.ts'
 import { warningText, type Translate, type CopyKey } from './locales.ts'
@@ -175,11 +175,10 @@ export function ImportPanel({ call, t, openSession, renderWorkspacePicker }: Imp
   const task = useTask()
   const [workspaces, setWorkspaces] = useState<WorkspaceChoice[]>([])
   const [workspaceId, setWorkspaceId] = useState('')
-  const [sourceKind, setSourceKind] = useState<ImportSource['kind']>('upload')
+  const [sourceKind, setSourceKind] = useState<'upload' | 'link'>('upload')
   const [file, setFile] = useState<File | null>(null)
   const [dragging, setDragging] = useState(false)
   const [link, setLink] = useState('')
-  const [path, setPath] = useState('')
   const [preview, setPreview] = useState<ImportPreview | null>(null)
   const [mode, setMode] = useState<ImportMode | ''>('')
   const [result, setResult] = useState<ImportResult | null>(null)
@@ -205,11 +204,11 @@ export function ImportPanel({ call, t, openSession, renderWorkspacePicker }: Imp
     // Native picker can add a new registered workspace. Refresh only its choices, retaining the selected id.
     if (!workspaces.some(item => item.id === id)) setReload(value => value + 1)
   }
-  const sourceReady = sourceKind === 'upload' ? file !== null : sourceKind === 'link' ? link.trim() !== '' : path.trim() !== ''
+  const sourceReady = sourceKind === 'upload' ? file !== null : link.trim() !== ''
   const loadPreview = () => void task.run('previewing', async signal => {
     setPreview(null); setMode(''); setResult(null); setExpiredTicket(false)
     const source: ImportSource = sourceKind === 'upload' ? await readUpload(file!, signal)
-      : sourceKind === 'link' ? { kind: 'link', url: link.trim() } : { kind: 'path', path: path.trim() }
+      : { kind: 'link', url: link.trim() }
     const value = await call<ImportPreview>({ action: 'preview', source, workspaceId }, signal)
     signal.throwIfAborted(); setPreview(value)
   })
@@ -235,7 +234,7 @@ export function ImportPanel({ call, t, openSession, renderWorkspacePicker }: Imp
     <div className="handoff-card handoff-stack">
       <div className="handoff-card-header"><h2>{t('importSource')}</h2><p>{t('importHelp')}</p></div>
       <div className="handoff-fields">
-        <label className="handoff-field"><span>{t('source')}</span><select aria-label={t('source')} className="handoff-select" disabled={busy} value={sourceKind} onChange={event => { setSourceKind(event.currentTarget.value as ImportSource['kind']); resetPreview() }}><option value="upload">{t('file')}</option><option value="link">{t('shareLink')}</option><option value="path" hidden>{t('path')}</option></select></label>
+        <label className="handoff-field"><span>{t('source')}</span><select aria-label={t('source')} className="handoff-select" disabled={busy} value={sourceKind} onChange={event => { setSourceKind(event.currentTarget.value === 'link' ? 'link' : 'upload'); resetPreview() }}><option value="upload">{t('file')}</option><option value="link">{t('shareLink')}</option></select></label>
         <div className="handoff-field"><label className="handoff-label" htmlFor="agent-handoff-workspace">{t('workspace')}</label>
           {renderWorkspacePicker ? <><Button id="agent-handoff-workspace" ref={pickerAnchor} className="handoff-workspace-button" variant="outline" disabled={busy} aria-label={t('workspace')} aria-haspopup="menu" aria-expanded={pickerOpen} onClick={() => setPickerOpen(value => !value)}>{selected?.name ?? t('chooseWorkspace')}</Button>
             {renderWorkspacePicker({ open: pickerOpen, anchorRef: pickerAnchor, ...(workspaceId ? { selectedId: workspaceId } : {}), onPick: changeWorkspace, onClose: () => setPickerOpen(false) })}</>
@@ -249,9 +248,7 @@ export function ImportPanel({ call, t, openSession, renderWorkspacePicker }: Imp
         <span className="handoff-file-name">{file?.name ?? t('uploadHint')}</span><p>{t('uploadLimit')}</p>
         <Button variant="outline" size="sm" disabled={busy} onClick={() => fileInput.current?.click()}>{t('chooseFile')}</Button>
         <input ref={fileInput} type="file" accept=".zip,application/zip,application/x-zip-compressed" aria-label={t('chooseFile')} disabled={busy} style={{ display: 'none' }} onChange={event => { setFile(event.currentTarget.files?.[0] ?? null); event.currentTarget.value = ''; resetPreview() }} />
-      </div> : sourceKind === 'link' ? <label className="handoff-field"><span>{t('shareLink')}</span><Input className="handoff-input" aria-label={t('shareLink')} value={link} disabled={busy} placeholder="https://…#…" onChange={event => { setLink(event.currentTarget.value); resetPreview() }} /></label>
-        : <label className="handoff-field"><span>{t('hostPath')}</span><Input className="handoff-input" aria-label={t('hostPath')} value={path} disabled={busy} onChange={event => { setPath(event.currentTarget.value); resetPreview() }} /><span className="handoff-caption">{t('hostPathNotice')}</span></label>}
-      <details className="handoff-advanced"><summary>{t('advanced')}</summary><div className="handoff-actions"><Button size="sm" disabled={busy} onClick={() => { setSourceKind('path'); resetPreview() }}>{t('useHostPath')}</Button></div></details>
+      </div> : <label className="handoff-field"><span>{t('shareLink')}</span><Input className="handoff-input" aria-label={t('shareLink')} value={link} disabled={busy} placeholder="https://…#…" onChange={event => { setLink(event.currentTarget.value); resetPreview() }} /></label>}
       {!result && <div className="handoff-actions"><Button variant="primary" disabled={busy || !selected || !sourceReady} onClick={loadPreview}>{t('preview')}</Button></div>}
       <ErrorBox error={recoverySessionId ? { ...(task.error ?? { code: 'import/recovery', message: recoveryMessage }), recoverySessionId } : task.error} t={t} openSession={open} busy={busy} />
       <Status phase={task.phase} notice={result ? t(result.status === 'duplicate' ? 'duplicate' : 'imported') : undefined} t={t} />
@@ -284,6 +281,69 @@ export function ImportAction({ children, wide, t, onOpen }: { children: ReactNod
 }
 
 export interface ExportSessionChoice { id: string; title: string; directory?: string }
+/** One editable selector: queries never commit a different export identity. */
+function TaskPicker({ sessions, selectedId, onSelect, disabled, t }: { sessions: ExportSessionChoice[]; selectedId: string; onSelect: (id: string) => void; disabled?: boolean; t: Translate }) {
+  const id = useId()
+  const root = useRef<HTMLDivElement>(null)
+  const input = useRef<HTMLInputElement>(null)
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [active, setActive] = useState(0)
+  const selected = sessions.find(item => item.id === selectedId)
+  const query = search.trim().toLowerCase()
+  const matches = sessions.filter(item => `${item.title} ${item.directory ?? ''}`.toLowerCase().includes(query))
+  const expanded = open && !disabled
+  const activeId = expanded && matches[active] ? `${id}-option-${active}` : undefined
+  const selectedLabel = selected ? `${selected.title}${selected.directory ? ` — ${selected.directory}` : ''}` : ''
+  const begin = () => { setSearch(''); setActive(Math.max(0, sessions.findIndex(item => item.id === selectedId))); setOpen(true) }
+  const choose = (item: ExportSessionChoice) => { onSelect(item.id); input.current?.focus(); setOpen(false); setSearch('') }
+  useEffect(() => {
+    if (!expanded) return
+    const dismiss = (event: PointerEvent) => { if (!root.current?.contains(event.target as Node)) setOpen(false) }
+    const blur = () => setOpen(false)
+    document.addEventListener('pointerdown', dismiss)
+    window.addEventListener('blur', blur)
+    return () => { document.removeEventListener('pointerdown', dismiss); window.removeEventListener('blur', blur) }
+  }, [expanded])
+  useEffect(() => { if (activeId) document.getElementById(activeId)?.scrollIntoView?.({ block: 'nearest' }) }, [activeId, search])
+  return <div className="handoff-field">
+    <label className="handoff-label" htmlFor={`${id}-input`}>{t('taskToExport')}</label>
+    <div className="handoff-task-picker" ref={root} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false) }}>
+      <Input ref={input} id={`${id}-input`} className="handoff-input handoff-picker-input" role="combobox" aria-autocomplete="list" aria-expanded={expanded} aria-controls={expanded ? `${id}-list` : undefined} aria-activedescendant={activeId}
+        autoComplete="off" placeholder={t('searchTasksHint')} disabled={disabled} value={expanded ? search : selectedLabel}
+        onFocus={begin} onClick={() => { if (!open) begin() }} onChange={event => { setSearch(event.currentTarget.value); setActive(0); setOpen(true) }}
+        onKeyDown={event => {
+          if (event.nativeEvent.isComposing || event.keyCode === 229) return
+          if (event.key === 'Escape' || event.key === 'Tab') {
+            if (event.key === 'Escape' && expanded) { event.preventDefault(); event.stopPropagation() }
+            setOpen(false)
+          } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault()
+            if (!expanded) begin()
+            else if (matches.length) setActive(value => (value + (event.key === 'ArrowDown' ? 1 : -1) + matches.length) % matches.length)
+          } else if (event.key === 'Enter' && expanded) {
+            event.preventDefault()
+            const item = matches[active]
+            if (item) choose(item)
+          }
+        }} />
+      <div className="handoff-picker-actions">
+        {expanded && search && <Button size="sm" variant="ghost" tabIndex={-1} aria-label={t('clearSearch')} onMouseDown={event => event.preventDefault()} onClick={() => { setSearch(''); setActive(0); input.current?.focus() }} icon={<IconCloseOutlineRegular size={14} />} />}
+        <Button size="sm" variant="ghost" tabIndex={-1} aria-label={t('chooseTask')} disabled={disabled} onMouseDown={event => event.preventDefault()} onClick={() => { if (expanded) setOpen(false); else { input.current?.focus(); begin() } }} icon={<IconChevronDownOutlineRegular size={16} />} />
+      </div>
+      {expanded && <MenuSurface compact className="handoff-picker-menu">
+        {selected && query && !matches.some(item => item.id === selectedId) && <p className="handoff-picker-current">{t('selectedTask')}: {selected.title}</p>}
+        <div role="listbox" id={`${id}-list`} aria-label={t('taskToExport')} className="handoff-picker-results">
+          {matches.map((item, index) => <div role="option" id={`${id}-option-${index}`} key={item.id} aria-selected={item.id === selectedId} tabIndex={-1} className="handoff-picker-option" data-active={index === active} onMouseEnter={() => setActive(index)} onMouseDown={event => event.preventDefault()} onClick={() => choose(item)}>
+            <span className="handoff-picker-copy"><span className="handoff-picker-title">{item.title}</span>{item.directory && <> <span className="handoff-picker-path">{item.directory}</span></>}</span>
+            {item.id === selectedId && <IconCheckOutlineRegular size={16} aria-hidden />}
+          </div>)}
+        </div>
+        <p className="handoff-picker-footer" role="status" aria-live="polite">{matches.length ? `${t('matchingTasks')}: ${matches.length} / ${sessions.length}` : t('noMatchingTasks')}</p>
+      </MenuSurface>}
+    </div>
+  </div>
+}
 export type HubTab = 'export' | 'import'
 export interface HandoffHubProps extends ImportPanelProps {
   sessions: ExportSessionChoice[]
@@ -315,7 +375,7 @@ export function HandoffHub({ sessions, currentSessionId, catalogLoading, refresh
       { value: 'import', label: t('import'), id: `${id}-import`, panelId: `${id}-import-panel` },
     ]} />
     <div className="handoff-panel" id={`${id}-export-panel`} role="tabpanel" aria-labelledby={`${id}-export`} hidden={tab !== 'export'}>
-      <div className="handoff-session-picker"><label className="handoff-field"><span>{t('taskToExport')}</span><select className="handoff-select" aria-label={t('taskToExport')} disabled={catalogLoading || !sessions.length} value={selectedId} onChange={event => setSelectedId(event.currentTarget.value)}><option value="" disabled>{t('chooseTask')}</option>{sessions.map(item => <option value={item.id} key={item.id}>{item.title}{item.directory ? ` — ${item.directory}` : ''}</option>)}</select></label>
+      <div className="handoff-session-picker"><TaskPicker sessions={sessions} selectedId={selectedId} onSelect={setSelectedId} disabled={catalogLoading || !sessions.length} t={t} />
         {refreshSessions && <Button size="sm" variant="outline" disabled={task.phase !== null} onClick={() => void task.run('loading', async signal => { await refreshSessions(); signal.throwIfAborted() })}>{t('refreshTasks')}</Button>}
       </div>
       {selected ? <ShareForm key={selected.id} sessionId={selected.id} call={props.call} t={t} /> : <div className="handoff-columns">

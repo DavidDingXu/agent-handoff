@@ -44,10 +44,17 @@ before adding another source or target agent.
   and tests aligned when a visible behavior changes.
 - Keep macOS, Linux, and Windows support. Do not introduce POSIX-only path,
   shell, permission, quoting, or environment assumptions.
-- Keep English and Simplified Chinese user documentation in sync.
+- Keep English and Simplified Chinese user documentation in sync. Include both
+  languages in public repository, plugin and package descriptions.
+- Keep the main README focused on installation and use. Put exact SDK/Node
+  versions and validation limits in the detailed compatibility documentation.
+- Use clean product screenshots without mouse pointers, click halos, private
+  task history or share links in published documentation.
 - Keep DSH export and import in clearly separated views, using the host's theme
   and native controls with a compact, responsive layout. Verify the actual
   installed interface as well as component tests when changing this flow.
+- Use one searchable dropdown for DSH task selection. Filtering or dismissing
+  its results must not change the export task without an explicit choice.
 - When changing handoff compatibility, cover Codex, Claude and DSH in all nine
   source/destination directions. Distinguish history reopening from a completed
   continuation turn, and record exact client versions and material limits.

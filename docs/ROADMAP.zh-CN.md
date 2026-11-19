@@ -7,7 +7,7 @@ agent-handoff 的目标，是让用户在换人、换机器、换编码智能体
 ## 当前安排（2026-11-19）
 
 - 维护现有 Codex 和 Claude Code 交接路径。
-- 交付并验证实验性的 [DSH 原生插件](../plugins/dsh/README.zh-CN.md)，固定支持 DSH 0.2.2-rc.1 / rc.5，包含原生分享／导入界面和新会话安全续聊（[#10](https://github.com/DavidDingXu/agent-handoff/issues/10)）。
+- 交付并验证 [DSH 原生插件](../plugins/dsh/README.zh-CN.md)，固定支持 DSH 0.2.2-rc.1 / rc.5，包含原生分享／导入界面和新会话安全续聊（[#10](https://github.com/DavidDingXu/agent-handoff/issues/10)）。
 - [OpenCode 接入（#9）](https://github.com/DavidDingXu/agent-handoff/issues/9)、[安装与 provider 诊断（#11）](https://github.com/DavidDingXu/agent-handoff/issues/11)、[更完整的分享前预览（#12）](https://github.com/DavidDingXu/agent-handoff/issues/12) 暂缓，三个 issue 当前按 `not_planned` 关闭，后续调整优先级时可以重新打开。
 
 ## 产品原则
@@ -40,7 +40,7 @@ agent-handoff 的目标，是让用户在换人、换机器、换编码智能体
 - 链接服务不可用时，总能返回其他有效加密路径或明确的本地 zip。
 - 新用户只依赖 README 就能完成一次冷启动交接。
 
-## 实验性接入：DeepSeek Harness
+## DeepSeek Harness 接入
 
 **用户结果：** 用户可以在日常使用的多个编码智能体之间迁移真实任务，并保留目标宿主的
 原生继续体验。

@@ -1,7 +1,7 @@
 {
   "name": "dsh-agent-handoff",
-  "version": "0.5.0",
-  "description": "Share and import coding-agent tasks from the native DeepSeek Harness interface.",
+  "version": "0.5.1",
+  "description": "在 DeepSeek Harness 中分享、导入编码任务，支持 Codex 与 Claude Code。Share and import coding-agent tasks in DeepSeek Harness.",
   "type": "module",
   "license": "Apache-2.0",
   "author": "DavidDingXu",

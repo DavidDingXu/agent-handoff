@@ -5,38 +5,30 @@ English | [简体中文](README.zh-CN.md)
 Native **DeepSeek Harness** UI for sharing tasks as ZIP files or encrypted links,
 and importing received DSH, Codex, or Claude Code tasks into a new DSH session.
 
-## Compatibility
-
-Experimental first version: **DSH 0.2.2-rc.1 / rc.5**, Node **>=24.9.0**. Other DSH
-versions are rejected until their session and plugin APIs have been verified.
-Bundled transfer cores cover macOS/Linux x64 and arm64, and Windows x64.
-For handoffs involving DSH, both sides need agent-handoff 0.5.0 or later.
-
-DSH → DSH offers native restoration only for the reviewed passive event set.
-Ordinary DSH logs often contain system prompts, provider configuration, permission
-or plugin state; those require an explicit **Conversation and tool evidence**
-import. Codex/Claude → DSH always uses that mode. Source permissions, presets,
-queued work, credentials, media files and provider state are never restored.
-The original source log is retained privately for audit, not executed.
-
 ## Install
 
-Download `dsh-agent-handoff-0.5.0.tgz` and `checksums.txt` from
-[GitHub Releases](https://github.com/DavidDingXu/agent-handoff/releases).
-Compare the file's SHA-256 with the published checksum before installing.
-The package is not published to npm; use the downloaded file, not an npm name.
+For Desktop, open **Plugins → Add plugin**, enter
+`dsh-agent-handoff`, install and enable it. Restart DSH if the new entry does not
+appear. Package: [dsh-agent-handoff on npm](https://www.npmjs.com/package/dsh-agent-handoff).
 
-For Desktop, open **Plugins → Add plugin → Install third-party plugin**, enter
-the tarball's absolute path, install and enable it. The npm CLI in rc.1 cannot
-manage the Desktop profile. Restart DSH if the new entry does not appear.
+To upgrade, uninstall the old third-party plugin, then install and enable the new
+version using the same steps. If a regional mirror cannot find a new release,
+select the official npm registry in the installer.
+
+For offline installation, download `dsh-agent-handoff-0.5.1.tgz` and
+`checksums.txt` from [GitHub Releases](https://github.com/DavidDingXu/agent-handoff/releases).
+Compare the file's SHA-256 with the published checksum, then enter the tarball's
+absolute path in the same installer.
 
 For a Web profile (pnpm must be available):
 
 ```sh
-dsh plugin --profile web add /absolute/path/dsh-agent-handoff-0.5.0.tgz
+dsh plugin --profile web add dsh-agent-handoff
 ```
 
-Never reset an existing profile with `--from-default-profile` when installing.
+The Web command also accepts an absolute tarball path. The npm CLI in rc.1 cannot
+manage the Desktop profile. Never reset an existing profile with
+`--from-default-profile` when installing.
 
 ### Build from source
 
@@ -50,16 +42,15 @@ npm run package
 npm run check:package
 ```
 
-Install the generated `dist/dsh-agent-handoff-0.5.0.tgz` as above. For development,
+Install the generated `dist/dsh-agent-handoff-0.5.1.tgz` as above. For development,
 run `npm run check` and `npm run check:compat` before packaging.
 
 ## Use
 
-- Open **Task handoff → Export task**. Choose a session and a plaintext ZIP or
+- Open **Task handoff → Export task**. Search and select by title or workspace path in the task dropdown, then choose a plaintext ZIP or
   encrypted link. Secret findings require explicit acknowledgment; an unavailable
   upload produces a downloadable ZIP. The session-header Share action is a shortcut.
-- Open **Task handoff → Import task**. Choose a ZIP, encrypted link, or advanced
-  host file path, then select a local workspace.
+- Open **Task handoff → Import task**. Choose a ZIP or encrypted link, then select a local workspace.
 - Review the content and available import modes, confirm the new task, then open it.
 
 Only the owner connection can use these actions. Existing tasks are never
@@ -70,6 +61,20 @@ another one. Preview/secret/download tickets expire after ten minutes.
 ZIP upload/download is limited to 16 MiB. A preview binds the verified content
 and selected workspace; changing either requires another preview. Opening an
 imported task does not send a prompt or run an imported tool.
+
+## Compatibility
+
+Verified with **DSH 0.2.2-rc.1 / rc.5**, Node **>=24.9.0**. Other DSH
+versions are rejected until their session and plugin APIs have been verified.
+Bundled transfer cores cover macOS/Linux x64 and arm64, and Windows x64.
+For handoffs involving DSH, both sides need agent-handoff 0.5.0 or later.
+
+DSH → DSH offers native restoration only for the reviewed passive event set.
+Ordinary DSH logs often contain system prompts, provider configuration, permission
+or plugin state; those require an explicit **Conversation and tool evidence**
+import. Codex/Claude → DSH always uses that mode. Source permissions, presets,
+queued work, credentials, media files and provider state are never restored.
+The original source log is retained privately for audit, not executed.
 
 ## Host configuration
 
@@ -89,7 +94,7 @@ plugin's `agent-handoff` row in the profile's `cordis.patch.yml` when needed:
 
 On Windows use an absolute Windows path. An unmanaged runtime must configure
 `stateDir`. Tokens belong in the existing provider configuration/environment,
-never in a handoff. See the repository's [provider documentation](../../docs/link-service.md).
+never in a handoff. See the repository's [provider documentation](https://github.com/DavidDingXu/agent-handoff/blob/main/docs/link-service.md).
 
 ## Verification
 
@@ -98,7 +103,7 @@ binding, duplicate/partial recovery, secret confirmation, subprocess limits and
 the pinned SDK's persistence/resume lifecycle with synthetic sessions and a local
 mock model. The Go tests cover the existing four directions and DSH → Codex/Claude;
 the plugin tests cover the other three. No model credentials are needed.
-Both supported SDK versions pass 78 tests. Actual macOS Desktop rc.1 acceptance
+CI covers both supported SDK versions. The 0.5.0 macOS Desktop rc.1 acceptance
 covers installation, all three source imports, opening and ZIP export; that ZIP
 also completes new turns in current Codex and Claude clients using local model
 fixtures. No paid model or physical Windows Desktop acceptance is claimed.
