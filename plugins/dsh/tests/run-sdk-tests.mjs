@@ -11,7 +11,8 @@ const option = name => { const at = args.indexOf(name); return at < 0 ? undefine
 const sdkRoot = option('--sdk-root')
 if (!sdkRoot) throw new Error('Usage: node tests/run-sdk-tests.mjs --sdk-root /absolute/existing/node_modules [--tools-root /absolute/node_modules] [--keep]')
 const sdk = await realpath(resolve(sdkRoot)), tools = await realpath(resolve(option('--tools-root') ?? join(plugin, 'node_modules')))
-const overlay = await mkdtemp(join(tmpdir(), 'agent-handoff-sdk-test-'))
+// Child cwd and Vite resolve filesystem aliases, including Windows 8.3 temp paths.
+const overlay = await realpath(await mkdtemp(join(tmpdir(), 'agent-handoff-sdk-test-')))
 const serverTests = ['session.test.ts', 'host.test.ts', 'bridge.test.ts', 'runtime.test.ts']
 const clientTests = ['client.test.tsx', 'client-api.test.ts', 'client-registry.test.tsx', 'hub.test.tsx']
 const withClient = args.includes('--client')

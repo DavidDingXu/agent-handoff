@@ -10,6 +10,7 @@ and importing received DSH, Codex, or Claude Code tasks into a new DSH session.
 Experimental first version: **DSH 0.2.2-rc.1 / rc.5**, Node **>=24.9.0**. Other DSH
 versions are rejected until their session and plugin APIs have been verified.
 Bundled transfer cores cover macOS/Linux x64 and arm64, and Windows x64.
+For handoffs involving DSH, both sides need agent-handoff 0.5.0 or later.
 
 DSH → DSH offers native restoration only for the reviewed passive event set.
 Ordinary DSH logs often contain system prompts, provider configuration, permission

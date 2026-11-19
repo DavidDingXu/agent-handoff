@@ -28,7 +28,7 @@ claude plugin marketplace add https://github.com/DavidDingXu/agent-handoff
 claude plugin install agent-handoff@agent-handoff
 ```
 
-Restart the agent. Sender and receiver both need the plugin.
+Install or update to **0.5.0** on both sides, then restart the agent.
 
 ### DeepSeek Harness · experimental
 
