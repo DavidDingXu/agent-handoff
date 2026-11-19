@@ -47,7 +47,7 @@ run `npm run check` and `npm run check:compat` before packaging.
 
 ## Use
 
-- Open **Task handoff → Export task**. Search for a task by title or workspace path, then choose a plaintext ZIP or
+- Open **Task handoff → Export task**. Search and select by title or workspace path in the task dropdown, then choose a plaintext ZIP or
   encrypted link. Secret findings require explicit acknowledgment; an unavailable
   upload produces a downloadable ZIP. The session-header Share action is a shortcut.
 - Open **Task handoff → Import task**. Choose a ZIP or encrypted link, then select a local workspace.

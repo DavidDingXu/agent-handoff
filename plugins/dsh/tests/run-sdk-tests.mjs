@@ -58,7 +58,7 @@ try {
     const typescript = (await import(pathToFileURL(join(tools, 'typescript', 'lib', 'typescript.js')).href)).default
     const nativeEntry = join(overlay, 'node_modules', '@deepseek-ai', 'dsh-client-ui-primitives', 'lib', 'index.js')
     await build({
-      stdin: { contents: `export {Button, Input, Modal, IconShareOutlineRegular, SegmentedTabs, writeClipboard} from ${JSON.stringify(nativeEntry)}`, resolveDir: overlay },
+      stdin: { contents: `export {Button, Input, MenuSurface, Modal, IconShareOutlineRegular, IconChevronDownOutlineRegular, IconCloseOutlineRegular, IconCheckOutlineRegular, SegmentedTabs, writeClipboard} from ${JSON.stringify(nativeEntry)}`, resolveDir: overlay },
       outfile: join(overlay, 'tests', 'native-primitives-runtime.mjs'), bundle: true, format: 'esm', platform: 'browser', treeShaking: true,
       plugins: [{ name: 'native-controls-only', setup(buildContext) {
         buildContext.onLoad({ filter: /dsh-client-ui-primitives[/\\]lib[/\\]index\.js$/ }, async item => {

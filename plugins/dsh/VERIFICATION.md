@@ -4,12 +4,14 @@
 
 Validated on 2026-11-19 with Node 24.14.1 and the released DSH rc.5 SDK:
 
-- `npm run check` passed typecheck, **83 tests / 8 files**, and Host/Client builds.
-- The same 83 tests and Host typecheck passed against the released rc.1 SDK,
+- `npm run check` passed typecheck, **86 tests / 8 files**, and Host/Client builds.
+- The same 86 tests and Host typecheck passed against the released rc.1 SDK,
   reusing the local npm cache in offline mode.
-- Five new interaction cases cover case-insensitive title/path search, Chinese
+- Eight new interaction cases cover case-insensitive title/path search, Chinese
   Windows paths, clearing filters, no matches and preserving the selected export
-  identity until another task is explicitly chosen.
+  identity until another task is explicitly chosen. They also cover the combined
+  editable dropdown, arrow/Enter selection, IME composition, Escape/Tab dismissal
+  and outside-click cancellation. The controls are real version-matched SDK atoms.
 - `make cross VERSION=v0.5.1` built all five platform cores; the package checker
   passed the 42-file package, native Client wrapper and bridge protocol probe.
 - The visible import sources are ZIP upload and encrypted link. The existing
@@ -21,11 +23,14 @@ Validated on 2026-11-19 with Node 24.14.1 and the released DSH rc.5 SDK:
   fresh identities, and opening one showed the synthetic history and idle composer.
 - The installed search matched lowercase title input against the mixed-case task
   title, and a workspace path with surrounding spaces matched all 18 catalog
-  entries. No-match feedback, the clear action and Escape reset were checked.
+  entries. The final package uses one editable dropdown with native input, menu
+  surface and icons. Native acceptance checked no-match feedback, the inline clear
+  action, Escape/Tab cancellation, pointer selection and arrow/Enter selection.
 - Selecting synthetic task A, then searching for B, retained A in the current
-  selection group. The downloaded ZIP's manifest still identified A and its two
-  messages. Explicitly selecting B changed the overview and cleared A's previous
-  download result. No real conversation was exported.
+  selection notice. The final combined picker's downloaded ZIP still identified A
+  and its two messages, and all seven payload checksums passed. Explicitly
+  selecting B changed the overview and cleared A's previous download result.
+  No real conversation was exported.
 - The installed import view offers ZIP and link without the removed advanced
   host-file-path controls. Both acceptance tasks were reversibly archived after
   the checks; existing tasks were not changed.

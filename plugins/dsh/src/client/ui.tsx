@@ -1,6 +1,6 @@
 /** Native DSH controls, shared by the installed slot entries and focused interaction tests. */
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
-import { Button, Input, Modal, SegmentedTabs, IconShareOutlineRegular, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Input, MenuSurface, Modal, SegmentedTabs, IconShareOutlineRegular, IconChevronDownOutlineRegular, IconCloseOutlineRegular, IconCheckOutlineRegular, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import { handoffStyles } from './styles.ts'
 import { HandoffApiError, readUpload, saveDownload, type ApiCall } from './api.ts'
 import { warningText, type Translate, type CopyKey } from './locales.ts'
@@ -281,6 +281,69 @@ export function ImportAction({ children, wide, t, onOpen }: { children: ReactNod
 }
 
 export interface ExportSessionChoice { id: string; title: string; directory?: string }
+/** One editable selector: queries never commit a different export identity. */
+function TaskPicker({ sessions, selectedId, onSelect, disabled, t }: { sessions: ExportSessionChoice[]; selectedId: string; onSelect: (id: string) => void; disabled?: boolean; t: Translate }) {
+  const id = useId()
+  const root = useRef<HTMLDivElement>(null)
+  const input = useRef<HTMLInputElement>(null)
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [active, setActive] = useState(0)
+  const selected = sessions.find(item => item.id === selectedId)
+  const query = search.trim().toLowerCase()
+  const matches = sessions.filter(item => `${item.title} ${item.directory ?? ''}`.toLowerCase().includes(query))
+  const expanded = open && !disabled
+  const activeId = expanded && matches[active] ? `${id}-option-${active}` : undefined
+  const selectedLabel = selected ? `${selected.title}${selected.directory ? ` — ${selected.directory}` : ''}` : ''
+  const begin = () => { setSearch(''); setActive(Math.max(0, sessions.findIndex(item => item.id === selectedId))); setOpen(true) }
+  const choose = (item: ExportSessionChoice) => { onSelect(item.id); input.current?.focus(); setOpen(false); setSearch('') }
+  useEffect(() => {
+    if (!expanded) return
+    const dismiss = (event: PointerEvent) => { if (!root.current?.contains(event.target as Node)) setOpen(false) }
+    const blur = () => setOpen(false)
+    document.addEventListener('pointerdown', dismiss)
+    window.addEventListener('blur', blur)
+    return () => { document.removeEventListener('pointerdown', dismiss); window.removeEventListener('blur', blur) }
+  }, [expanded])
+  useEffect(() => { if (activeId) document.getElementById(activeId)?.scrollIntoView?.({ block: 'nearest' }) }, [activeId, search])
+  return <div className="handoff-field">
+    <label className="handoff-label" htmlFor={`${id}-input`}>{t('taskToExport')}</label>
+    <div className="handoff-task-picker" ref={root} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false) }}>
+      <Input ref={input} id={`${id}-input`} className="handoff-input handoff-picker-input" role="combobox" aria-autocomplete="list" aria-expanded={expanded} aria-controls={expanded ? `${id}-list` : undefined} aria-activedescendant={activeId}
+        autoComplete="off" placeholder={t('searchTasksHint')} disabled={disabled} value={expanded ? search : selectedLabel}
+        onFocus={begin} onClick={() => { if (!open) begin() }} onChange={event => { setSearch(event.currentTarget.value); setActive(0); setOpen(true) }}
+        onKeyDown={event => {
+          if (event.nativeEvent.isComposing || event.keyCode === 229) return
+          if (event.key === 'Escape' || event.key === 'Tab') {
+            if (event.key === 'Escape' && expanded) { event.preventDefault(); event.stopPropagation() }
+            setOpen(false)
+          } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault()
+            if (!expanded) begin()
+            else if (matches.length) setActive(value => (value + (event.key === 'ArrowDown' ? 1 : -1) + matches.length) % matches.length)
+          } else if (event.key === 'Enter' && expanded) {
+            event.preventDefault()
+            const item = matches[active]
+            if (item) choose(item)
+          }
+        }} />
+      <div className="handoff-picker-actions">
+        {expanded && search && <Button size="sm" variant="ghost" tabIndex={-1} aria-label={t('clearSearch')} onMouseDown={event => event.preventDefault()} onClick={() => { setSearch(''); setActive(0); input.current?.focus() }} icon={<IconCloseOutlineRegular size={14} />} />}
+        <Button size="sm" variant="ghost" tabIndex={-1} aria-label={t('chooseTask')} disabled={disabled} onMouseDown={event => event.preventDefault()} onClick={() => { if (expanded) setOpen(false); else { input.current?.focus(); begin() } }} icon={<IconChevronDownOutlineRegular size={16} />} />
+      </div>
+      {expanded && <MenuSurface compact className="handoff-picker-menu">
+        {selected && query && !matches.some(item => item.id === selectedId) && <p className="handoff-picker-current">{t('selectedTask')}: {selected.title}</p>}
+        <div role="listbox" id={`${id}-list`} aria-label={t('taskToExport')} className="handoff-picker-results">
+          {matches.map((item, index) => <div role="option" id={`${id}-option-${index}`} key={item.id} aria-selected={item.id === selectedId} tabIndex={-1} className="handoff-picker-option" data-active={index === active} onMouseEnter={() => setActive(index)} onMouseDown={event => event.preventDefault()} onClick={() => choose(item)}>
+            <span className="handoff-picker-copy"><span className="handoff-picker-title">{item.title}</span>{item.directory && <> <span className="handoff-picker-path">{item.directory}</span></>}</span>
+            {item.id === selectedId && <IconCheckOutlineRegular size={16} aria-hidden />}
+          </div>)}
+        </div>
+        <p className="handoff-picker-footer" role="status" aria-live="polite">{matches.length ? `${t('matchingTasks')}: ${matches.length} / ${sessions.length}` : t('noMatchingTasks')}</p>
+      </MenuSurface>}
+    </div>
+  </div>
+}
 export type HubTab = 'export' | 'import'
 export interface HandoffHubProps extends ImportPanelProps {
   sessions: ExportSessionChoice[]
@@ -299,17 +362,11 @@ export function HandoffHub({ sessions, currentSessionId, catalogLoading, refresh
   const tab = controlledTab ?? localTab
   const [visited, setVisited] = useState({ export: true, import: initialTab === 'import' || controlledTab === 'import' })
   const [selectedId, setSelectedId] = useState(() => sessions.some(item => item.id === currentSessionId) ? currentSessionId! : '')
-  const [search, setSearch] = useState('')
   const task = useTask()
   useEffect(() => { if (!sessions.some(item => item.id === selectedId)) setSelectedId(sessions.some(item => item.id === currentSessionId) ? currentSessionId! : '') }, [sessions, currentSessionId, selectedId])
   useEffect(() => { setVisited(value => value[tab] ? value : { ...value, [tab]: true }) }, [tab])
   const selectTab = (next: HubTab) => { setLocalTab(next); setVisited(value => ({ ...value, [next]: true })); onTabChange?.(next) }
   const selected = sessions.find(item => item.id === selectedId)
-  const query = search.trim().toLowerCase()
-  const matches = sessions.filter(item => `${item.title} ${item.directory ?? ''}`.toLowerCase().includes(query))
-  // Native selects otherwise display a different option when their value is filtered out.
-  const pinned = selected && !matches.some(item => item.id === selected.id) ? selected : undefined
-  const options = matches.map(item => <option value={item.id} key={item.id}>{item.title}{item.directory ? ` — ${item.directory}` : ''}</option>)
   return <section className="agent-handoff handoff-hub" aria-label={t('panel')}>
     <style>{handoffStyles}</style>
     <header className="handoff-heading"><h1>{t('panel')}</h1><p>{t('hubDescription')}</p></header>
@@ -318,17 +375,7 @@ export function HandoffHub({ sessions, currentSessionId, catalogLoading, refresh
       { value: 'import', label: t('import'), id: `${id}-import`, panelId: `${id}-import-panel` },
     ]} />
     <div className="handoff-panel" id={`${id}-export-panel`} role="tabpanel" aria-labelledby={`${id}-export`} hidden={tab !== 'export'}>
-      <div className="handoff-session-picker"><div className="handoff-field">
-        <label className="handoff-label" htmlFor={`${id}-task`}>{t('taskToExport')}</label>
-        <div className="handoff-task-search"><Input type="search" className="handoff-input" aria-label={t('searchTasks')} placeholder={t('searchTasksHint')} value={search} disabled={catalogLoading || !sessions.length} onChange={event => setSearch(event.currentTarget.value)} onKeyDown={event => { if (event.key === 'Escape') setSearch('') }} />
-          {search && <Button size="sm" variant="outline" onClick={() => setSearch('')}>{t('clearSearch')}</Button>}
-        </div>
-        <select id={`${id}-task`} className="handoff-select" aria-label={t('taskToExport')} disabled={catalogLoading || !sessions.length} value={selectedId} onChange={event => setSelectedId(event.currentTarget.value)}><option value="" disabled>{t('chooseTask')}</option>
-          {pinned && <optgroup label={t('selectedTask')}><option value={pinned.id}>{pinned.title}{pinned.directory ? ` — ${pinned.directory}` : ''}</option></optgroup>}
-          {query ? <optgroup label={t('matchingTasks')}>{options}</optgroup> : options}
-        </select>
-        {query && <p className="handoff-caption" role="status" aria-live="polite">{matches.length ? `${t('matchingTasks')}: ${matches.length} / ${sessions.length}` : t('noMatchingTasks')}{pinned ? ` ${t('selectionKept')}` : ''}</p>}
-      </div>
+      <div className="handoff-session-picker"><TaskPicker sessions={sessions} selectedId={selectedId} onSelect={setSelectedId} disabled={catalogLoading || !sessions.length} t={t} />
         {refreshSessions && <Button size="sm" variant="outline" disabled={task.phase !== null} onClick={() => void task.run('loading', async signal => { await refreshSessions(); signal.throwIfAborted() })}>{t('refreshTasks')}</Button>}
       </div>
       {selected ? <ShareForm key={selected.id} sessionId={selected.id} call={props.call} t={t} /> : <div className="handoff-columns">

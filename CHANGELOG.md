@@ -9,9 +9,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
-- Search the DSH export task list by title or workspace path, with matching
-  counts and a clear action. Filtering preserves the selected export identity
-  until another task is explicitly chosen.
+- One searchable DSH task dropdown with title/path filtering, matching counts,
+  a clear action and keyboard selection. Filtering preserves the selected export
+  identity until another task is explicitly chosen.
 
 ### Changed
 

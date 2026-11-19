@@ -53,6 +53,8 @@ before adding another source or target agent.
 - Keep DSH export and import in clearly separated views, using the host's theme
   and native controls with a compact, responsive layout. Verify the actual
   installed interface as well as component tests when changing this flow.
+- Use one searchable dropdown for DSH task selection. Filtering or dismissing
+  its results must not change the export task without an explicit choice.
 - When changing handoff compatibility, cover Codex, Claude and DSH in all nine
   source/destination directions. Distinguish history reopening from a completed
   continuation turn, and record exact client versions and material limits.
