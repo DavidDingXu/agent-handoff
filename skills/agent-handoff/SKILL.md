@@ -11,6 +11,27 @@ DSH uses the separate native UI package in `plugins/dsh` (DSH 0.2.2-rc.1 / rc.5)
 
 The skill drives the `agent-handoff` CLI bundled in this plugin (`bin/`). Never mention internal implementation details to the user. Do not announce that this skill was loaded or name the CLI; start with the requested choice or final result.
 
+## Interaction and results
+
+Match the user's language. Keep the normal flow short: identify the task, ask
+only for a missing choice, perform the requested action, then give the next step.
+Reuse choices and authorization already given. A local switch does not need a
+share-format question; a requested ZIP or link does not need another format
+question. When task selection is necessary, show recognizable titles and project
+names; keep the IDs needed by the command internal.
+
+Lead results with the task title and what is ready. Show one primary action:
+the downloadable file, complete share link, or copyable continue command. Do not
+dump JSON, repeat task IDs beside a command that already includes them, or list
+timestamps, checksums and plugin-cache paths in a successful result. Keep exact
+working directories and shell quoting in runnable commands; never substitute a
+test directory or invent a shorter path. A displayed project name may be short,
+but its copyable command must remain complete.
+
+For a failure, state what succeeded, whether a new task exists, and the next
+safe action. Preserve usable ZIPs and recovery directories. Do not repeat an
+operation just because the user asks to see or copy its result again.
+
 ## Install for another agent (self-install)
 
 When the user wants agent-handoff installed for an agent that does not have it yet (their other agent, or a teammate's machine), run the official plugin commands directly — no custom scripts:
@@ -49,7 +70,7 @@ the user's informed confirmation before including secrets.
 If no native question tool is available:
 
 - For the share-format choice, ask one concise plain-text question with exactly these two labeled choices and wait for the user: `导出文件（推荐）` — `生成 .zip 文件，通过 IM/邮件发送，永久有效`; `生成链接` — `免配置的端到端加密链接，有效期以结果为准`. Do not choose a share format on the user's behalf, continue before the reply, or imitate a native form with a numbered menu. Accept either label or an unambiguous reply such as `文件` / `zip` / `链接` / `URL`.
-- For secret warnings, import confirmation, or duplicate import confirmation, do not choose on the user's behalf. Ask one concise plain-text confirmation question and wait for an explicit answer; do not imitate a native form with a numbered menu.
+- For secret warnings or an import that still needs authorization, do not choose on the user's behalf. Ask one concise plain-text confirmation question and wait for an explicit answer; do not imitate a native form with a numbered menu. Returning an already imported task does not require another confirmation.
 
 ## Share the current task
 
@@ -61,8 +82,13 @@ current workspace. This exports and imports locally without an upload or source
 model call. Do not ask for a share format. Resolve the exact source identity from
 the host's session context; if unavailable, use `tasks --source <agent>` and ask
 the user to choose. `selection_required` is a choice request, not permission to
-silently choose the latest task. Report the new target identity and returned
-continue command. Only use `--open` when terminal resume was requested; it loads
+silently choose the latest task. On success, say which task is ready in which
+agent, then put the returned continue command in one copyable shell block and
+say to run it in a terminal on this computer, using the returned `target_cwd`
+as the project directory. Preserve any directory change already in the command.
+Do not invent a temporary directory for an ordinary local switch. Creating the
+native task is not proof that the target app is already open. Only use `--open`
+when terminal resume was requested; it loads
 history without submitting a prompt. The target's next model turn still uses
 target quota and includes history as context.
 
@@ -95,7 +121,7 @@ When the user wants to share the current session/task:
 2. Run: `<binary> share --thread current` (add `--format link` for a link; from the current workspace directory; the zip is created there).
 3. Output fields: `path` is the ABSOLUTE path of the generated `.agent-handoff.zip`; `source_cwd` is the ORIGINAL task's working directory on the sender's machine (a metadata field, NOT the zip location — do not confuse them); `message_count`/`image_count` are already counted, do not recount.
 4. If `status` is `blocked`, STOP. Show the secret-scan finding count and rules (e.g. `openai_api_key`) and ask with the current host's question tool: logical question key `proceed_with_secrets` (Codex `id` only), `header: "密钥告警"`, `question: "会话中检测到 N 处疑似密钥，是否仍要分享？"`, options `继续分享 (Recommended)` / `取消`, with descriptions `包含敏感内容生成分享文件` / `不生成分享文件`. Never silently bypass.
-5. On success (zip mode), present a share card in Markdown: title, file path (`path`), size (`size_bytes`), message and image counts. Tell the user to send the file to the receiver (IM, email, etc.), and that the receiver just needs to say "导入 <file>" in Codex or Claude Code.
+5. On success (zip mode), lead with the title and a clickable download for `path` when the host supports local file links. Add the file size and message count in one short line; show image counts only when relevant. Tell the user to send the file, and that the receiver can say "导入 <file>" in Codex or Claude Code.
    - If `image_missing` > 0: mention briefly and calmly that `image_missing` images referenced by the session no longer exist on this machine and were skipped — the conversation text is fully exported. Do NOT call it an error or failure; missing images are expected when re-sharing old/imported sessions whose assets were cleaned up.
 
 ## Share as a link
@@ -126,13 +152,13 @@ When the user asks for a link / URL / 链接 instead of a file:
 When the user provides a `.agent-handoff.zip` file path or a share link URL (or asks to import one):
 
 1. Run: `<binary> preview <file-or-url>` first. For URLs, pass the FULL link including its `#h=…` or `#k=…` fragment. `checksum_status` must be `ok`; if it is not, warn the user and stop.
-2. Present the preview as a clear card: title, source agent (`source_agent`), source cwd, git branch, message count, image count, session time range (`session_start` → `session_end`), the first user message (`first_user_message`), and the last message (`last_message`) so the user can recognize the task.
-3. Ask for confirmation using the current host's question tool, not plain text: logical question key `confirm_import` (Codex `id` only), `header: "导入任务"`, `question: "将「<title>」导入为新任务到当前工作目录？"`, options `导入为新任务 (Recommended)` / `取消`, with descriptions `创建新原生任务并可继续对话` / `不导入`. If the user provided no target directory, default to the current workspace and mention it in the question text. If the source agent differs from the current agent (e.g. claude → codex), mention that the conversation will be converted semantically.
+2. Present a compact preview: title, source agent (`source_agent`), message count and the receiving project. Use short, attributed excerpts from `brief` or the first/last messages to identify the task; quote them as source records, not verified completion claims. Show code files or material import limits before confirmation. Full source paths, branch, image counts and time ranges are details to disclose when relevant or requested, not a long mandatory card. Do not reproduce an entire long message.
+3. If this import is not already authorized, ask once using the current host's question tool: logical question key `confirm_import` (Codex `id` only), `header: "导入任务"`, `question: "将「<title>」导入为新任务到当前工作目录？"`, options `导入为新任务 (Recommended)` / `取消`, with descriptions `创建新原生任务并可继续对话` / `不导入`. If the user provided no target directory, default to the current workspace and mention it in the question text. Follow the plain-text fallback above when the host has no suitable question tool. Explicit code application still needs the user's choice after its preview.
 4. Run: `<binary> import <file-or-url> --cwd <target-dir> --execute`
    - `<target-dir>` defaults to the current workspace directory.
    - Same-agent imports restore native events and content while rewriting identifiers and target paths for the new task; cross-agent imports are converted from the neutral transcript — mention this only if the user asks about fidelity.
-5. If the result `status` is `duplicate`: tell the user this share was already imported (show `existing_title` and import time), then use the current host's question tool with logical question key `allow_duplicate` (Codex `id` only), `header: "重复导入"`, and options `仍要导入一份副本 (Recommended)` / `取消`. Re-run with `--allow-duplicate` only after the first option is selected.
-6. On success, report the new task title (`title`, consistently prefixed with `[Handoff] `) and `thread_id` (or `session_id` for claude targets). For Claude, execute the returned `fallback_command` with its indicated `fallback_shell` (`sh` or PowerShell), or invoke `claude --resume <id>` with the process working directory set to `target_cwd`; `--session-id` alone does not load history. A fresh Codex home initializes its own database on first launch, after which the imported task can appear in the list.
+5. If the result `status` is `duplicate`, say the handoff is already available under `existing_title` and present its returned continue command. Do not create another copy or ask the same import question again. Use `--allow-duplicate` only when the user explicitly asks for an additional copy; ask once if that intent is unclear.
+6. On success, report the new task title (`title`, consistently prefixed with `[Handoff] `) and the returned continue command. Keep the new `thread_id` (or `session_id` for Claude) for verification rather than repeating it as a separate user-facing field. If the user requested opening or continuing the task, use the host's native open capability when available, or execute the returned `fallback_command` with its indicated `fallback_shell` (`sh` or PowerShell); otherwise show the command for the user. `claude --resume <id>` needs the process working directory set to `target_cwd`; `--session-id` alone does not load history. A fresh Codex home initializes its own database on first launch, after which the imported task can appear in the list.
 7. Verify (recommended): `<binary> verify --thread <new-thread-id> --cwd <target-dir>`; report `status: ok` as a storage consistency check, not proof that a native client has resumed the task. Do not promise full cross-agent image/attachment or child-session restoration; those are outside the tested text/tool-history scope.
 
 If the preview includes code, show its base commit and file list before import.

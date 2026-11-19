@@ -11,7 +11,8 @@ not call the source model, upload conversation, or require remaining source-mode
 continuation turn uses the target model's quota; the imported history still occupies its context.
 
 - **DSH:** choose a task, **Switch agent**, and Codex/Claude Code. The new task is created on
-  the machine running DSH; use the displayed directory and command there. A remote browser
+  the machine running DSH. Copy its continue command from the result dialog; closing and
+  reopening that dialog reuses the same task. Its project directory is shown separately. A remote browser
   does not launch an app on its own machine. Same-machine switching uses existing code files.
 - **Claude Code:** update the plugin and run `/handoff codex`. This immediate local command
   uses the exact session ID without starting a Claude turn. It displays the resume command.
