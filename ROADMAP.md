@@ -8,7 +8,7 @@ fixed feature checklist. It does not promise release dates.
 ## Current focus (2026-11-19)
 
 - Maintain the existing Codex and Claude Code handoff paths.
-- Keep [DeepSeek Harness research (#10)](https://github.com/DavidDingXu/agent-handoff/issues/10) open, including evaluation of a native DSH plugin through the host's official session services. This is an integration option to validate, not implemented support or a delivery commitment.
+- Deliver and validate the experimental [native DSH plugin](plugins/dsh/README.md), pinned to DSH 0.2.2-rc.5, with native share/import UI and safe fresh-session continuation ([#10](https://github.com/DavidDingXu/agent-handoff/issues/10)).
 - Defer [OpenCode support (#9)](https://github.com/DavidDingXu/agent-handoff/issues/9), [setup/provider diagnostics (#11)](https://github.com/DavidDingXu/agent-handoff/issues/11), and [richer pre-share preview (#12)](https://github.com/DavidDingXu/agent-handoff/issues/12). These issues are closed as `not_planned` for now and may be reopened when priorities change.
 
 ## Product principles
@@ -46,16 +46,17 @@ Success signals:
   route or an explicit local zip result.
 - A cold-start walkthrough can be completed from the README alone.
 
-## Research: DeepSeek Harness integration
+## Experimental: DeepSeek Harness integration
 
 **Outcome:** enable users to move a live task among the coding agents they
 actually use while preserving each host's native resume experience.
 
-Investigate **[DeepSeek Harness (`dsh`)](https://github.com/deepseek-ai/deepseek-harness)** ([#10](https://github.com/DavidDingXu/agent-handoff/issues/10)) against a pinned runtime and recorded fixtures. A native DSH plugin is a candidate for host interaction and session access, while agent-handoff retains its bundle, neutral transcript, encryption, and transfer contracts. Validate read-only inspection/export first and any import in a disposable profile before proposing production support.
+The [native DSH plugin](plugins/dsh/README.md) owns host interaction, native UI and session services; agent-handoff retains bundle validation, neutral transcripts, encryption and transfer. Verify imports and continuation using synthetic sessions and disposable profiles on the pinned runtime. Broader runtime compatibility is follow-up work.
 
-DSH remains in developer preview. Promotion requires evidence that its session
-and storage APIs support safe native restore; exporting a log alone does not
-prove that it can be resumed on another host.
+DSH remains in developer preview. Native restoration covers reviewed passive
+history only; ordinary logs often need explicit conversation import. Source
+authority and queued work are never restored. A cold restart after continuation
+is part of acceptance; exporting a log alone does not prove resumability.
 
 Every new agent must satisfy the same acceptance contract:
 

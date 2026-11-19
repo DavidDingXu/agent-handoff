@@ -1,0 +1,133 @@
+{
+  "name": "dsh-agent-handoff",
+  "version": "0.1.0",
+  "description": "Share and import coding-agent tasks from the native DeepSeek Harness interface.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "author": "DavidDingXu",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DavidDingXu/agent-handoff.git",
+    "directory": "plugins/dsh"
+  },
+  "main": "./lib/index.js",
+  "types": "./lib/types/index.d.ts",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "lib",
+    "bin",
+    "icon.svg",
+    "locale",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh-CN.md"
+  ],
+  "engines": {
+    "node": ">=24.9.0",
+    "dsh": "0.2.2-rc.5"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm test && npm run build",
+    "package": "node scripts/prepare-core.mjs && npm run build && npm pack --ignore-scripts --pack-destination dist",
+    "check:package": "node scripts/check-package.mjs"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-workspace",
+        "@deepseek-ai/dsh-client-ui-session"
+      ]
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.1.0",
+    "@deepseek-ai/schemastery": "~3.19.0",
+    "@deepseek-ai/dsh-brand": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-llm": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-session": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-session-query": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-session-persistence": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-workspace": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-api-session-controller": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-connection": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-locale": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-store": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-layout": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-sidebar": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-workspace": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-session": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.2-rc.5",
+    "react": "^18.2.0",
+    "@deepseek-ai/dsh-app-boot": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-atomic-write": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-session-format-v3-to-v4": "0.2.2-rc.5"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.1.0",
+    "@deepseek-ai/schemastery": "3.19.0",
+    "@deepseek-ai/dsh-brand": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-llm": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-session": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-session-query": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-session-persistence": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-workspace": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-api-session-controller": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-connection": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-locale": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-store": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-layout": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-sidebar": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-workspace": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-session": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.2-rc.5",
+    "react": "18.3.1",
+    "@deepseek-ai/dsh": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-agent-loop-testkit": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-session-persistence-jsonl": "0.2.2-rc.5",
+    "@testing-library/react": "16.3.0",
+    "@types/node": "22.20.0",
+    "@types/react": "18.3.28",
+    "@types/react-dom": "18.3.7",
+    "react-dom": "18.3.1",
+    "typescript": "6.0.3",
+    "esbuild": "0.28.2",
+    "vitest": "4.1.8",
+    "jsdom": "29.1.1",
+    "@deepseek-ai/dsh-app-boot": "0.2.2-rc.5",
+    "clsx": "2.1.1",
+    "use-sync-external-store": "1.6.0",
+    "zustand": "4.5.7",
+    "immer": "10.1.1",
+    "@deepseek-ai/dsh-atomic-write": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-session-format-v3-to-v4": "0.2.2-rc.5"
+  }
+}

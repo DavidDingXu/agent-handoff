@@ -77,6 +77,13 @@ func cmdShare(args []string) error {
 		ImageData: imageData,
 		Neutral:   neutralFrom(manifest, sessionBytes),
 	}
+	return sharePrepared(writerInput, result, findings, out, format, endpoint, token, config, ttl, printJSON)
+}
+
+// sharePrepared owns the common zip/link transport, including local fallback.
+func sharePrepared(writerInput bundle.WriterInput, result map[string]any, findings []safety.Finding, out, format, endpoint, token, config *string, ttl *int, emit func(any) error) error {
+	manifest := writerInput.Manifest
+	imgs := writerInput.Images
 	zipPath := *out
 	if zipPath == "" {
 		zipPath = bundle.DefaultSharePath(manifest.Title)
@@ -94,7 +101,7 @@ func cmdShare(args []string) error {
 		result["size_bytes"] = st.Size()
 		result["image_count"] = bundle.CountCopied(imgs)
 		result["image_missing"] = bundle.CountMissing(imgs)
-		return printJSON(result)
+		return emit(result)
 
 	case "link":
 		providerConfig, _, err := link.ResolveProviderConfig(*config)
@@ -117,7 +124,7 @@ func cmdShare(args []string) error {
 				ConfiguredProviders: providerConfig,
 			})
 			if relayErr != nil {
-				return writeZipFallback(result, zipPath, writerInput, relayErr.Error())
+				return writeZipFallbackWith(emit, result, zipPath, writerInput, relayErr.Error())
 			}
 			result["status"] = "ok"
 			result["safety"] = map[string]any{"status": safety.Status(findings), "findings": findings}
@@ -129,7 +136,7 @@ func cmdShare(args []string) error {
 				result["provider_warnings"] = res.ProviderErrors
 			}
 			result["note"] = "the encrypted bundle was uploaded by explicitly configured providers; the key and replica addresses live only in the #h= fragment — send the full link"
-			return printJSON(result)
+			return emit(result)
 		}
 
 		var serviceWarning string
@@ -147,10 +154,10 @@ func cmdShare(args []string) error {
 					result["expires_at"] = m.ExpiresAt
 				}
 				result["note"] = "the key lives in the #k= fragment; the server never sees it — send the full link"
-				return printJSON(result)
+				return emit(result)
 			}
 			if explicitEndpoint {
-				return writeZipFallback(result, zipPath, writerInput, uploadErr.Error())
+				return writeZipFallbackWith(emit, result, zipPath, writerInput, uploadErr.Error())
 			}
 			serviceWarning = "project service: " + uploadErr.Error()
 		}
@@ -161,7 +168,7 @@ func cmdShare(args []string) error {
 			if serviceWarning != "" {
 				reason = serviceWarning + "; " + reason
 			}
-			return writeZipFallback(result, zipPath, writerInput, reason)
+			return writeZipFallbackWith(emit, result, zipPath, writerInput, reason)
 		}
 		result["status"] = "ok"
 		result["safety"] = map[string]any{"status": safety.Status(findings), "findings": findings}
@@ -177,7 +184,7 @@ func cmdShare(args []string) error {
 			result["provider_warnings"] = warnings
 		}
 		result["note"] = "the encrypted bundle is mirrored by anonymous providers; the key and replica addresses live only in the #h= fragment — send the full link"
-		return printJSON(result)
+		return emit(result)
 
 	default:
 		return fmt.Errorf("unsupported --format %q (expected zip|link)", *format)
@@ -185,13 +192,17 @@ func cmdShare(args []string) error {
 }
 
 func writeZipFallback(result map[string]any, zipPath string, in bundle.WriterInput, reason string) error {
+	return writeZipFallbackWith(printJSON, result, zipPath, in, reason)
+}
+
+func writeZipFallbackWith(emit func(any) error, result map[string]any, zipPath string, in bundle.WriterInput, reason string) error {
 	if err := bundle.WriteZip(zipPath, in); err != nil {
 		return err
 	}
 	if err := addZipFallback(result, zipPath, reason); err != nil {
 		return err
 	}
-	return printJSON(result)
+	return emit(result)
 }
 
 func addZipFallback(result map[string]any, zipPath, reason string) error {

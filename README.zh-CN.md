@@ -25,6 +25,15 @@ codex plugin add agent-handoff@agent-handoff
 
 重启智能体后直接说**「分享当前任务」**。接收方安装同一个插件后说**「导入 &lt;文件/链接&gt;」**。发送方和接收方都需要安装插件；不需要 Go 环境，也不需要 Cloudflare 账号。
 
+## DeepSeek Harness 插件
+
+实验性的 [DSH 原生插件](plugins/dsh/README.zh-CN.md) 提供会话标题栏的分享入口和
+侧栏导入面板，固定支持 **DSH 0.2.2-rc.5**，作为独立安装包交付，尚未发布到 npm。
+DSH/Codex/Claude 之间可迁移可见文本和工具证据；DSH 原生恢复仅覆盖已审查的被动
+事件，含不支持运行状态的历史需要显式选择对话导入。普通 CLI 仍只发现 Codex/Claude 会话。
+
+![DSH 原生分享界面](documentation/dsh-native-share.jpg)
+
 ## 兼容范围
 
 2026-10-27 已使用 **Codex CLI 0.164.0** 和 **Claude Code 2.1.311** 验证：
@@ -221,7 +230,7 @@ make build     # bin/agent-handoff
 
 CI 在 Ubuntu/macOS/Windows 上带 `-race` 跑测试。架构：`internal/bundle`（容器格式）、`internal/{codex,claude}`（智能体适配器）、`internal/neutral`（跨智能体转录）、`internal/link`（端到端加密 + 兼容 hosted endpoint 和配置化 Provider）、`internal/safety`（密钥扫描）、`internal/cli`。新增智能体还要实现原生恢复、中立转换、宿主探测和跨智能体测试矩阵，详见 [新增其他智能体](docs/adding-agent.zh-CN.md)。
 
-当前保留 DeepSeek Harness 接入研究，包括评估 DSH 原生插件方案；OpenCode 接入、
+当前跟进固定版本下的实验性 [DSH 原生插件](plugins/dsh/README.zh-CN.md) 验证与维护；OpenCode 接入、
 安装诊断和更完整的分享前预览暂缓，详见面向用户结果的[路线图](docs/ROADMAP.zh-CN.md)。
 
 欢迎贡献，见 [CONTRIBUTING.zh-CN.md](docs/CONTRIBUTING.zh-CN.md)（[English](CONTRIBUTING.md)）。License：Apache-2.0。

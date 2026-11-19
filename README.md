@@ -25,6 +25,17 @@ codex plugin add agent-handoff@agent-handoff
 
 Restart the agent, then say **“share the current task”** / **「分享当前任务」**. The receiver installs the same plugin and says **“import &lt;file/link&gt;”** / **「导入 &lt;文件/链接&gt;」**. Both sides need the plugin; no Go toolchain or Cloudflare account is required.
 
+## DeepSeek Harness plugin
+
+The experimental [native DSH plugin](plugins/dsh/README.md) adds a session-header
+Share action and sidebar Import panel. It targets **DSH 0.2.2-rc.5** and ships as
+a separate installable package; it is not published to npm yet. DSH/Codex/Claude
+can exchange visible text and tool evidence. DSH native restoration is limited
+to reviewed passive events; unsupported runtime state requires an explicit
+conversation import. The ordinary CLI still discovers only Codex/Claude sessions.
+
+![DSH native sharing UI](documentation/dsh-native-share.jpg)
+
 ## Compatibility
 
 Verified on 2026-10-27 with **Codex CLI 0.164.0** and **Claude Code 2.1.311**:
@@ -232,8 +243,8 @@ paid model requests. `CODEX_BIN` and `CLAUDE_BIN` can select specific executable
 
 CI runs tests with `-race` on Ubuntu/macOS/Windows. Architecture: `internal/bundle` (container format), `internal/{codex,claude}` (agent adapters), `internal/neutral` (cross-agent transcript), `internal/link` (E2E crypto + compatible hosted endpoints and configured providers), `internal/safety` (secret scan), `internal/cli`. Adding another agent also requires native restore, neutral conversion, host detection, and the cross-agent test matrix; see [docs/adding-agent.md](docs/adding-agent.md).
 
-Current follow-up is research into DeepSeek Harness integration, including a
-native DSH plugin as an option. OpenCode support, setup diagnostics, and richer
+Current follow-up is validating and maintaining the experimental native
+[DSH plugin](plugins/dsh/README.md) against its pinned runtime. OpenCode support, setup diagnostics, and richer
 pre-share review are deferred. See the outcome-focused [roadmap](ROADMAP.md).
 
 Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) ([中文](docs/CONTRIBUTING.zh-CN.md)). Apache-2.0 licensed.

@@ -23,6 +23,14 @@ func cmdPreview(args []string) error {
 		return err
 	}
 	b := loaded.Bundle
+	if b.Manifest.SourceAgent == bundle.AgentDSH {
+		if err := b.VerifyChecksums(); err != nil {
+			return fmt.Errorf("share file integrity check failed: %w", err)
+		}
+		if err := bundle.ValidateDSHBundle(b); err != nil {
+			return err
+		}
+	}
 
 	detail := extractDetail(b)
 	result := map[string]any{
@@ -71,6 +79,24 @@ func cmdPreview(args []string) error {
 
 // extractDetail summarizes either a codex or claude session payload.
 func extractDetail(b *bundle.ReadResult) session.Detail {
+	if b.Manifest.SourceAgent == bundle.AgentDSH {
+		var d session.Detail
+		for _, e := range b.Neutral.Entries {
+			if e.Timestamp != "" {
+				if d.FirstTimestamp == "" {
+					d.FirstTimestamp = e.Timestamp
+				}
+				d.LastTimestamp = e.Timestamp
+			}
+			if e.Kind == "message" {
+				if e.Role == "user" && d.FirstUserMessage == "" {
+					d.FirstUserMessage = e.Text
+				}
+				d.LastMessage = e.Text
+			}
+		}
+		return d
+	}
 	if b.Manifest.SourceAgent == bundle.AgentClaude {
 		return claudeDetail(b.Session)
 	}

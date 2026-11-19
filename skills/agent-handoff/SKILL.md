@@ -7,6 +7,8 @@ description: Share the current task as a portable file or encrypted link, or imp
 
 Share a coding-agent task with someone else, or receive a shared task and continue it as a new native task. Same-agent handoff preserves native event structure and content with a fresh task identity; cross-agent handoff (Codex ↔ Claude Code) preserves the full visible conversation and tool evidence via a neutral format.
 
+DSH uses the separate native UI package in `plugins/dsh` (DSH 0.2.2-rc.5); this skill does not read DSH profiles. A received DSH bundle can be imported into Codex/Claude through the same verified neutral import flow. Never pass `--source dsh` or `--target dsh` to the local CLI adapters.
+
 The skill drives the `agent-handoff` CLI bundled in this plugin (`bin/`). Never mention internal implementation details to the user. Do not announce that this skill was loaded or name the CLI; start with the requested choice or final result.
 
 ## Install for another agent (self-install)

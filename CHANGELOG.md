@@ -5,6 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- Experimental DSH 0.2.2-rc.5 native plugin with bilingual share/import UI,
+  preview confirmation, workspace selection and append-only session recovery.
+- Versioned Go bridge for DSH bundle sharing and verified reading, plus
+  DSH/Codex/Claude conversation transfer and conservative native restore.
+- Pinned SDK persistence/continuation, native UI interaction and cross-platform
+  DSH package checks; imported authority and queued state remain excluded.
+
 ### Fixed
 
 - Shared-session page titles are HTML-escaped once so special characters render

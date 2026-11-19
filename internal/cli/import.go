@@ -44,6 +44,14 @@ func cmdImport(args []string) error {
 		return err
 	}
 	b := loaded.Bundle
+	// Integrity and DSH semantic validation precede every successful outcome,
+	// including dry-run and duplicate reporting.
+	if err := b.VerifyChecksums(); err != nil {
+		return fmt.Errorf("share file integrity check failed: %w", err)
+	}
+	if err := bundle.ValidateDSHBundle(b); err != nil {
+		return err
+	}
 	targetAgent, err := resolveTarget(*target)
 	if err != nil {
 		return err
@@ -101,11 +109,6 @@ func cmdImport(args []string) error {
 		})
 	}
 
-	// Checksum integrity before writing anything.
-	if err := b.VerifyChecksums(); err != nil {
-		return fmt.Errorf("share file integrity check failed: %w", err)
-	}
-
 	var res any
 	var newID, title string
 	switch targetAgent {
@@ -148,6 +151,29 @@ func cmdImport(args []string) error {
 		}
 	}
 
+	// Preserve DSH source bytes as private inert evidence, under a generated
+	// receiver identity. Never put sender metadata into runtime configuration.
+	if b.Manifest.SourceAgent == bundle.AgentDSH {
+		auditPath, err := writeDSHAudit(targetHome, newID, b.Session)
+		if err != nil {
+			switch r := res.(type) {
+			case *codex.RestoreResult:
+				r.Status = "error"
+				r.Error = "source audit could not be saved"
+			case *claude.RestoreResult:
+				r.Status = "error"
+				r.Error = "source audit could not be saved"
+			}
+			return importError(res, fmt.Errorf("created session %s; source audit could not be saved", newID))
+		}
+		switch r := res.(type) {
+		case *codex.RestoreResult:
+			r.Writes = append(r.Writes, auditPath)
+		case *claude.RestoreResult:
+			r.Writes = append(r.Writes, auditPath)
+		}
+	}
+
 	// Record the import for duplicate detection.
 	if err := ledger.Record_(targetHome, fingerprint, b.Manifest.SourceAgent,
 		b.Manifest.SourceThreadID, newID, title); err != nil {
@@ -174,7 +200,7 @@ func sameAgentSession(b *bundle.ReadResult, agent string) []byte {
 
 // threadRowMeta extracts the sender's threads-table row from bundle meta.
 func threadRowMeta(b *bundle.ReadResult) map[string]any {
-	if b.Meta == nil {
+	if b.Manifest.SourceAgent != bundle.AgentCodex || b.Meta == nil {
 		return nil
 	}
 	// v2 stores the row directly; older bundles may wrap it.
@@ -190,4 +216,22 @@ func previewNewID(targetAgent string) string {
 		return ""
 	}
 	return ""
+}
+
+// writeDSHAudit creates only a private source sidecar, never an executable file.
+func writeDSHAudit(home, id string, data []byte) (string, error) {
+	dir := filepath.Join(home, "agent-handoff-assets", id)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return "", err
+	}
+	path := filepath.Join(dir, "source-session.jsonl")
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return "", err
+	}
+	if _, err = f.Write(data); err != nil {
+		_ = f.Close()
+		return "", err
+	}
+	return path, f.Close()
 }

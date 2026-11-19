@@ -54,6 +54,7 @@ var rules = []rule{
 // Finding describes one scan hit. Hint is a redacted excerpt safe to print.
 type Finding struct {
 	Rule string `json:"rule"`
+	Path string `json:"path,omitempty"`
 	Line int    `json:"line"`
 	Hint string `json:"hint,omitempty"`
 }

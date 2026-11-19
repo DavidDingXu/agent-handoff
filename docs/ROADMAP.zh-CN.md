@@ -7,7 +7,7 @@ agent-handoff 的目标，是让用户在换人、换机器、换编码智能体
 ## 当前安排（2026-11-19）
 
 - 维护现有 Codex 和 Claude Code 交接路径。
-- 保留 [DeepSeek Harness 接入研究（#10）](https://github.com/DavidDingXu/agent-handoff/issues/10)，包括评估通过宿主官方会话服务实现 DSH 原生插件。这是待验证的接入方案，尚未实现，也不构成交付承诺。
+- 交付并验证实验性的 [DSH 原生插件](../plugins/dsh/README.zh-CN.md)，固定支持 DSH 0.2.2-rc.5，包含原生分享／导入界面和新会话安全续聊（[#10](https://github.com/DavidDingXu/agent-handoff/issues/10)）。
 - [OpenCode 接入（#9）](https://github.com/DavidDingXu/agent-handoff/issues/9)、[安装与 provider 诊断（#11）](https://github.com/DavidDingXu/agent-handoff/issues/11)、[更完整的分享前预览（#12）](https://github.com/DavidDingXu/agent-handoff/issues/12) 暂缓，三个 issue 当前按 `not_planned` 关闭，后续调整优先级时可以重新打开。
 
 ## 产品原则
@@ -40,15 +40,16 @@ agent-handoff 的目标，是让用户在换人、换机器、换编码智能体
 - 链接服务不可用时，总能返回其他有效加密路径或明确的本地 zip。
 - 新用户只依赖 README 就能完成一次冷启动交接。
 
-## 研究方向：DeepSeek Harness 接入
+## 实验性接入：DeepSeek Harness
 
 **用户结果：** 用户可以在日常使用的多个编码智能体之间迁移真实任务，并保留目标宿主的
 原生继续体验。
 
-围绕 **[DeepSeek Harness（`dsh`）](https://github.com/deepseek-ai/deepseek-harness)**（[#10](https://github.com/DavidDingXu/agent-handoff/issues/10)）的固定版本和已记录 fixture 开展验证。DSH 原生插件是宿主交互与会话访问的候选方案，agent-handoff 继续负责捆绑包、中立转录、加密和传输合同。先验证只读检查与导出，涉及导入时先使用临时隔离配置，再评估正式支持。
+[DSH 原生插件](../plugins/dsh/README.zh-CN.md) 负责宿主交互、原生 UI 和会话服务；agent-handoff 继续负责捆绑包校验、中立转录、加密和传输。在固定版本下使用合成会话与隔离配置验证导入和续聊，其他运行时版本留待后续验证。
 
-DSH 仍处于开发者预览期。正式接入需要会话和存储 API 支持安全原生恢复的证据；
-可以导出日志本身不能证明它能在另一台宿主上继续。
+DSH 仍处于开发者预览期。原生恢复只覆盖已审查的被动历史，普通日志常需显式选择
+对话导入；来源权限和待执行任务不会恢复。验收包括续聊后的冷重启，能导出日志本身
+不能证明它可以继续。
 
 每增加一个 Agent，都必须满足同一份验收合同：
 
