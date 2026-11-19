@@ -391,6 +391,8 @@ func TestBridgeLegacyAndAdapterRead(t *testing.T) {
 				f["session.jsonl"] = f[bundle.SessionEntry(agent)]
 				delete(f, bundle.SessionEntry(agent))
 				delete(f, bundle.NeutralEntry)
+				delete(f, bundle.BriefJSONEntry)
+				delete(f, bundle.BriefMarkdownEntry)
 				delete(f, bundle.ChecksumsEntry)
 			})
 			res, e = runBridgeTest(t, "bridge", "read", p)

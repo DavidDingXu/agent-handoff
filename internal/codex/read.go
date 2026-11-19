@@ -57,6 +57,18 @@ func LoadThread(home, threadID string) (*ExportData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read session file: %w", err)
 	}
+	identityMatches := false
+	session.IterLines(sessionBytes, func(line session.Line) {
+		if session.Type(line.Obj) != "session_meta" {
+			return
+		}
+		if id, _ := session.Payload(line.Obj)["id"].(string); id == threadID {
+			identityMatches = true
+		}
+	})
+	if !identityMatches {
+		return nil, fmt.Errorf("session identity does not match requested thread %s", threadID)
+	}
 	sessionBytes, err = materializePaginatedHistory(home, sessionPath, sessionBytes, map[string]bool{})
 	if err != nil {
 		return nil, fmt.Errorf("materialize paginated history: %w", err)
@@ -142,7 +154,7 @@ func findRolloutByThreadID(home, threadID string) (string, error) {
 		if d.IsDir() {
 			return nil
 		}
-		if strings.Contains(d.Name(), threadID) && strings.HasSuffix(plainRolloutPath(d.Name()), ".jsonl") {
+		if strings.HasSuffix(plainRolloutPath(d.Name()), "-"+threadID+".jsonl") {
 			found = path
 		}
 		return nil

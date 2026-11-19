@@ -96,6 +96,8 @@ jobs:
         run: |
           version=$(jq -r .version .codex-plugin/plugin.json)
           test "$(jq -r .metadata.version .claude-plugin/marketplace.json)" = "$version"
+          test "$(jq -r .version .claude-plugin/plugin.json)" = "$version"
+          test "$(jq -r .version plugins/claude/.claude-plugin/plugin.json)" = "$version"
           test "$(jq -r .version plugins/dsh/package.json)" = "$version"
           test "$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)" = "$version"
 
@@ -131,6 +133,13 @@ jobs:
         env:
           AGENT_HANDOFF_NATIVE_TESTS: "1"
         run: go test ./internal/integration_test -run '^TestNativeClients$' -count=1 -race -v -timeout=5m
+
+      - name: Validate and test the no-model Claude command
+        run: |
+          export CLAUDE_CONFIG_DIR="$RUNNER_TEMP/claude-mod-test"
+          mkdir -p "$CLAUDE_CONFIG_DIR"
+          claude plugin validate plugins/claude --strict
+          claude plugin test plugins/claude
 
   dsh:
     name: DSH plugin (${{ matrix.os }})

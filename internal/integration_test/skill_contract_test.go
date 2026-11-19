@@ -49,6 +49,11 @@ func TestSkillInteractiveContract(t *testing.T) {
 		"The fenced block must contain the complete `share_url` and nothing else",
 		"Never put `share_url` in an ordinary paragraph",
 		"wrap it in a Markdown link",
+		"switch --target",
+		"selection_required",
+		"--code-file",
+		"--apply-code",
+		"brief_path",
 	}
 	for _, want := range required {
 		if !strings.Contains(skill, want) {

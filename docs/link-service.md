@@ -11,6 +11,16 @@
 - Loss of confidentiality is limited to people who hold the **full link** (including fragment). Send it over a channel you trust — the link *is* the capability.
 - Providers can observe IP addresses, upload/download times, and ciphertext sizes; they cannot forge or tamper content undetectably.
 
+## Browser reader
+
+The Worker implementation in this repository provides the same local reader for hosted `/s/:id#k=…` links and anonymous `/r#h=…` links. After downloading ciphertext, the page checks its size and SHA-256, decrypts with AES-GCM in the browser, and verifies ZIP paths, expansion limits, CRCs, and all v2 file checksums before displaying bundle content. Older v1 bundles can be read with an explicit warning that file checksums are unavailable. This describes the repository implementation; an existing resolver deployment must be updated to provide this interface.
+
+The English / Simplified Chinese interface displays recorded task excerpts, caller notes, paginated conversation, expandable tool inputs and outputs, and any included code file list with its branch and base commit. All bundle text is inert: the page does not interpret HTML or Markdown, load linked images or URLs, execute commands, or apply code. The complete import command includes the fragment key and creates a new native task when run locally.
+
+**Download ZIP** becomes available after successful decryption, including when the browser cannot safely preview the archive or a file checksum fails. A failed integrity check displays no bundle content; such a download is for inspection. The reader offers retry and a copyable import command. If anonymous providers deny browser cross-origin access (CORS), the page tries the remaining replicas and then explains how to import locally. Without a successfully decrypted payload, the browser cannot offer a ZIP download; the CLI can still try the same encrypted replicas without browser CORS restrictions. No server proxy receives the fragment, decryption key, or plaintext.
+
+Browser preview limits are 64 MiB for the encrypted download and ZIP, 128 MiB per expanded file, 256 MiB total expanded data, 1,024 ZIP entries, 16 MiB per parsed JSON/native transcript, and 100,000 transcript records. Conversation pages show at most 200 records; individual message/tool previews are shortened to 32,000 characters, with full text preserved in the ZIP. Relay preview accepts public HTTPS domain names without credentials, fragments, custom ports, or redirects; IP-address endpoints require local import. These browser limits do not change the CLI's archive contract.
+
 ## Zero-configuration mode
 
 With no endpoint configured, the CLI first uploads ciphertext to the optional project-operated Worker at `agent-handoff-link.798148655.workers.dev`. It requires no account or token and defaults to a 10-minute lifetime. The Worker enforces only configured retention and payload-size bounds; Cloudflare applies its own account/platform limits. It is a best-effort free service, and any failure automatically moves the CLI to the fallback pool.

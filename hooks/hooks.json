@@ -1,0 +1,4 @@
+{
+  "description": "Local handoff command / 无模型本地任务交接命令",
+  "modules": ["../plugins/claude/hooks/register.js"]
+}

@@ -20,6 +20,10 @@ coding agents and contributors working on agent-handoff.
   on POSIX and inherited user ACL behavior on Windows.
 - A failed link upload must return a usable local zip; sharing must not fail
   silently.
+- Local switching must not require a source model turn. Select a source by an
+  exact host-provided identity or explicit user choice, never by recency.
+- Briefs quote attributed records; only notes are user-authored. Code is opt-in,
+  bounded and reviewed separately, and applies only into a fresh worktree.
 
 ## Architecture
 
@@ -55,6 +59,9 @@ before adding another source or target agent.
   installed interface as well as component tests when changing this flow.
 - Use one searchable dropdown for DSH task selection. Filtering or dismissing
   its results must not change the export task without an explicit choice.
+- Keep export actions and import confirmation near their primary controls and
+  reachable while scrolling. Long briefs, file lists and session metadata must
+  not push the next action to the bottom; collapse secondary details by default.
 - When changing handoff compatibility, cover Codex, Claude and DSH in all nine
   source/destination directions. Distinguish history reopening from a completed
   continuation turn, and record exact client versions and material limits.

@@ -4,6 +4,80 @@
 
 本指南覆盖 Codex/Claude Skill 与本地 CLI；DSH 使用独立的原生插件界面。
 
+## 本地切换 Agent
+
+切换会直接读取已经落盘的任务，创建一个新的目标原生任务。不调用来源模型、不上传
+对话，也不需要来源账号还有剩余额度。目标模型收到新的续做消息后才会消耗它的额度。
+读取历史仍会占用目标模型的上下文；此功能不压缩或丢弃原对话。
+
+- **DSH：** 在导出页选择任务，再选择**切换 Agent**与 Codex／Claude Code。
+  点击后，在运行 DSH 的电脑上创建新任务。按结果显示的目录与命令打开；远程浏览器
+  不会启动浏览器所在电脑的应用。同机继续使用当前代码文件，无需勾选携带代码。
+- **Claude Code：** 更新插件后使用 `/handoff codex`。这是本地立即执行的插件命令，
+  不启动 Claude 回合。它使用准确的当前会话 ID，显示新任务的继续命令。
+  [入口说明与版本边界](../plugins/claude/README.zh-CN.md)。
+- **Codex：** 可在项目本地环境设置中添加工具栏 Action，调用本地切换命令。
+  宿主未提供准确任务 ID 时，会在集成终端要求选择任务。
+  [配置说明](../entries/codex/README.zh-CN.md)。
+
+CLI 请使用 [Release](https://github.com/DavidDingXu/agent-handoff/releases/latest) 中适合
+本机的平台二进制，放入 PATH，或将下面的 `agent-handoff` 换成插件内核心的绝对路径。
+DSH npm 包本身不提供全局终端命令。
+
+```sh
+agent-handoff switch --source codex --target claude --open
+agent-handoff switch --source claude --target codex --thread EXACT_SESSION_ID
+agent-handoff tasks --source codex --cwd /path/to/project
+```
+
+`--open` 仅在终端调用目标 CLI 恢复新历史，不自动发送续做提示。省略时只返回新任务与
+继续命令。`--home` 指定来源配置目录，`--target-home` 指定目标目录。未取得准确 ID 时，
+交互终端显示选择菜单；非交互调用返回 `selection_required` 和候选列表，绝不默认导出
+同目录中最近的任务。重复明确切换会创建新的任务；普通重复导入仍返回已有导入结果。
+
+## 自动简报与网页阅读
+
+新导出自动包含简报：最初请求、最近请求、最近回复及最多六条最近工具记录，带有原文
+索引。内容在本地确定性摘取，不请求模型，也不会把最近回复当作已经核实的完成结论。
+可在 DSH 的**交接备注**中补充信息，或传入 `share --brief-note "需要补充的事项"`。
+备注上限 8 KiB，同样经过敏感信息检测。
+
+接收方无需安装插件或部署网站，打开完整加密链接，即可在浏览器本地解密、校验并阅读简报、对话和折叠工具记录，
+也可下载 ZIP 或复制导入命令。密钥仍只在 URL fragment 中。浏览器不会运行包内 HTML、
+命令或加载对话中的外部资源；匿名文件服务阻止浏览器跨域读取时，可用 CLI／插件导入。
+网页阅读不会自动导入。需要继续任务时，再在插件内预览并确认导入；代码附件需另外明确选择应用。
+新任务的 `brief_path` 指向私有简报文件，完整原生历史不被简报替代。
+
+## 可选携带代码改动
+
+适用于跨电脑继续未提交工作，或把半成品交给同事。默认只交接任务；同机切换继续使用
+原工作区文件。已经推送的代码通常只需接收方先拉取仓库。
+
+DSH 勾选**携带代码改动**后，查看文件清单、大小与基准提交；已跟踪的文本改动默认选中，
+新文件默认不选。可取消任意文件。凭据、依赖／构建目录、二进制、符号链接、子模块等
+会被排除。CLI 可以先查看，再明确选择：
+
+```sh
+agent-handoff bridge code-inspect --cwd /path/to/repo
+agent-handoff share --source codex --thread EXACT_ID --include-code --code-file tests/new-test.txt
+agent-handoff preview task.agent-handoff.zip
+agent-handoff import task.agent-handoff.zip --target claude --cwd /path/to/repo --apply-code --execute
+```
+
+`--include-code` 选择符合条件的已跟踪文本改动；重复的 `--code-file` 可精确指定改动／新文件，
+单独使用它时只带指定文件。基准为本地 `HEAD`，包括选中文件的暂存与未暂存差异，不打包
+整个仓库。最多 256 个文件、每文件 1 MiB、补丁与新文件合计 8 MiB；DSH ZIP 上传／下载
+仍为 16 MiB。代码过大时应先提交并通过 Git 传递。
+
+接收端默认不应用附件。DSH 预览会显示文件清单与新目录，勾选**在新工作区应用代码**才会
+创建独立 Git worktree 和新任务。CLI 的 `--cwd` 是本地已有仓库，`--code-directory` 可选，
+未指定时自动生成新的同级目录。接收仓库必须已经拥有基准提交；不会自动抓取远程。
+缺少提交、补丁冲突或不安全路径会阻止应用，已有工作区不被改写。失败后保留的代码目录
+会显示在恢复结果中。仅导入对话的用户也能重新预览，再明确选择带代码创建任务。
+
+这些可选条目仍使用 v2 格式。旧版客户端能读原历史，但不会提供新版简报／代码恢复入口；
+要完整使用这些功能，两端均应更新至 0.6.0。
+
 ## 兼容范围
 
 2026-11-19 已使用 **Codex CLI 0.167.1** 和 **Claude Code 2.1.322** 验证：

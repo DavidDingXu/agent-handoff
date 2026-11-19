@@ -5,6 +5,29 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-19
+
+### Added
+
+- Switch Codex/Claude tasks locally without a source model turn, with explicit
+  identity, a local task picker and optional terminal resume. Claude's immediate
+  `/handoff` command and a Codex project Action template provide direct entries.
+- Automatic, attributed task briefs with optional handoff notes; no model or
+  API key is required to prepare them.
+- Browser-readable encrypted shares with local decryption and integrity checks,
+  conversation pagination, expandable tool evidence and ZIP download fallback.
+- Optional selected text changes and new files, based on a Git commit. Code is
+  reviewed separately and applied only into a new independent worktree.
+- DSH controls for switching, brief review, notes, file selection and explicit
+  isolated code import, with accessible primary actions, collapsible previews
+  and recovery after partial worktree creation.
+
+### Fixed
+
+- Reject ambiguous Codex rollout identity matches rather than sharing a different
+  task with a matching ID prefix.
+- Keep code scan diagnostics free of private material and secret-looking paths.
+
 ## [0.5.1] - 2026-11-19
 
 ### Added

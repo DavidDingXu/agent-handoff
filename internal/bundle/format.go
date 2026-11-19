@@ -38,16 +38,18 @@ const ArtifactType = "agent-handoff"
 
 // Entry names.
 const (
-	ManifestEntry   = "manifest.json"
-	ReadmeEntry     = "AGENT_README.md"
-	ChecksumsEntry  = "checksums.json"
-	NeutralEntry    = "agent/neutral.json"
-	RestoreEntry    = "agent/restore.md"
-	SafetyEntry     = "safety/scan.json"
-	SessionEntryFmt = "%s/session.jsonl" // per agent
-	MetaEntryFmt    = "%s/meta.json"
-	ImagesEntryFmt  = "%s/images.json"
-	ImagesPrefixFmt = "%s/images/"
+	ManifestEntry      = "manifest.json"
+	ReadmeEntry        = "AGENT_README.md"
+	ChecksumsEntry     = "checksums.json"
+	NeutralEntry       = "agent/neutral.json"
+	RestoreEntry       = "agent/restore.md"
+	BriefJSONEntry     = "agent/brief.json"
+	BriefMarkdownEntry = "agent/brief.md"
+	SafetyEntry        = "safety/scan.json"
+	SessionEntryFmt    = "%s/session.jsonl" // per agent
+	MetaEntryFmt       = "%s/meta.json"
+	ImagesEntryFmt     = "%s/images.json"
+	ImagesPrefixFmt    = "%s/images/"
 )
 
 // Supported source agents.

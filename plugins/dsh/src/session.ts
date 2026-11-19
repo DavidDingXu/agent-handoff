@@ -5,7 +5,7 @@ import { Session, SessionId, SessionLogOffset, SESSION_FORMAT_VERSION, type Sess
 import { createUserMessage, createAssistantMessage, createToolResultMessage, createSystemMessage, type ToolCallId } from '@deepseek-ai/dsh-llm'
 import { restoreReleasedV4Artifact } from '@deepseek-ai/dsh-session-format-v3-to-v4'
 import { assertContiguous, validateStoredEvents } from '@deepseek-ai/dsh-session-persistence'
-import { SUPPORTED_DSH_VERSIONS } from './types.ts'
+import { SUPPORTED_DSH_VERSIONS, type TaskBrief, type CodePayload } from './types.ts'
 
 export interface NeutralEntry { kind: 'message' | 'tool'; role?: string; text?: string; tool?: string; status?: string; input?: string; output?: string; timestamp?: string }
 export interface NeutralTranscript { schema: 'agent-handoff.neutral.v1'; source_agent: string; source_id: string; title?: string; source_cwd?: string; entries: NeutralEntry[] }
@@ -18,9 +18,10 @@ export interface ReadResult {
   schema: 'agent-handoff.bridge.read-result.v1'; status: 'ok'; checksum_status: string; fingerprint: string
   manifest: { source_agent: string; source_thread_id: string; title: string; message_count: number; source_cwd?: string }
   native: NativeEnvelope | null; neutral: NeutralTranscript; source_session: string; warnings: string[]
+  brief?: TaskBrief; code?: CodePayload | null
 }
 export class HandoffFailure extends Error {
-  constructor(readonly code: string, message: string, readonly recoverySessionId?: string) { super(message); this.name = 'HandoffFailure' }
+  constructor(readonly code: string, message: string, readonly recoverySessionId?: string, readonly recoveryDirectory?: string) { super(message); this.name = 'HandoffFailure' }
 }
 function fail(message: string): never { throw new HandoffFailure('invalid_session', message) }
 export function record(value: unknown): value is Record<string, unknown> { return value !== null && typeof value === 'object' && !Array.isArray(value) }

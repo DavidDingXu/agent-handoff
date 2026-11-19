@@ -1,5 +1,5 @@
-// Package cli implements the agent-handoff command line: share, preview,
-// import, verify, version.
+// Package cli implements the agent-handoff command line: share, switch, tasks,
+// preview, import, verify, version.
 package cli
 
 import (
@@ -28,6 +28,10 @@ func Run(args []string) error {
 		return cmdBridge(args[1:])
 	case "share":
 		return cmdShare(args[1:])
+	case "tasks":
+		return cmdTasks(args[1:])
+	case "switch":
+		return cmdSwitch(args[1:])
 	case "preview":
 		return cmdPreview(args[1:])
 	case "import":
@@ -38,7 +42,7 @@ func Run(args []string) error {
 		fmt.Printf("agent-handoff %s (%s/%s)\n", Version, runtime.GOOS, runtime.GOARCH)
 		return nil
 	default:
-		return fmt.Errorf("unknown command %q (expected share|preview|import|verify)", args[0])
+		return fmt.Errorf("unknown command %q (expected share|switch|tasks|preview|import|verify)", args[0])
 	}
 }
 
@@ -49,11 +53,18 @@ Usage:
   agent-handoff share [--source codex|claude] [--thread current] [--format zip|link]
                     [--out FILE] [--endpoint URL] [--token TOKEN] [--ttl SECONDS]
                     [--config FILE] [--include-secrets]
+                    [--brief-note TEXT] [--include-code] [--code-file PATH]
+  agent-handoff switch --target codex|claude [--source codex|claude] [--thread ID]
+                    [--home DIR] [--target-home DIR] [--cwd DIR] [--open]
+                    [--include-code] [--code-file PATH] [--brief-note TEXT]
+  agent-handoff tasks [--source codex|claude] [--home DIR] [--cwd DIR]
   agent-handoff bridge share --input FILE|- [--format zip|link] [share transport flags]
   agent-handoff bridge read FILE.agent-handoff.zip|URL
+  agent-handoff bridge brief --input FILE|-
+  agent-handoff bridge code-inspect --cwd DIR
   agent-handoff preview FILE.agent-handoff.zip
-  agent-handoff import FILE.agent-handoff.zip|URL [--source codex|claude] [--target codex|claude]
-                 [--cwd DIR] [--execute] [--allow-duplicate]
+  agent-handoff import FILE.agent-handoff.zip|URL [--target codex|claude]
+                 [--cwd DIR] [--execute] [--allow-duplicate] [--apply-code] [--code-directory NEW_DIR]
   agent-handoff verify --thread THREAD_ID [--source codex|claude] [--cwd DIR]`)
 }
 

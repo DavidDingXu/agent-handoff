@@ -1,5 +1,50 @@
 # DSH verification receipt
 
+## 0.6.0 handoff workflow update
+
+Validated on 2026-11-19 with Go 1.26.7, Node 24.14.1, Codex CLI 0.167.1,
+Claude Code 2.1.322 and the released DSH rc.1 / rc.5 SDKs:
+
+- Full Go race tests and vet passed, including selected code attachments,
+  independent worktree application, brief provenance and exact task selection.
+- `AGENT_HANDOFF_NATIVE_TESTS=1` passed native discovery and local-model
+  continuation for Codex/Claude/DSH sources. The external Desktop-export case
+  was not repeated in this run; the previous native baseline remains below.
+- Both DSH SDKs passed **98 tests / 10 files** and Host typecheck. The rc.5
+  Host/Client builds passed; rc.1 reused the npm cache in offline mode.
+- Claude's native Mod validator and **8 no-model command tests** passed. Root
+  marketplace installation is checked separately by CI. The local workspace's
+  root strict validation encounters development dependency symlinks and the
+  existing CLAUDE.md context warning; it is not recorded as passing.
+- `make cross VERSION=v0.6.0`, packaging and the 42-file package checker passed.
+  Desktop's official CLI installed the final tarball into the user's existing
+  profile; installed Host, Client and native core bytes matched the package.
+- A separate official DSH Web profile installed that same tarball. Browser
+  acceptance previewed a synthetic ZIP with notes and selected code, confirmed
+  that code application defaults off, explicitly imported visible history and
+  opened the fresh task with an idle composer and no configured model.
+- Long-preview acceptance at 1280×720 checked collapsed excerpts and header
+  metadata, export/download actions before optional content, and import-mode
+  focus. After scrolling the preview by 720 px, its enabled confirmation button
+  remained visible at y=205–241. Final physical Desktop acceptance remains
+  separate from this installed Web check.
+- The installed task-header form created both Codex and Claude tasks using
+  dedicated temporary target homes. Changing the target cleared the old result;
+  both actions returned fresh identities and continuation commands without any
+  model call. Real Codex/Claude histories were not used or changed.
+- The Worker passed **39 tests**, including the actual minified reader bundle,
+  and was deployed to the existing project service with its KV and Durable Object
+  bindings preserved. A synthetic upload/download passed decryption and all
+  checksums. Browser reading was separately checked with loopback synthetic
+  hosted/relay fixtures. Direct browser access to workers.dev timed out on this
+  network; transport verification used the existing local proxy.
+
+Native Desktop UI reacceptance for 0.6.0 remains unverified: the computer-control
+service continued reporting a locked Mac after manual unlock. Installed Web UI
+acceptance and package-byte verification do not claim to replace that check.
+The previous Desktop UI baseline is recorded below. No physical Windows Desktop
+acceptance or paid-model validation is claimed.
+
 ## 0.5.1 UI and distribution update
 
 Validated on 2026-11-19 with Node 24.14.1 and the released DSH rc.5 SDK:

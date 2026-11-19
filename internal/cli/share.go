@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/DavidDingXu/agent-handoff/internal/brief"
 	"github.com/DavidDingXu/agent-handoff/internal/bundle"
 	"github.com/DavidDingXu/agent-handoff/internal/claude"
 	"github.com/DavidDingXu/agent-handoff/internal/codex"
@@ -14,6 +15,7 @@ import (
 	"github.com/DavidDingXu/agent-handoff/internal/neutral"
 	"github.com/DavidDingXu/agent-handoff/internal/safety"
 	"github.com/DavidDingXu/agent-handoff/internal/session"
+	"github.com/DavidDingXu/agent-handoff/internal/workspace"
 )
 
 func cmdShare(args []string) error {
@@ -28,6 +30,10 @@ func cmdShare(args []string) error {
 	ttl := fs.Int("ttl", 0, "link lifetime in seconds (anonymous fallback: 60-604800, default 86400; hosted/self-hosted worker: 60-86400, default 600)")
 	config := fs.String("config", "", "provider config path (defaults to the platform user config directory)")
 	includeSecrets := fs.Bool("include-secrets", false, "proceed even when the secret scan finds high-confidence secrets")
+	briefNote := fs.String("brief-note", "", "optional handoff note (plain text; no model required)")
+	includeCode := fs.Bool("include-code", false, "include eligible tracked text changes from this task's Git workspace")
+	var codeFiles pathFlags
+	fs.Var(&codeFiles, "code-file", "explicit selected changed/new file relative to the repository (repeatable)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -61,7 +67,46 @@ func cmdShare(args []string) error {
 		"message_count": manifest.MessageCount,
 	}
 
+	transcript := neutralFrom(manifest, sessionBytes)
+	generated := brief.Generate(transcript)
+	generated.Notes = *briefNote
+	if err := brief.Validate(generated); err != nil {
+		return err
+	}
+	var code *workspace.Payload
+	if *includeCode || len(codeFiles) > 0 {
+		paths := []string(codeFiles)
+		if *includeCode {
+			inspection, e := workspace.Inspect(manifest.SourceCWD)
+			if e != nil {
+				return e
+			}
+			seen := map[string]bool{}
+			for _, p := range paths {
+				seen[p] = true
+			}
+			for _, file := range inspection.Files {
+				if file.Eligible && (file.Status == "modified" || file.Status == "deleted") && !seen[file.Path] {
+					paths = append(paths, file.Path)
+					seen[file.Path] = true
+				}
+			}
+		}
+		if len(paths) == 0 {
+			return fmt.Errorf("no eligible text changes to include; share without --include-code or select a new file with --code-file")
+		}
+		code, err = workspace.Capture(manifest.SourceCWD, paths)
+		if err != nil {
+			return err
+		}
+	}
 	findings, _ := sessionFindings(manifest, sessionBytes)
+	for _, f := range safety.ScanPlain(*briefNote) {
+		findings = append(findings, safety.Finding{Rule: f.Rule, Path: "agent/brief.notes"})
+	}
+	if code != nil {
+		findings = append(findings, codeFindings(code)...)
+	}
 	if len(findings) > 0 && !*includeSecrets {
 		result["status"] = "blocked"
 		result["safety"] = map[string]any{"status": "blocked", "findings": findings}
@@ -75,7 +120,9 @@ func cmdShare(args []string) error {
 		Meta:      meta,
 		Images:    imgs,
 		ImageData: imageData,
-		Neutral:   neutralFrom(manifest, sessionBytes),
+		Neutral:   transcript,
+		Brief:     &generated,
+		Code:      code,
 	}
 	return sharePrepared(writerInput, result, findings, out, format, endpoint, token, config, ttl, printJSON)
 }

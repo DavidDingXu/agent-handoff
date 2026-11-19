@@ -19,6 +19,13 @@ assert.ok(client.startsWith('window.__ModuleLoader__.load({ id: "dsh-agent-hando
 const architecture = process.arch === 'x64' ? 'amd64' : process.arch
 const platform = process.platform === 'win32' ? 'windows' : process.platform
 const core = resolve(root, 'bin', `${platform}-${architecture}`, `agent-handoff${process.platform === 'win32' ? '.exe' : ''}`)
+const metadata = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'))
+const version = spawnSync(core, ['version'], { encoding: 'utf8' })
+assert.equal(version.status, 0)
+assert.equal(version.stdout.trim().split(/\s+/)[1].replace(/^v/, ''), metadata.version, 'Packaged core and plugin version must match')
+const brief = spawnSync(core, ['bridge', 'brief', '--input', '-'], { input: JSON.stringify({ schema: 'agent-handoff.neutral.v1', source_agent: 'dsh', source_id: 'synthetic-package-probe', entries: [] }), encoding: 'utf8' })
+assert.equal(brief.status, 0, 'Packaged core must support local briefs')
+assert.equal(JSON.parse(brief.stdout).schema, 'agent-handoff.brief.v1')
 const probe = spawnSync(core, ['bridge', 'share', '--input', '-'], { input: '{}', encoding: 'utf8', maxBuffer: 1024 * 1024 })
 assert.notEqual(probe.status, 0)
 assert.equal(JSON.parse(probe.stdout).status, 'error', 'Packaged core must implement the versioned bridge')

@@ -6,6 +6,31 @@ This document specifies the v2 agent-handoff bundle container: the on-disk layou
 
 ## Design goals
 
+### Optional brief and code entries (0.6.0)
+
+The format version remains **2**. New writers add `agent/brief.json` and `agent/brief.md`.
+The JSON schema is `agent-handoff.brief.v1`: `objective`, `latest_request`, `latest_update`
+are optional `{entry_index,text,truncated?}` excerpts; `evidence` contains up to six attributed
+tool records, and `notes` is optional caller-authored text (8 KiB). Readers validate excerpts
+against the neutral transcript. Briefs never replace native history or claim verified completion.
+
+Explicitly selected code adds `code/manifest.json` (`agent-handoff.code.v1`),
+`code/changes.patch` and optional `code/files/<repository-relative-path>` entries for new files.
+The manifest records `base_commit`, optional `branch` and `files: [{path,status,bytes}]`.
+Tracked byte counts are sender-side context; Git may normalize line endings across platforms.
+New-file bytes are exact. All entries are covered by `checksums.json` and the file inventory.
+
+Only selected UTF-8 text is eligible: at most 256 files, 1 MiB per file and 8 MiB total patch/new
+content. Unsafe paths, Git metadata aliases, credentials, generated dependencies, binaries,
+symlinks, submodules and unsafe patch modes/directives are rejected. Apply requires explicit
+consent and an already available base commit in a local repository; it creates a fresh worktree,
+disables Git hooks/filters and lazy fetching, and never changes the existing worktree.
+
+Old v1/v2 bundles without these entries remain readable. Old readers may ignore optional entries;
+they do not acquire code-application support. Different selected code or user notes produce
+different import fingerprints. Automatically generated briefs preserve the legacy session-only
+fingerprint when no code or user notes are present.
+
 - **Self-describing**: a bundle can be inspected, previewed, and imported without any network access or external service.
 - **Native + semantic in one artifact**: native events and content travel alongside a neutral transcript. A paginated Codex rollout is materialized with its referenced history into one standalone session, without sender-local lineage. Same-agent import reuses native data while rewriting new-task identity/path fields; cross-agent import uses the neutral representation.
 - **Tamper-evident**: every entry is covered by SHA-256 checksums verified before any import writes.

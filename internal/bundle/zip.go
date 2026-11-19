@@ -3,14 +3,17 @@ package bundle
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/DavidDingXu/agent-handoff/internal/brief"
 	"github.com/DavidDingXu/agent-handoff/internal/neutral"
 	"github.com/DavidDingXu/agent-handoff/internal/safety"
+	"github.com/DavidDingXu/agent-handoff/internal/workspace"
 )
 
 const (
@@ -27,6 +30,8 @@ type WriterInput struct {
 	Images    []ImageAsset      // image manifest (may be nil)
 	ImageData map[string][]byte // zip path -> bytes, for copied images
 	Neutral   neutral.Transcript
+	Brief     *brief.Brief
+	Code      *workspace.Payload
 }
 
 // WriteZip packs the bundle into path (v2 layout).
@@ -99,6 +104,27 @@ func writeZip(dst io.Writer, in WriterInput) error {
 		}
 	}
 
+	// Optional context extends v2 without altering the native session or
+	// transcript. Older readers ignore these checksummed entries.
+	generatedBrief := brief.Generate(in.Neutral)
+	if in.Brief != nil {
+		generatedBrief = *in.Brief
+	}
+	if err := brief.ValidateTranscript(generatedBrief, in.Neutral); err != nil {
+		return fmt.Errorf("invalid brief: %w", err)
+	}
+	files[BriefJSONEntry] = marshalIndent(generatedBrief)
+	files[BriefMarkdownEntry] = []byte(brief.RenderMarkdown(generatedBrief))
+	if in.Code != nil {
+		entries, err := in.Code.Entries()
+		if err != nil {
+			return fmt.Errorf("invalid code payload: %w", err)
+		}
+		for name, data := range entries {
+			files[name] = data
+		}
+	}
+
 	// Manifest last fields: file list. checksums.json must not list itself:
 	// a self-referential hash cannot be verified.
 	var names []string
@@ -139,6 +165,8 @@ type ReadResult struct {
 	Images    []ImageAsset
 	ImageData map[string][]byte // zip path -> bytes
 	Neutral   neutral.Transcript
+	Brief     *brief.Brief
+	Code      *workspace.Payload
 	Files     map[string][]byte // every entry except image payloads
 }
 
@@ -249,6 +277,37 @@ func decode(files map[string][]byte) (*ReadResult, error) {
 		if err := unmarshalStrict(nd, &res.Neutral); err != nil {
 			return nil, fmt.Errorf("invalid neutral transcript: %w", err)
 		}
+	}
+	if data, ok := files[BriefJSONEntry]; ok {
+		// JSON can expand every bounded text byte to a six-byte escape.
+		if len(data) > 1<<20 {
+			return nil, fmt.Errorf("brief exceeds size limit")
+		}
+		var b brief.Brief
+		dec := json.NewDecoder(bytes.NewReader(data))
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&b); err != nil {
+			return nil, fmt.Errorf("invalid brief: %w", err)
+		}
+		var extra any
+		if err := dec.Decode(&extra); err != io.EOF {
+			return nil, fmt.Errorf("trailing data in brief")
+		}
+		if err := brief.ValidateTranscript(b, res.Neutral); err != nil {
+			return nil, fmt.Errorf("invalid brief: %w", err)
+		}
+		markdown, exists := files[BriefMarkdownEntry]
+		if !exists || !bytes.Equal(markdown, []byte(brief.RenderMarkdown(b))) {
+			return nil, fmt.Errorf("brief Markdown is missing or inconsistent")
+		}
+		res.Brief = &b
+	} else if _, ok := files[BriefMarkdownEntry]; ok {
+		return nil, fmt.Errorf("brief Markdown requires brief JSON")
+	}
+	var err error
+	res.Code, err = workspace.Parse(files)
+	if err != nil {
+		return nil, fmt.Errorf("invalid code payload: %w", err)
 	}
 	return res, nil
 }

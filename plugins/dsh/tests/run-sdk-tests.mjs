@@ -13,8 +13,8 @@ if (!sdkRoot) throw new Error('Usage: node tests/run-sdk-tests.mjs --sdk-root /a
 const sdk = await realpath(resolve(sdkRoot)), tools = await realpath(resolve(option('--tools-root') ?? join(plugin, 'node_modules')))
 // Child cwd and Vite resolve filesystem aliases, including Windows 8.3 temp paths.
 const overlay = await realpath(await mkdtemp(join(tmpdir(), 'agent-handoff-sdk-test-')))
-const serverTests = ['session.test.ts', 'host.test.ts', 'bridge.test.ts', 'runtime.test.ts']
-const clientTests = ['client.test.tsx', 'client-api.test.ts', 'client-registry.test.tsx', 'hub.test.tsx']
+const serverTests = ['session.test.ts', 'host.test.ts', 'host-entry.test.ts', 'bridge.test.ts', 'runtime.test.ts']
+const clientTests = ['client.test.tsx', 'client-api.test.ts', 'client-registry.test.tsx', 'hub.test.tsx', 'workflow.test.tsx']
 const withClient = args.includes('--client')
 async function assertSdkPackage(directory, name, version) {
   const actual = JSON.parse(await readFile(join(directory, 'package.json'), 'utf8'))
