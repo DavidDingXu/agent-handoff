@@ -44,7 +44,8 @@ before adding another source or target agent.
   and tests aligned when a visible behavior changes.
 - Keep macOS, Linux, and Windows support. Do not introduce POSIX-only path,
   shell, permission, quoting, or environment assumptions.
-- Keep English and Simplified Chinese user documentation in sync.
+- Keep English and Simplified Chinese user documentation in sync. Include both
+  languages in public repository, plugin and package descriptions.
 - Keep the main README focused on installation and use. Put exact SDK/Node
   versions and validation limits in the detailed compatibility documentation.
 - Use clean product screenshots without mouse pointers, click halos, private

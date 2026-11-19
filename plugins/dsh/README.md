@@ -7,11 +7,11 @@ and importing received DSH, Codex, or Claude Code tasks into a new DSH session.
 
 ## Install
 
-For Desktop, open **Plugins → Add plugin → Install third-party plugin**, enter
+For Desktop, open **Plugins → Add plugin**, enter
 `dsh-agent-handoff`, install and enable it. Restart DSH if the new entry does not
 appear. Package: [dsh-agent-handoff on npm](https://www.npmjs.com/package/dsh-agent-handoff).
 
-For offline installation, download `dsh-agent-handoff-0.5.0.tgz` and
+For offline installation, download `dsh-agent-handoff-0.5.1.tgz` and
 `checksums.txt` from [GitHub Releases](https://github.com/DavidDingXu/agent-handoff/releases).
 Compare the file's SHA-256 with the published checksum, then enter the tarball's
 absolute path in the same installer.
@@ -38,16 +38,15 @@ npm run package
 npm run check:package
 ```
 
-Install the generated `dist/dsh-agent-handoff-0.5.0.tgz` as above. For development,
+Install the generated `dist/dsh-agent-handoff-0.5.1.tgz` as above. For development,
 run `npm run check` and `npm run check:compat` before packaging.
 
 ## Use
 
-- Open **Task handoff → Export task**. Choose a session and a plaintext ZIP or
+- Open **Task handoff → Export task**. Search for a task by title or workspace path, then choose a plaintext ZIP or
   encrypted link. Secret findings require explicit acknowledgment; an unavailable
   upload produces a downloadable ZIP. The session-header Share action is a shortcut.
-- Open **Task handoff → Import task**. Choose a ZIP, encrypted link, or advanced
-  host file path, then select a local workspace.
+- Open **Task handoff → Import task**. Choose a ZIP or encrypted link, then select a local workspace.
 - Review the content and available import modes, confirm the new task, then open it.
 
 Only the owner connection can use these actions. Existing tasks are never
@@ -100,7 +99,7 @@ binding, duplicate/partial recovery, secret confirmation, subprocess limits and
 the pinned SDK's persistence/resume lifecycle with synthetic sessions and a local
 mock model. The Go tests cover the existing four directions and DSH → Codex/Claude;
 the plugin tests cover the other three. No model credentials are needed.
-Both supported SDK versions pass 78 tests. Actual macOS Desktop rc.1 acceptance
+CI covers both supported SDK versions. The 0.5.0 macOS Desktop rc.1 acceptance
 covers installation, all three source imports, opening and ZIP export; that ZIP
 also completes new turns in current Codex and Claude clients using local model
 fixtures. No paid model or physical Windows Desktop acceptance is claimed.

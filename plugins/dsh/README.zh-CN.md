@@ -7,11 +7,11 @@
 
 ## 安装
 
-桌面版打开**插件 → 添加插件 → 安装第三方插件**，填写 `dsh-agent-handoff`，安装后启用。
+桌面版打开**插件 → 添加插件**，填写 `dsh-agent-handoff`，安装后启用。
 新入口未出现时重启 DSH。[查看 npm 包](https://www.npmjs.com/package/dsh-agent-handoff)。
 
 离线安装可从 [GitHub Releases](https://github.com/DavidDingXu/agent-handoff/releases) 下载
-`dsh-agent-handoff-0.5.0.tgz` 和 `checksums.txt`，核对文件的 SHA-256 后，在同一安装入口
+`dsh-agent-handoff-0.5.1.tgz` 和 `checksums.txt`，核对文件的 SHA-256 后，在同一安装入口
 填写安装包的绝对路径。
 
 Web profile 使用以下命令（需要 pnpm）：
@@ -35,14 +35,14 @@ npm run package
 npm run check:package
 ```
 
-按上方步骤安装生成的 `dist/dsh-agent-handoff-0.5.0.tgz`。开发时在打包前运行
+按上方步骤安装生成的 `dist/dsh-agent-handoff-0.5.1.tgz`。开发时在打包前运行
 `npm run check` 和 `npm run check:compat`。
 
 ## 使用
 
-- 打开**任务交接 → 导出任务**，选择会话及明文 ZIP 或加密链接。密钥检测命中后需
+- 打开**任务交接 → 导出任务**，按标题或工作区路径搜索并选择任务，再选择明文 ZIP 或加密链接。密钥检测命中后需
   显式确认；上传失败时提供 ZIP 兜底。会话标题栏的分享入口作为快捷方式保留。
-- 打开**任务交接 → 导入任务**，选择 ZIP、加密链接或高级选项中的主机文件路径，再选择本地工作区。
+- 打开**任务交接 → 导入任务**，选择 ZIP 或加密链接，再选择本地工作区。
 - 核对预览与可用导入方式，确认创建新任务后打开。
 
 操作只允许 DSH owner 连接执行。已有任务不会覆盖；重复导入返回之前创建的会话。
@@ -86,6 +86,6 @@ Windows 使用本机绝对路径；非托管运行时必须配置 `stateDir`。T
 `npm test` 覆盖原生控件与插槽、认证路由边界、预览绑定、重复／部分失败恢复、密钥确认、
 子进程限制，以及固定 SDK 的持久化／续聊生命周期，使用合成会话和本地模拟模型，无需
 模型凭据。Go 测试覆盖原有四条方向及 DSH → Codex/Claude，插件测试覆盖另外三条。
-两个 SDK 版本均通过 78 项测试。实际 macOS Desktop rc.1 已验收安装、三种来源导入、
+CI 覆盖两个受支持的 SDK 版本。0.5.0 已在 macOS Desktop rc.1 验收安装、三种来源导入、
 打开与 ZIP 导出；导出的 ZIP 也在当前 Codex、Claude 客户端通过本地模拟模型完成续聊。
 不代表已验收付费模型或实体 Windows 桌面。详见[完整验证记录](https://github.com/DavidDingXu/agent-handoff/blob/main/plugins/dsh/VERIFICATION.md)。

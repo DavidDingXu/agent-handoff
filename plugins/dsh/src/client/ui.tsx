@@ -175,11 +175,10 @@ export function ImportPanel({ call, t, openSession, renderWorkspacePicker }: Imp
   const task = useTask()
   const [workspaces, setWorkspaces] = useState<WorkspaceChoice[]>([])
   const [workspaceId, setWorkspaceId] = useState('')
-  const [sourceKind, setSourceKind] = useState<ImportSource['kind']>('upload')
+  const [sourceKind, setSourceKind] = useState<'upload' | 'link'>('upload')
   const [file, setFile] = useState<File | null>(null)
   const [dragging, setDragging] = useState(false)
   const [link, setLink] = useState('')
-  const [path, setPath] = useState('')
   const [preview, setPreview] = useState<ImportPreview | null>(null)
   const [mode, setMode] = useState<ImportMode | ''>('')
   const [result, setResult] = useState<ImportResult | null>(null)
@@ -205,11 +204,11 @@ export function ImportPanel({ call, t, openSession, renderWorkspacePicker }: Imp
     // Native picker can add a new registered workspace. Refresh only its choices, retaining the selected id.
     if (!workspaces.some(item => item.id === id)) setReload(value => value + 1)
   }
-  const sourceReady = sourceKind === 'upload' ? file !== null : sourceKind === 'link' ? link.trim() !== '' : path.trim() !== ''
+  const sourceReady = sourceKind === 'upload' ? file !== null : link.trim() !== ''
   const loadPreview = () => void task.run('previewing', async signal => {
     setPreview(null); setMode(''); setResult(null); setExpiredTicket(false)
     const source: ImportSource = sourceKind === 'upload' ? await readUpload(file!, signal)
-      : sourceKind === 'link' ? { kind: 'link', url: link.trim() } : { kind: 'path', path: path.trim() }
+      : { kind: 'link', url: link.trim() }
     const value = await call<ImportPreview>({ action: 'preview', source, workspaceId }, signal)
     signal.throwIfAborted(); setPreview(value)
   })
@@ -235,7 +234,7 @@ export function ImportPanel({ call, t, openSession, renderWorkspacePicker }: Imp
     <div className="handoff-card handoff-stack">
       <div className="handoff-card-header"><h2>{t('importSource')}</h2><p>{t('importHelp')}</p></div>
       <div className="handoff-fields">
-        <label className="handoff-field"><span>{t('source')}</span><select aria-label={t('source')} className="handoff-select" disabled={busy} value={sourceKind} onChange={event => { setSourceKind(event.currentTarget.value as ImportSource['kind']); resetPreview() }}><option value="upload">{t('file')}</option><option value="link">{t('shareLink')}</option><option value="path" hidden>{t('path')}</option></select></label>
+        <label className="handoff-field"><span>{t('source')}</span><select aria-label={t('source')} className="handoff-select" disabled={busy} value={sourceKind} onChange={event => { setSourceKind(event.currentTarget.value === 'link' ? 'link' : 'upload'); resetPreview() }}><option value="upload">{t('file')}</option><option value="link">{t('shareLink')}</option></select></label>
         <div className="handoff-field"><label className="handoff-label" htmlFor="agent-handoff-workspace">{t('workspace')}</label>
           {renderWorkspacePicker ? <><Button id="agent-handoff-workspace" ref={pickerAnchor} className="handoff-workspace-button" variant="outline" disabled={busy} aria-label={t('workspace')} aria-haspopup="menu" aria-expanded={pickerOpen} onClick={() => setPickerOpen(value => !value)}>{selected?.name ?? t('chooseWorkspace')}</Button>
             {renderWorkspacePicker({ open: pickerOpen, anchorRef: pickerAnchor, ...(workspaceId ? { selectedId: workspaceId } : {}), onPick: changeWorkspace, onClose: () => setPickerOpen(false) })}</>
@@ -249,9 +248,7 @@ export function ImportPanel({ call, t, openSession, renderWorkspacePicker }: Imp
         <span className="handoff-file-name">{file?.name ?? t('uploadHint')}</span><p>{t('uploadLimit')}</p>
         <Button variant="outline" size="sm" disabled={busy} onClick={() => fileInput.current?.click()}>{t('chooseFile')}</Button>
         <input ref={fileInput} type="file" accept=".zip,application/zip,application/x-zip-compressed" aria-label={t('chooseFile')} disabled={busy} style={{ display: 'none' }} onChange={event => { setFile(event.currentTarget.files?.[0] ?? null); event.currentTarget.value = ''; resetPreview() }} />
-      </div> : sourceKind === 'link' ? <label className="handoff-field"><span>{t('shareLink')}</span><Input className="handoff-input" aria-label={t('shareLink')} value={link} disabled={busy} placeholder="https://…#…" onChange={event => { setLink(event.currentTarget.value); resetPreview() }} /></label>
-        : <label className="handoff-field"><span>{t('hostPath')}</span><Input className="handoff-input" aria-label={t('hostPath')} value={path} disabled={busy} onChange={event => { setPath(event.currentTarget.value); resetPreview() }} /><span className="handoff-caption">{t('hostPathNotice')}</span></label>}
-      <details className="handoff-advanced"><summary>{t('advanced')}</summary><div className="handoff-actions"><Button size="sm" disabled={busy} onClick={() => { setSourceKind('path'); resetPreview() }}>{t('useHostPath')}</Button></div></details>
+      </div> : <label className="handoff-field"><span>{t('shareLink')}</span><Input className="handoff-input" aria-label={t('shareLink')} value={link} disabled={busy} placeholder="https://…#…" onChange={event => { setLink(event.currentTarget.value); resetPreview() }} /></label>}
       {!result && <div className="handoff-actions"><Button variant="primary" disabled={busy || !selected || !sourceReady} onClick={loadPreview}>{t('preview')}</Button></div>}
       <ErrorBox error={recoverySessionId ? { ...(task.error ?? { code: 'import/recovery', message: recoveryMessage }), recoverySessionId } : task.error} t={t} openSession={open} busy={busy} />
       <Status phase={task.phase} notice={result ? t(result.status === 'duplicate' ? 'duplicate' : 'imported') : undefined} t={t} />
@@ -302,11 +299,17 @@ export function HandoffHub({ sessions, currentSessionId, catalogLoading, refresh
   const tab = controlledTab ?? localTab
   const [visited, setVisited] = useState({ export: true, import: initialTab === 'import' || controlledTab === 'import' })
   const [selectedId, setSelectedId] = useState(() => sessions.some(item => item.id === currentSessionId) ? currentSessionId! : '')
+  const [search, setSearch] = useState('')
   const task = useTask()
   useEffect(() => { if (!sessions.some(item => item.id === selectedId)) setSelectedId(sessions.some(item => item.id === currentSessionId) ? currentSessionId! : '') }, [sessions, currentSessionId, selectedId])
   useEffect(() => { setVisited(value => value[tab] ? value : { ...value, [tab]: true }) }, [tab])
   const selectTab = (next: HubTab) => { setLocalTab(next); setVisited(value => ({ ...value, [next]: true })); onTabChange?.(next) }
   const selected = sessions.find(item => item.id === selectedId)
+  const query = search.trim().toLowerCase()
+  const matches = sessions.filter(item => `${item.title} ${item.directory ?? ''}`.toLowerCase().includes(query))
+  // Native selects otherwise display a different option when their value is filtered out.
+  const pinned = selected && !matches.some(item => item.id === selected.id) ? selected : undefined
+  const options = matches.map(item => <option value={item.id} key={item.id}>{item.title}{item.directory ? ` — ${item.directory}` : ''}</option>)
   return <section className="agent-handoff handoff-hub" aria-label={t('panel')}>
     <style>{handoffStyles}</style>
     <header className="handoff-heading"><h1>{t('panel')}</h1><p>{t('hubDescription')}</p></header>
@@ -315,7 +318,17 @@ export function HandoffHub({ sessions, currentSessionId, catalogLoading, refresh
       { value: 'import', label: t('import'), id: `${id}-import`, panelId: `${id}-import-panel` },
     ]} />
     <div className="handoff-panel" id={`${id}-export-panel`} role="tabpanel" aria-labelledby={`${id}-export`} hidden={tab !== 'export'}>
-      <div className="handoff-session-picker"><label className="handoff-field"><span>{t('taskToExport')}</span><select className="handoff-select" aria-label={t('taskToExport')} disabled={catalogLoading || !sessions.length} value={selectedId} onChange={event => setSelectedId(event.currentTarget.value)}><option value="" disabled>{t('chooseTask')}</option>{sessions.map(item => <option value={item.id} key={item.id}>{item.title}{item.directory ? ` — ${item.directory}` : ''}</option>)}</select></label>
+      <div className="handoff-session-picker"><div className="handoff-field">
+        <label className="handoff-label" htmlFor={`${id}-task`}>{t('taskToExport')}</label>
+        <div className="handoff-task-search"><Input type="search" className="handoff-input" aria-label={t('searchTasks')} placeholder={t('searchTasksHint')} value={search} disabled={catalogLoading || !sessions.length} onChange={event => setSearch(event.currentTarget.value)} onKeyDown={event => { if (event.key === 'Escape') setSearch('') }} />
+          {search && <Button size="sm" variant="outline" onClick={() => setSearch('')}>{t('clearSearch')}</Button>}
+        </div>
+        <select id={`${id}-task`} className="handoff-select" aria-label={t('taskToExport')} disabled={catalogLoading || !sessions.length} value={selectedId} onChange={event => setSelectedId(event.currentTarget.value)}><option value="" disabled>{t('chooseTask')}</option>
+          {pinned && <optgroup label={t('selectedTask')}><option value={pinned.id}>{pinned.title}{pinned.directory ? ` — ${pinned.directory}` : ''}</option></optgroup>}
+          {query ? <optgroup label={t('matchingTasks')}>{options}</optgroup> : options}
+        </select>
+        {query && <p className="handoff-caption" role="status" aria-live="polite">{matches.length ? `${t('matchingTasks')}: ${matches.length} / ${sessions.length}` : t('noMatchingTasks')}{pinned ? ` ${t('selectionKept')}` : ''}</p>}
+      </div>
         {refreshSessions && <Button size="sm" variant="outline" disabled={task.phase !== null} onClick={() => void task.run('loading', async signal => { await refreshSessions(); signal.throwIfAborted() })}>{t('refreshTasks')}</Button>}
       </div>
       {selected ? <ShareForm key={selected.id} sessionId={selected.id} call={props.call} t={t} /> : <div className="handoff-columns">

@@ -98,3 +98,43 @@ it('offers a compact refresh action for an empty catalog and labels both regions
   expect(refresh).toHaveBeenCalledTimes(1)
   expect(api.calls.filter(r => r.action === 'summary')).toHaveLength(0)
 })
+
+it.each([
+  ['  EARLIER  ', 'older-task'],
+  ['/TMP/CURRENT', 'current-task'],
+  ['控制台', 'chinese-task'],
+])('filters task choices by title or path without reading a task (%s)', (query, expected) => {
+  const api = backend()
+  render(<HandoffHub call={api.call} sessions={[...sessions, { id: 'chinese-task', title: '修复登录', directory: 'C:\\Projects\\控制台' }]} openSession={async () => {}} t={t} />)
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search tasks' }), { target: { value: query } })
+  const choices = screen.getAllByRole('option').filter(option => (option as HTMLOptionElement).value)
+  expect(choices.map(option => (option as HTMLOptionElement).value)).toEqual([expected])
+  expect(api.calls).toEqual([])
+  fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+  expect(screen.getAllByRole('option')).toHaveLength(4)
+})
+
+it('keeps the selected task visible while searching and shares only an explicitly chosen match', async () => {
+  const api = backend()
+  render(<HandoffHub call={api.call} sessions={sessions} currentSessionId="current-task" openSession={async () => {}} t={t} />)
+  await screen.findByText('Messages: 4')
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search tasks' }), { target: { value: 'earlier' } })
+  expect(screen.getByLabelText('Task to export')).toHaveProperty('value', 'current-task')
+  expect(screen.getByRole('group', { name: 'Selected task' }).textContent).toContain('Current task')
+  expect(api.calls.filter(r => r.action === 'summary')).toEqual([{ action: 'summary', sessionId: 'current-task' }])
+  fireEvent.change(screen.getByLabelText('Task to export'), { target: { value: 'older-task' } })
+  await waitFor(() => expect(api.calls.filter(r => r.action === 'summary')).toHaveLength(2))
+  fireEvent.click(screen.getByRole('button', { name: 'Create share' }))
+  await screen.findByRole('button', { name: 'Download ZIP' })
+  expect(api.calls.find(r => r.action === 'share')).toMatchObject({ sessionId: 'older-task' })
+})
+
+it('shows no matches without selecting or loading a different task', () => {
+  const api = backend()
+  render(<HandoffHub call={api.call} sessions={sessions} openSession={async () => {}} t={t} />)
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search tasks' }), { target: { value: 'missing task' } })
+  expect(screen.getByText('No matching tasks.')).toBeTruthy()
+  expect(screen.getByLabelText('Task to export')).toHaveProperty('value', '')
+  expect(screen.queryByRole('button', { name: 'Create share' })).toBeNull()
+  expect(api.calls).toEqual([])
+})

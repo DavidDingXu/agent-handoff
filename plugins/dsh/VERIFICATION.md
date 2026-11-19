@@ -1,5 +1,26 @@
 # DSH verification receipt
 
+## 0.5.1 UI and distribution update
+
+Validated on 2026-11-19 with Node 24.14.1 and the released DSH rc.5 SDK:
+
+- `npm run check` passed typecheck, **83 tests / 8 files**, and Host/Client builds.
+- Five new interaction cases cover case-insensitive title/path search, Chinese
+  Windows paths, clearing filters, no matches and preserving the selected export
+  identity until another task is explicitly chosen.
+- `make cross VERSION=v0.5.1` built all five platform cores; the package checker
+  passed the 42-file package, native Client wrapper and bridge protocol probe.
+- The visible import sources are ZIP upload and encrypted link. The existing
+  host API path-input contract remains compatible.
+- Installed Desktop is now **0.2.2-rc.5**. Native Desktop acceptance of 0.5.1 is
+  pending because computer control continues to report a locked Mac after the
+  owner confirmed unlocking it. This is not claimed as completed UI acceptance.
+
+The session adapters and handoff format are unchanged. The last completed
+three-host continuation and native Desktop baseline is recorded below.
+
+## 0.5.0 compatibility baseline
+
 Validated 2026-11-19 for plugin/core **0.5.0**, against released DSH SDKs
 **0.2.2-rc.1 and 0.2.2-rc.5** (session format 4), Cordis 4.1.0 and Node 24.14.1.
 The rc.5 source reference is upstream `2e39e70496aa02986ca6a820c5d497e816b69d7e`.

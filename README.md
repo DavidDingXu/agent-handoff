@@ -28,12 +28,13 @@ claude plugin marketplace add https://github.com/DavidDingXu/agent-handoff
 claude plugin install agent-handoff@agent-handoff
 ```
 
-Install or update to **0.5.0** on both sides, then restart the agent.
+Install or update to **0.5.1** on both sides, then restart the agent.
 
 ### DeepSeek Harness
 
-1. Open **Plugins → Add plugin → Install third-party plugin** in DSH.
-2. Enter `dsh-agent-handoff`, install and enable it.
+1. Open **Plugins → Add plugin** in DSH.
+2. Enter `dsh-agent-handoff`, select the **official npm registry**, then **Install** and enable it.
+3. Open **Task handoff** in the sidebar. Restart DSH if the entry does not appear.
 
 [npm package](https://www.npmjs.com/package/dsh-agent-handoff) ·
 [Offline install, Web profiles & source builds](plugins/dsh/README.md).
@@ -45,9 +46,10 @@ Install or update to **0.5.0** on both sides, then restart the agent.
 | Codex / Claude Code | Say “share the current task” | Say “import <file/link>” |
 | DSH | **Task handoff → Export task** | **Task handoff → Import task** |
 
-Choose a file or encrypted link. The receiver selects a local workspace,
-reviews the content and confirms a new task. Repeated imports return the
-previously imported task.
+- **Export from DSH:** search for and select the task, choose ZIP or encrypted link, then **Create share**. Send the file or complete link to the receiver.
+- **Import into DSH:** choose a ZIP or paste a share link, select a local workspace, then **Preview handoff**. Review and confirm, then **Open task** to continue.
+
+Imports create a new task. Repeated imports return the previously imported task.
 
 ![Native DSH task handoff](documentation/dsh-native-handoff.png)
 

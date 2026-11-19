@@ -5,6 +5,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-19
+
+### Added
+
+- Search the DSH export task list by title or workspace path, with matching
+  counts and a clear action. Filtering preserves the selected export identity
+  until another task is explicitly chosen.
+
+### Changed
+
+- Simplify DSH import to ZIP uploads and encrypted links, removing the advanced
+  host-file-path control from the user interface.
+- Document npm installation and DSH export/import steps in both READMEs, refresh
+  the product screenshot, and add Chinese alongside English in plugin metadata.
+
 ## [0.5.0] - 2026-11-19
 
 ### Added

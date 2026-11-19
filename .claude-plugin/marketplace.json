@@ -5,16 +5,16 @@
     "name": "Agent Handoff"
   },
   "metadata": {
-    "description": "Share tasks between Codex, Claude Code and DeepSeek Harness as files or end-to-end encrypted links. Continue in a new native task; DSH includes native share/import UI.",
-    "version": "0.5.0"
+    "description": "在 Codex、Claude Code、DeepSeek Harness 间交接任务，支持 ZIP 与端到端加密链接。Share tasks across Codex, Claude Code and DeepSeek Harness via ZIP or end-to-end encrypted links.",
+    "version": "0.5.1"
   },
   "plugins": [
     {
       "name": "agent-handoff",
       "source": "./",
-      "description": "Share tasks between Codex, Claude Code and DeepSeek Harness as files or end-to-end encrypted links. Continue in a new native task; DSH includes native share/import UI.",
+      "description": "在 Codex、Claude Code、DeepSeek Harness 间交接任务，支持 ZIP 与端到端加密链接。Share tasks across Codex, Claude Code and DeepSeek Harness via ZIP or end-to-end encrypted links.",
       "category": "productivity",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "license": "Apache-2.0",
       "keywords": [
         "share",
