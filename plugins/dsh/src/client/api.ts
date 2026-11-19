@@ -29,7 +29,7 @@ export function createApiCall(fetcher?: FetchCarrier): ApiCall {
     if (!body.ok) {
       const error = body.error
       if (!record(error) || typeof error.code !== 'string' || typeof error.message !== 'string') throw failure('ui/invalid-response', 'Invalid handoff response')
-      throw new HandoffApiError({ code: error.code, message: error.message, ...(typeof error.recoverySessionId === 'string' ? { recoverySessionId: error.recoverySessionId } : {}) })
+      throw new HandoffApiError({ code: error.code, message: error.message, ...(typeof error.recoverySessionId === 'string' ? { recoverySessionId: error.recoverySessionId } : {}), ...(typeof error.recoveryDirectory === 'string' ? {recoveryDirectory:error.recoveryDirectory} : {}) })
     }
     if (!response.ok || !Object.hasOwn(body, 'data')) throw failure('ui/invalid-response', 'Invalid handoff response')
     return (body as unknown as ApiResponse<T> & { ok: true }).data

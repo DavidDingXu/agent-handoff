@@ -27,7 +27,7 @@ claude plugin marketplace add https://github.com/DavidDingXu/agent-handoff
 claude plugin install agent-handoff@agent-handoff
 ```
 
-发送方和接收方均安装或更新至 **0.5.1**，然后重启智能体。
+发送方和接收方均安装或更新至 **0.6.0**，然后重启智能体。
 
 ### DeepSeek Harness
 
@@ -47,7 +47,11 @@ claude plugin install agent-handoff@agent-handoff
 
 - **DSH 导出：** 搜索并选择要交接的任务，选择 ZIP 或加密链接，点击**生成分享**，将文件或完整链接发给对方。
 - **DSH 导入：** 选择 ZIP 文件或粘贴分享链接，选定本地工作区，点击**预览交接内容**；核对后确认导入，再点击**打开任务**继续。
+- **切换 Agent：** DSH 导出页选择**切换 Agent**，创建 Codex／Claude 原生任务，再按显示的命令继续。终端可用 `agent-handoff switch --target claude --open`，不需要来源模型响应。[按钮与命令入口](docs/usage.zh-CN.md#本地切换-agent)。
+- **自动任务简报：** 本地摘取请求、最近回复和工具记录，可补充备注。接收方能在浏览器直接阅读加密分享。
+- **可选代码改动：** 勾选文本改动和需要的新文件；接收时可明确选择在独立新工作区应用。默认不带代码。
 
+打开分享链接即可先阅读，无需安装插件或自行部署。要继续任务，再在插件内预览并确认导入。
 导入会创建新任务；重复导入同一份内容会返回之前创建的任务。
 
 ![DSH 原生任务交接界面](documentation/dsh-native-handoff.png)

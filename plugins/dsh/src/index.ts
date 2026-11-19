@@ -26,7 +26,7 @@ export function apply(ctx: Context, config: HandoffConfig): void {
     profileDirectory: ctx.get('profileContext')?.dir,
     sessionQuery: { readSession: id => ctx.sessionQuery.readSession(id), readTitle: id => ctx.sessionQuery.readTitle(id) },
     sessionPersistence: { create: (header, options) => ctx.sessionPersistence.create(header, options), flush: () => ctx.sessionPersistence.flush() },
-    workspaceRegistry: { list: () => ctx.workspaceRegistry.list(), get: id => ctx.workspaceRegistry.get(WorkspaceId(id)) },
+    workspaceRegistry: { list: () => ctx.workspaceRegistry.list(), get: id => ctx.workspaceRegistry.get(WorkspaceId(id)), create: (path, title) => ctx.workspaceRegistry.create(path, title) },
     sessionController: { resolveAgent: id => ctx.sessionController.resolveAgent(id), rename: request => ctx.sessionController.rename(request) },
   }, config)
   ctx.effect(() => ctx.connection.fetch.register({ path: API_PATH, methods: ['POST'], requestBody: 'streaming', fetch: createHandoffRoute(service) }), 'agent-handoff: owner API')

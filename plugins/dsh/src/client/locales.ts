@@ -1,6 +1,21 @@
 /** Product copy, registered through the Host's current locale rather than browser language. */
 export const NS = 'agentHandoff'
 export const en = {
+  codeUncertain: 'Code application could not be confirmed. Check the displayed directory, then preview again or import without applying code.',
+  switchFallback: 'The target task could not be verified. Download the ZIP and inspect or import it before retrying.',
+  codePartial: 'The new code workspace is ready, but the task was not created. Retry this import to reuse that workspace.',
+  switchAgent: 'Switch agent', continueIn: 'Continue in', switching: 'Preparing the next agent…', switchReady: 'A new native task is ready.',
+  switchHelp: 'Create a task on the machine running DSH, then run the command there to continue. No source model turn is needed.',
+  continueCommand: 'Continue command', copyCommand: 'Copy command', localOnly: 'Same workspace, new task. Your files stay in place.',
+  brief: 'Task brief', briefHelp: 'Recorded excerpts, prepared locally without a model. Open a section to read its source text.',
+  objective: 'Initial request', latestRequest: 'Latest request', latestUpdate: 'Latest response', evidence: 'Recent tool evidence', sourceEntry: 'Source entry',
+  handoffNote: 'Handoff note', noteHint: 'Optional: add what the next agent should know.',
+  includeCode: 'Include code changes', codeHelp: 'For another machine or collaborator. Select text changes; new files start unchecked. Same-machine switching keeps using your existing files.',
+  inspectingCode: 'Checking changed files…', codeFiles: 'Changed files', noCode: 'No eligible changes in this Git workspace.', codeBase: 'Base commit', selectedBytes: 'Selected file bytes',
+  codeError: 'Code is unavailable. Use a Git workspace with a commit, then check changed files again.',
+  codeApplyError: 'The code could not be applied. Check that this repository has the base commit, then preview again or import without code.',
+  applyCode: 'Apply code in a new workspace', applyCodeHelp: 'Creates a separate Git worktree at the base commit. Existing files are preserved. Keep unchecked to import only the task.',
+  codeDestination: 'New workspace directory', codeIncluded: 'Included code changes', codeNotApplied: 'Code is attached and will stay unapplied unless you choose to apply it.',
   panel: 'Task handoff', share: 'Share task', import: 'Import task', close: 'Close', cancel: 'Cancel',
   shareDescription: 'Share this task as a ZIP file or an encrypted link.',
   loading: 'Loading task…', summaryFailed: 'The task could not be loaded.', retry: 'Retry',
@@ -73,6 +88,21 @@ export const en = {
 } as const
 export type CopyKey = keyof typeof en
 export const zh: Record<CopyKey, string> = {
+  codeUncertain: '尚未确认代码是否应用成功。请先检查下方目录，再重新预览，或不应用代码导入任务。',
+  switchFallback: '尚未确认目标任务创建成功。请先下载 ZIP，核对或手动导入后再决定是否重试。',
+  codePartial: '代码工作区已准备好，但任务尚未创建。重试本次导入会继续使用该工作区。',
+  switchAgent: '切换 Agent', continueIn: '继续使用', switching: '正在准备目标任务…', switchReady: '已创建目标应用的原生任务。',
+  switchHelp: '在运行 DSH 的电脑上创建任务，再到该电脑运行下方命令继续。不需要来源模型响应。',
+  continueCommand: '继续任务命令', copyCommand: '复制命令', localOnly: '使用当前工作区，新建任务。代码文件保留在原处。',
+  brief: '任务简报', briefHelp: '本地自动摘取已有记录，不消耗模型额度。展开可查看原文。',
+  objective: '最初请求', latestRequest: '最近请求', latestUpdate: '最近回复', evidence: '最近工具记录', sourceEntry: '来源记录',
+  handoffNote: '交接备注', noteHint: '可选：补充希望接手方了解的事项。',
+  includeCode: '携带代码改动', codeHelp: '适用于跨电脑或交给同事。按文件选择文本改动，新文件默认不选。同机切换会继续使用现有代码。',
+  inspectingCode: '正在检查代码改动…', codeFiles: '改动文件', noCode: '此 Git 工作区暂无可携带的改动。', codeBase: '基准提交', selectedBytes: '所选文件体积',
+  codeError: '暂时无法读取代码改动。请使用已有提交的 Git 工作区，再重试检查。',
+  codeApplyError: '未能应用代码。请确认仓库含有基准提交，再重新预览，或不携带代码导入任务。',
+  applyCode: '在新工作区应用代码', applyCodeHelp: '从基准提交创建独立 Git 工作树，保留现有文件。不勾选时仅导入任务。',
+  codeDestination: '新工作区目录', codeIncluded: '附带的代码改动', codeNotApplied: '代码作为附件保留，仅在主动勾选后应用。',
   panel: '任务交接', share: '分享任务', import: '导入任务', close: '关闭', cancel: '取消',
   shareDescription: '将当前任务分享为 ZIP 文件或加密链接。', loading: '正在读取任务…', summaryFailed: '无法读取当前任务。', retry: '重试',
   emptyTask: '此任务还没有消息，请选择其他任务。', refreshSummary: '刷新任务信息',
@@ -141,6 +171,7 @@ export const zh: Record<CopyKey, string> = {
 export type Translate = (key: CopyKey) => string
 
 const warningKeys = new Map<string, CopyKey>([
+  ['The target task could not be verified. Download the ZIP to inspect or import it manually before retrying.', 'switchFallback'],
   ['Source media and non-text content remain inert labels; no source files or URLs were opened.', 'warnMedia'],
   ['Native history requires the supported DSH runtime and session format.', 'warnVersion'],
   ['Invalid native session envelope.', 'warnNativeInvalid'],

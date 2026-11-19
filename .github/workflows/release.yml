@@ -36,6 +36,8 @@ jobs:
         run: |
           version=${GITHUB_REF_NAME#v}
           test "$(jq -r .version .codex-plugin/plugin.json)" = "$version"
+          test "$(jq -r .version .claude-plugin/plugin.json)" = "$version"
+          test "$(jq -r .version plugins/claude/.claude-plugin/plugin.json)" = "$version"
           test "$(jq -r .version plugins/dsh/package.json)" = "$version"
           test "$(jq -r .metadata.version .claude-plugin/marketplace.json)" = "$version"
           test "$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)" = "$version"

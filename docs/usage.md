@@ -4,6 +4,90 @@
 
 This guide covers the Codex/Claude Skill and local CLI. DSH uses its native plugin interface.
 
+## Local agent switching
+
+Switching reads an already persisted task and creates a new native target task locally. It does
+not call the source model, upload conversation, or require remaining source-model quota. A new
+continuation turn uses the target model's quota; the imported history still occupies its context.
+
+- **DSH:** choose a task, **Switch agent**, and Codex/Claude Code. The new task is created on
+  the machine running DSH; use the displayed directory and command there. A remote browser
+  does not launch an app on its own machine. Same-machine switching uses existing code files.
+- **Claude Code:** update the plugin and run `/handoff codex`. This immediate local command
+  uses the exact session ID without starting a Claude turn. It displays the resume command.
+  [Entry and version boundaries](../plugins/claude/README.md).
+- **Codex:** add a toolbar Action in project local-environment settings. When no exact current
+  ID is supplied by the host, the integrated terminal asks you to choose a task.
+  [Action setup](../entries/codex/README.md).
+
+Install the matching standalone CLI binary from [Releases](https://github.com/DavidDingXu/agent-handoff/releases/latest)
+on PATH, or replace `agent-handoff` below with the plugin core's absolute path. The DSH npm
+package does not install a global terminal command.
+
+```sh
+agent-handoff switch --source codex --target claude --open
+agent-handoff switch --source claude --target codex --thread EXACT_SESSION_ID
+agent-handoff tasks --source codex --cwd /path/to/project
+```
+
+`--open` resumes history in a terminal without sending a continuation prompt. Omit it to return
+the new task and resume command only. `--home` selects the source configuration directory;
+`--target-home` selects the target. Without an exact ID, an interactive terminal shows a picker;
+noninteractive calls return `selection_required` with candidates. The newest task is never
+silently substituted. Each explicit switch creates a new task; ordinary duplicate imports retain
+their existing behavior.
+
+## Automatic brief and browser reading
+
+New exports contain the first request, latest request, latest response and up to six recent tool
+records, attributed to transcript entry indices. Extraction is deterministic and local, with no
+model call or inferred completion claim. Add **Handoff note** in DSH or pass
+`share --brief-note "What the receiver should know"`. Notes are limited to 8 KiB and scanned
+for sensitive content.
+
+No plugin installation or site deployment is required to read a share. Open a complete encrypted link to decrypt, verify and read the brief, conversation and expandable
+tool evidence locally in a browser. Download the ZIP or copy its import command to continue.
+The key stays in the URL fragment. Bundle HTML, commands and remote resources never run or
+load. If an anonymous storage service blocks browser CORS, import through the CLI/plugin.
+Reading never imports a task automatically. Preview and confirm in the plugin to continue;
+applying code attachments requires a separate explicit choice.
+`brief_path` points to the imported private brief file; full native history is retained separately.
+
+## Optional code changes
+
+Use this to move uncommitted work to another machine or hand a partial change to a collaborator.
+Code is off by default; same-machine switching uses existing files. For already pushed commits,
+the receiver can usually pull the repository first.
+
+Enable **Include code changes** in DSH to review files, byte counts and the base commit. Eligible
+tracked text changes start selected; new files start unchecked. Deselect individual files freely.
+Credentials, dependency/build directories, binaries, symlinks and submodules are excluded.
+For the CLI, inspect first, then select:
+
+```sh
+agent-handoff bridge code-inspect --cwd /path/to/repo
+agent-handoff share --source codex --thread EXACT_ID --include-code --code-file tests/new-test.txt
+agent-handoff preview task.agent-handoff.zip
+agent-handoff import task.agent-handoff.zip --target claude --cwd /path/to/repo --apply-code --execute
+```
+
+`--include-code` chooses eligible tracked text changes. Repeat `--code-file` for exact changed/new
+files; used alone, it includes only those files. The base is local `HEAD`, with staged and unstaged
+differences for the selected paths. It never packs the entire repository. Limits: 256 files, 1 MiB
+per file, 8 MiB combined patch/new content. DSH's 16 MiB ZIP upload/download limit remains.
+Use Git for larger changes.
+
+Receiving code is opt-in. DSH previews the inventory and new directory; only **Apply code in a
+new workspace** creates a separate Git worktree and new task. For CLI imports, `--cwd` is an
+existing local repository; optional `--code-directory` chooses the new worktree, otherwise a fresh
+sibling directory is generated. The repository must already contain the base commit. No remote
+fetch is attempted. Missing bases, conflicts and unsafe paths stop application without changing
+the existing workspace. Retained code directories appear in recovery output. A conversation-only
+DSH import can be previewed again to explicitly create a task with code later.
+
+These optional entries retain bundle v2. Older clients can read original history but have no new
+brief/code recovery UI; update both sides to 0.6.0 for the complete workflow.
+
 ## Compatibility
 
 Verified on 2026-11-19 with **Codex CLI 0.167.1** and **Claude Code 2.1.322**:

@@ -46,6 +46,8 @@ func cmdPreview(args []string) error {
 		"last_message":       detail.LastMessage,
 		"session_start":      detail.FirstTimestamp,
 		"session_end":        detail.LastTimestamp,
+		"brief":              b.Brief,
+		"code":               codeManifest(b),
 	}
 	for _, k := range []string{"git_branch", "git_origin_url", "cli_version", "model_provider"} {
 		switch k {
@@ -75,6 +77,13 @@ func cmdPreview(args []string) error {
 		}
 	}
 	return printJSON(result)
+}
+
+func codeManifest(b *bundle.ReadResult) any {
+	if b.Code != nil {
+		return b.Code.Manifest
+	}
+	return nil
 }
 
 // extractDetail summarizes either a codex or claude session payload.

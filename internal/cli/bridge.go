@@ -12,11 +12,12 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/DavidDingXu/agent-handoff/internal/brief"
 	"github.com/DavidDingXu/agent-handoff/internal/bundle"
 	"github.com/DavidDingXu/agent-handoff/internal/idgen"
-	"github.com/DavidDingXu/agent-handoff/internal/ledger"
 	"github.com/DavidDingXu/agent-handoff/internal/neutral"
 	"github.com/DavidDingXu/agent-handoff/internal/safety"
+	"github.com/DavidDingXu/agent-handoff/internal/workspace"
 )
 
 const bridgeShareSchema = "agent-handoff.bridge.share.v1"
@@ -29,6 +30,9 @@ type bridgeShareRequest struct {
 	SourceCLI      string             `json:"source_cli"`
 	Native         json.RawMessage    `json:"native"`
 	Neutral        neutral.Transcript `json:"neutral"`
+	BriefNote      string             `json:"brief_note,omitempty"`
+	CodeFiles      []string           `json:"code_files,omitempty"`
+	Code           *workspace.Payload `json:"code,omitempty"`
 }
 type bridgeFailure struct {
 	code     string
@@ -51,6 +55,8 @@ func cmdBridge(args []string) error {
 			result, err = bridgeShare(args[1:])
 		case "read":
 			result, err = bridgeRead(args[1:])
+		case "brief", "code-inspect", "code-capture", "code-apply":
+			result, err = bridgeWorkflow(args[0], args[1:])
 		default:
 			err = bridgeFail("invalid_input")
 		}
@@ -140,6 +146,27 @@ func bridgeShare(args []string) (any, error) {
 	var decoded any
 	_ = json.Unmarshal(data, &decoded)
 	findings := bridgeScan(decoded, "$")
+	if req.Code != nil && len(req.CodeFiles) > 0 {
+		return nil, bridgeFail("invalid_input")
+	}
+	code := req.Code
+	if len(req.CodeFiles) > 0 {
+		code, err = workspace.Capture(req.SourceCWD, req.CodeFiles)
+		if err != nil {
+			return nil, bridgeFail("code_capture_failed")
+		}
+	}
+	if code != nil {
+		if err = workspace.Validate(code); err != nil {
+			return nil, bridgeFail("invalid_code")
+		}
+		findings = append(findings, codeFindings(code)...)
+	}
+	generated := brief.Generate(req.Neutral)
+	generated.Notes = req.BriefNote
+	if err = brief.Validate(generated); err != nil {
+		return nil, bridgeFail("invalid_brief")
+	}
 	if len(findings) > 0 && !*include {
 		return nil, &bridgeFailure{code: "secret_detected", findings: findings}
 	}
@@ -156,7 +183,7 @@ func bridgeShare(args []string) (any, error) {
 	native := append(compact.Bytes(), '\n')
 	result := map[string]any{"schema": "agent-handoff.bridge.share-result.v1", "source_agent": bundle.AgentDSH, "thread_id": m.SourceThreadID, "title": m.Title, "source_cwd": m.SourceCWD, "message_count": count, "safety": map[string]any{"status": safety.Status(findings), "findings": findings}}
 	var response any
-	err = sharePrepared(bundle.WriterInput{Manifest: m, Session: native, Neutral: req.Neutral}, result, findings, out, format, endpoint, token, config, ttl, func(v any) error { response = v; return nil })
+	err = sharePrepared(bundle.WriterInput{Manifest: m, Session: native, Neutral: req.Neutral, Brief: &generated, Code: code}, result, findings, out, format, endpoint, token, config, ttl, func(v any) error { response = v; return nil })
 	if err != nil {
 		return nil, bridgeFail("share_failed")
 	}
@@ -277,5 +304,9 @@ func bridgeRead(args []string) (any, error) {
 	if b.Manifest.ImageCount > 0 || len(b.Images) > 0 {
 		warnings = append(warnings, "Images and attachments may not survive semantic import.")
 	}
-	return map[string]any{"schema": "agent-handoff.bridge.read-result.v1", "status": "ok", "checksum_status": checksum, "fingerprint": ledger.Fingerprint(b.Manifest.SourceAgent, b.Manifest.SourceThreadID, b.Session), "manifest": b.Manifest, "native": native, "neutral": b.Neutral, "source_session": string(b.Session), "warnings": warnings}, nil
+	if b.Brief == nil {
+		v := brief.Generate(b.Neutral)
+		b.Brief = &v
+	}
+	return map[string]any{"schema": "agent-handoff.bridge.read-result.v1", "status": "ok", "checksum_status": checksum, "fingerprint": handoffFingerprint(b), "manifest": b.Manifest, "native": native, "neutral": b.Neutral, "source_session": string(b.Session), "brief": b.Brief, "code": b.Code, "warnings": warnings}, nil
 }

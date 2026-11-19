@@ -4,7 +4,7 @@ import { Button, Input, MenuSurface, Modal, SegmentedTabs, IconShareOutlineRegul
 import { handoffStyles } from './styles.ts'
 import { HandoffApiError, readUpload, saveDownload, type ApiCall } from './api.ts'
 import { warningText, type Translate, type CopyKey } from './locales.ts'
-import type { DownloadResult, HandoffError, ImportMode, ImportPreview, ImportResult, ImportSource, SessionSummary, ShareFormat, ShareResult, WorkspaceChoice } from '../types.ts'
+import type { DownloadResult, HandoffError, ImportMode, ImportPreview, ImportResult, ImportSource, SessionSummary, ShareFormat, ShareResult, WorkspaceChoice, TaskBrief, CodeInspection, ExportOptions, SwitchTarget, SwitchResult, SwitchedTask, CodeManifest } from '../types.ts'
 
 const column: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }
 const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
@@ -42,6 +42,9 @@ function errorText(error: HandoffError, t: Translate): string {
     invalid_source: 'handoffError', invalid_upload: 'handoffError', invalid_native: 'handoffError', invalid_neutral: 'handoffError',
     invalid_input: 'handoffError', unsupported_schema: 'handoffError', read_failed: 'handoffError', integrity_failed: 'handoffError',
     invalid_bridge_response: 'invalidResponse', invalid_request: 'invalidResponse',
+    code_unavailable: 'codeError', code_capture_failed: 'codeError', invalid_code: 'handoffError', invalid_brief: 'handoffError', code_apply_failed: 'codeApplyError',
+    code_import_partial: 'codePartial',
+    code_import_uncertain: 'codeUncertain',
     native_unsupported: 'nativeError', ticket_invalid: 'confirmationError', too_many_previews: 'capacityError', too_many_downloads: 'capacityError',
     import_busy: 'importBusy', import_partial: 'partialImport', import_failed: 'importFailed', download_expired: 'downloadExpired',
     input_too_large: 'sizeError', payload_too_large: 'sizeError', output_too_large: 'sizeError', bridge_output_too_large: 'sizeError',
@@ -54,6 +57,7 @@ function ErrorBox({ error, t, openSession, busy }: { error?: HandoffError; t: Tr
   if (!error) return null
   return <div role="alert" className="handoff-alert" style={{ ...column, gap: 8 }}>
     <p style={{ margin: 0 }}>{errorText(error, t)}</p>
+    {error.recoveryDirectory && <p className="handoff-excerpt">{error.recoveryDirectory}</p>}
     {error.recoverySessionId && openSession && <>
       <p style={identity}>{error.recoverySessionId}</p>
       <Button variant="outline" disabled={busy} onClick={() => openSession(error.recoverySessionId!)}>{t('openCreated')}</Button>
@@ -68,6 +72,23 @@ function Status({ phase, notice, t }: { phase: CopyKey | null; notice?: string; 
   return <div role="status" aria-live="polite" className="handoff-status">
     {phase ? <><progress aria-label={t(phase)} style={{ width: '100%' }} /><p style={{ margin: '4px 0 0' }}>{t(phase)}</p></> : notice ?? ''}
   </div>
+}
+function BriefView({ value, t }: { value?: TaskBrief; t: Translate }) {
+  if (!value) return null
+  return <section className="handoff-brief handoff-stack" aria-label={t('brief')}>
+    <div><h3>{t('brief')}</h3><p className="handoff-caption">{t('briefHelp')}</p></div>
+    {(['objective', 'latest_request', 'latest_update'] as const).map((key, at) => {
+      const excerpt = value[key]
+      if (!excerpt || key === 'latest_request' && excerpt.entry_index === value.objective?.entry_index) return null
+      return <details key={key} open={at === 0}><summary>{t(key === 'latest_request' ? 'latestRequest' : key === 'latest_update' ? 'latestUpdate' : 'objective')}</summary>
+        <p className="handoff-excerpt">{excerpt.text}</p><span className="handoff-caption">{t('sourceEntry')} {excerpt.entry_index + 1}{excerpt.truncated ? ' …' : ''}</span></details>
+    })}
+    {value.evidence?.length > 0 && <details><summary>{t('evidence')} · {value.evidence.length}</summary>{value.evidence.map((entry, at) => <details key={at}><summary>{entry.tool} · {entry.status}</summary><pre className="handoff-excerpt">{entry.input}{'\n'}{entry.output}</pre></details>)}</details>}
+    {value.notes && <div><h3>{t('handoffNote')}</h3><p className="handoff-excerpt">{value.notes}</p></div>}
+  </section>
+}
+function CodeInventory({ code, t }: { code: CodeManifest; t: Translate }) {
+  return <div className="handoff-stack"><p className="handoff-caption">{t('codeBase')}: <code>{code.base_commit.slice(0, 12)}</code></p><ul className="handoff-code-list">{code.files.map(file => <li key={file.path}><span>{file.path}</span><small>{file.status} · {file.bytes.toLocaleString()} B</small></li>)}</ul></div>
 }
 export interface ShareDialogProps {
   sessionId: string
@@ -87,6 +108,14 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
   const [notice, setNotice] = useState<CopyKey | null>(null)
   const [copyError, setCopyError] = useState(false)
   const [reload, setReload] = useState(0)
+  const actionId = useId()
+  const [operation, setOperation] = useState<'share' | 'switch'>('share')
+  const [target, setTarget] = useState<SwitchTarget>('claude')
+  const [switched, setSwitched] = useState<SwitchedTask | null>(null)
+  const [briefNote, setBriefNote] = useState('')
+  const [includeCode, setIncludeCode] = useState(false)
+  const [code, setCode] = useState<CodeInspection | null>(null)
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([])
   useEffect(() => {
     void task.run('loading', async signal => {
       const value = await call<SessionSummary>({ action: 'summary', sessionId }, signal)
@@ -96,26 +125,59 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
   }, [call, sessionId, reload, task.run, task.cancel])
   const busy = task.phase !== null
   const empty = summary?.messageCount === 0
+  const invalidate = () => { setResult(null); setSwitched(null); setConsent(false); setNotice(null); setCopyError(false); task.clearError() }
+  const inspectCode = () => void task.run('inspectingCode', async signal => {
+    const value = await call<CodeInspection>({ action: 'code-preview', sessionId }, signal)
+    signal.throwIfAborted(); setCode(value); setSelectedFiles(value.files.filter(file => file.eligible && file.status !== 'untracked').map(file => file.path))
+  })
   const share = (secretTicket?: string) => {
     if (!summary || empty) return
-    void task.run('preparing', async signal => {
+    void task.run(operation === 'switch' ? 'switching' : 'preparing', async signal => {
       setNotice(null); setCopyError(false)
-      const value = await call<ShareResult>({ action: 'share', sessionId, format, ...(secretTicket ? { secretTicket } : {}) }, signal)
+      const options: ExportOptions = { ...(briefNote ? { briefNote } : {}), ...(includeCode ? { codeFiles: selectedFiles } : {}) }
+      const extra = { ...(Object.keys(options).length ? { options } : {}), ...(secretTicket ? { secretTicket } : {}) }
+      if (operation === 'switch') {
+        const value = await call<SwitchResult>({ action: 'switch', sessionId, target, ...extra }, signal)
+        signal.throwIfAborted(); setConsent(false)
+        if ('targetAgent' in value) { setResult(null); setSwitched(value); setNotice('switchReady') }
+        else {setResult(value);if(value.status==='fallback_zip')setNotice('switchFallback')}
+        return
+      }
+      const value = await call<ShareResult>({ action: 'share', sessionId, format, ...extra }, signal)
       signal.throwIfAborted(); setResult(value); setConsent(false)
-      setSummary({ sessionId, title: value.title, messageCount: value.messageCount, warnings: value.warnings })
+      setSummary(current => ({ ...current, sessionId, title: value.title, messageCount: value.messageCount, warnings: value.warnings }))
       if (value.status !== 'blocked') setNotice(value.status === 'fallback_zip' ? 'fallback' : 'shareReady')
     })
   }
   const blocked = result?.status === 'blocked'
   return <div className="agent-handoff handoff-columns">
     <section className="handoff-card handoff-stack" aria-label={t('exportSettings')}>
-      <div className="handoff-card-header"><h2>{t('exportSettings')}</h2><p>{t('exportHelp')}</p></div>
+      <div className="handoff-card-header"><h2>{t(operation === 'switch' ? 'switchAgent' : 'exportSettings')}</h2><p>{t(operation === 'switch' ? 'switchHelp' : 'exportHelp')}</p></div>
+      <SegmentedTabs<'share' | 'switch'> label={t('actions')} value={operation} onChange={value => { if(busy)return;setOperation(value); invalidate() }} items={[
+        {value:'share',label:t('share'),id:`${actionId}-share`,panelId:`${actionId}-share-body`},{value:'switch',label:t('switchAgent'),id:`${actionId}-switch`,panelId:`${actionId}-switch-body`},
+      ]} />
+      <div id={`${actionId}-share-body`} role="tabpanel" aria-labelledby={`${actionId}-share`} hidden={operation !== 'share'} className="handoff-stack">
       <label className="handoff-field"><span>{t('format')}</span><select aria-label={t('format')} value={format} disabled={busy} className="handoff-select" onChange={event => {
         setFormat(event.currentTarget.value as ShareFormat); setResult(null); setConsent(false); setNotice(null); setCopyError(false); task.clearError()
       }}><option value="zip">{t('zip')}</option><option value="link">{t('link')}</option></select></label>
       <div className="handoff-notice"><IconShareOutlineRegular size={16} /><p>{t(format === 'zip' ? 'zipNotice' : 'linkNotice')}</p></div>
+      </div>
+      <div id={`${actionId}-switch-body`} role="tabpanel" aria-labelledby={`${actionId}-switch`} hidden={operation !== 'switch'} className="handoff-stack">
+        <label className="handoff-field"><span>{t('continueIn')}</span><select aria-label={t('continueIn')} className="handoff-select" value={target} disabled={busy} onChange={event => { setTarget(event.currentTarget.value as SwitchTarget); invalidate() }}><option value="claude">Claude Code</option><option value="codex">Codex</option></select></label>
+        <div className="handoff-notice"><p>{t('localOnly')}</p></div>
+      </div>
+      <label className="handoff-field"><span>{t('handoffNote')}</span><textarea aria-label={t('handoffNote')} className="handoff-textarea" rows={2} maxLength={8192} value={briefNote} disabled={busy} placeholder={t('noteHint')} onChange={event => { setBriefNote(event.currentTarget.value); invalidate() }} /></label>
+      <section className="handoff-stack handoff-code" aria-label={t('codeFiles')}>
+        <label className="handoff-check"><input type="checkbox" checked={includeCode} disabled={busy} onChange={event => { const checked=event.currentTarget.checked;setIncludeCode(checked);invalidate();if(checked)inspectCode() }} /><span>{t('includeCode')}</span></label>
+        {includeCode && <><p className="handoff-caption">{t('codeHelp')}</p>{code ? <>
+          <p className="handoff-caption">{t('codeBase')}: <code>{code.base_commit.slice(0,12)}</code></p>
+          <div className="handoff-code-selection">{code.files.map(file => <label key={file.path} className="handoff-code-option"><input type="checkbox" aria-label={file.path} disabled={busy || !file.eligible} checked={selectedFiles.includes(file.path)} onChange={event => { const checked=event.currentTarget.checked;setSelectedFiles(files=>checked?[...files,file.path]:files.filter(path=>path!==file.path));invalidate() }} /><span><span>{file.path}</span><small>{file.status} · {file.bytes.toLocaleString()} B{file.reason ? ` · ${file.reason}` : ''}</small></span></label>)}</div>
+          {!code.files.some(file=>file.eligible) && <p className="handoff-caption">{t('noCode')}</p>}
+          <p className="handoff-caption">{t('selectedBytes')}: {code.files.filter(file=>selectedFiles.includes(file.path)).reduce((sum,file)=>sum+file.bytes,0).toLocaleString()} B</p>
+        </> : !busy && <Button size="sm" variant="outline" onClick={inspectCode}>{t('retry')}</Button>}</>}
+      </section>
       {empty && <div className="handoff-stack"><p className="handoff-caption">{t('emptyTask')}</p><div className="handoff-actions"><Button size="sm" variant="outline" disabled={busy} onClick={() => setReload(value => value + 1)}>{t('refreshSummary')}</Button></div></div>}
-      {!blocked && <div className="handoff-actions"><Button variant="primary" disabled={busy || summary === null || empty} onClick={() => share()}>{t('createShare')}</Button></div>}
+      {!blocked && <div className="handoff-actions"><Button variant="primary" disabled={busy || summary === null || empty || includeCode && !selectedFiles.length} onClick={() => share()}>{t(operation === 'switch' ? 'switchAgent' : 'createShare')}</Button></div>}
       {blocked && <section className="handoff-warning handoff-stack" aria-label={t('blocked')}>
         <strong>{t('blocked')}</strong><p style={muted}>{t('blockedDescription')}</p>
         {result.findings?.length ? <ul>{result.findings.map((finding, at) => <li key={at} style={{ overflowWrap: 'anywhere' }}><strong>{finding.rule}</strong>{finding.field && <p style={identity}>{t('field')}: {finding.field}</p>}{finding.line !== undefined && <p style={identity}>{t('line')}: {finding.line}</p>}</li>)}</ul> : <p style={muted}>{t('noFindingDetails')}</p>}
@@ -129,6 +191,8 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
     </section>
     <aside className="handoff-card handoff-context handoff-stack" aria-label={t('taskOverview')}>
       <div><h2>{t('taskOverview')}</h2>{summary ? <><p className="handoff-task-title">{summary.title}</p><p style={identity}>{t('session')}: {sessionId}</p><p className="handoff-caption">{t('messages')}: {summary.messageCount}</p></> : <p className="handoff-caption">{t('loading')}</p>}</div>
+      <BriefView value={summary?.brief} t={t} />
+      {switched && <section className="handoff-result"><strong>{t('switchReady')}</strong><label className="handoff-field"><span>{t('continueCommand')}</span><Input readOnly value={switched.command} aria-label={t('continueCommand')} onFocus={event=>event.currentTarget.select()} /></label><p className="handoff-caption">{switched.directory}</p><div className="handoff-actions"><Button size="sm" variant="outline" disabled={busy} onClick={()=>void task.run('copying',async signal=>{const accepted=await copy(switched.command);signal.throwIfAborted();setCopyError(!accepted);setNotice(accepted?'copied':null)})}>{t('copyCommand')}</Button></div></section>}
       {summary && !result && <Warnings warnings={summary.warnings} t={t} />}
       {result && !blocked && <section className="handoff-result" aria-label={t('resultHeading')}>
         <hr className="handoff-divider" />
@@ -150,7 +214,7 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
 
 /** Header shortcut shares the same safe form as the hub, inside DSH's native overlay. */
 export function ShareDialog({ onClose, ...props }: ShareDialogProps) {
-  return <Modal open onClose={onClose} closeLabel={props.t('close')} title={props.t('share')} description={props.t('shareDescription')}
+  return <Modal open onClose={onClose} closeLabel={props.t('close')} title={props.t('panel')} description={props.t('hubDescription')}
     className="agent-handoff-share" contentClassName="agent-handoff-share-content"
     footer={<Button variant="outline" onClick={onClose}>{props.t('close')}</Button>}>
     <div className="handoff-dialog"><style>{handoffStyles}</style><ShareForm {...props} /></div>
@@ -188,6 +252,7 @@ export function ImportPanel({ call, t, openSession, renderWorkspacePicker }: Imp
   const [expiredTicket, setExpiredTicket] = useState(false)
   const [reload, setReload] = useState(0)
   const pickerAnchor = useRef<HTMLButtonElement>(null)
+  const [applyCode, setApplyCode] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   useEffect(() => {
     void task.run('loading', async signal => {
@@ -198,7 +263,7 @@ export function ImportPanel({ call, t, openSession, renderWorkspacePicker }: Imp
   }, [call, reload, task.run, task.cancel])
   const busy = task.phase !== null
   const selected = workspaces.find(item => item.id === workspaceId)
-  const resetPreview = () => { setPreview(null); setMode(''); setResult(null); setRecoverySessionId(undefined); setRecoveryMessage(''); setExpiredTicket(false); task.clearError() }
+  const resetPreview = () => { setPreview(null); setMode(''); setApplyCode(false); setResult(null); setRecoverySessionId(undefined); setRecoveryMessage(''); setExpiredTicket(false); task.clearError() }
   const changeWorkspace = (id: string) => {
     setWorkspaceId(id); setPickerOpen(false); resetPreview()
     // Native picker can add a new registered workspace. Refresh only its choices, retaining the selected id.
@@ -206,7 +271,7 @@ export function ImportPanel({ call, t, openSession, renderWorkspacePicker }: Imp
   }
   const sourceReady = sourceKind === 'upload' ? file !== null : link.trim() !== ''
   const loadPreview = () => void task.run('previewing', async signal => {
-    setPreview(null); setMode(''); setResult(null); setExpiredTicket(false)
+    setPreview(null); setMode(''); setApplyCode(false); setResult(null); setExpiredTicket(false)
     const source: ImportSource = sourceKind === 'upload' ? await readUpload(file!, signal)
       : { kind: 'link', url: link.trim() }
     const value = await call<ImportPreview>({ action: 'preview', source, workspaceId }, signal)
@@ -217,7 +282,7 @@ export function ImportPanel({ call, t, openSession, renderWorkspacePicker }: Imp
     if (!Number.isFinite(Date.parse(preview.expiresAt)) || Date.parse(preview.expiresAt) <= Date.now()) { setExpiredTicket(true); return }
     void task.run('importing', async signal => {
       try {
-        const value = await call<ImportResult>({ action: 'import', ticketId: preview.ticketId, workspaceId: preview.workspace.id, mode }, signal)
+        const value = await call<ImportResult>({ action: 'import', ticketId: preview.ticketId, workspaceId: preview.workspace.id, mode, ...(applyCode ? { applyCode: true } : {}) }, signal)
         signal.throwIfAborted(); setResult(value)
       } catch (reason) {
         if (!signal.aborted && reason instanceof HandoffApiError && reason.detail.recoverySessionId) {
@@ -256,6 +321,11 @@ export function ImportPanel({ call, t, openSession, renderWorkspacePicker }: Imp
     <aside className="handoff-card handoff-context handoff-stack" aria-label={t('previewTitle')}>
       {preview && !result ? <>
         <div><h2>{t('previewTitle')}</h2><p className="handoff-task-title">{preview.title}</p></div>
+        <BriefView value={preview.brief} t={t} />
+        {preview.code && <section className="handoff-stack"><h3>{t('codeIncluded')}</h3><CodeInventory code={preview.code} t={t} /><p className="handoff-caption">{t('codeNotApplied')}</p>
+          <label className="handoff-check"><input type="checkbox" disabled={busy || !preview.codeDirectory} checked={applyCode} onChange={event=>setApplyCode(event.currentTarget.checked)} /><span>{t('applyCode')}</span></label><p className="handoff-caption">{t('applyCodeHelp')}</p>
+          {preview.codeDirectory && <div><h3>{t('codeDestination')}</h3><p className="handoff-excerpt">{preview.codeDirectory}</p></div>}
+        </section>}
         <dl className="handoff-facts">
           <div><dt>{t('sourceAgent')}</dt><dd>{({ dsh: 'DSH', codex: 'Codex', claude: 'Claude Code' } as Record<string, string>)[preview.sourceAgent] ?? preview.sourceAgent}</dd></div>
           <div><dt>{t('sourceIdentity')}</dt><dd>{preview.sourceSessionId}</dd></div>
@@ -264,7 +334,7 @@ export function ImportPanel({ call, t, openSession, renderWorkspacePicker }: Imp
           <div><dt>{t('checksum')}</dt><dd>{['ok', 'verified'].includes(preview.checksumStatus) ? t('verified') : preview.checksumStatus === 'not_available_v1' ? t('legacyChecksum') : preview.checksumStatus}</dd></div>
         </dl>
         <Warnings warnings={preview.warnings} t={t} />
-        {preview.existingSessionId && <p className="handoff-caption">{t('duplicatePreview')}</p>}
+        {(applyCode ? preview.existingCodeSessionId : preview.existingSessionId) && <p className="handoff-caption">{t('duplicatePreview')}</p>}
         <label className="handoff-field"><span>{t('importMode')}</span><select aria-label={t('importMode')} className="handoff-select" disabled={busy} value={mode} onChange={event => setMode(event.currentTarget.value as ImportMode)}><option value="">{t('chooseMode')}</option>{preview.modes.map(item => <option value={item} key={item}>{t(item === 'native' ? 'native' : 'conversation')}</option>)}</select></label>
         <p className="handoff-caption">{t(mode === 'native' ? 'nativeDescription' : 'conversationDescription')}</p>
         {expired && <p role="alert" className="handoff-alert">{t('expired')}</p>}

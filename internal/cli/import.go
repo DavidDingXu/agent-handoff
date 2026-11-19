@@ -1,16 +1,20 @@
 package cli
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/DavidDingXu/agent-handoff/internal/brief"
 	"github.com/DavidDingXu/agent-handoff/internal/bundle"
 	"github.com/DavidDingXu/agent-handoff/internal/claude"
 	"github.com/DavidDingXu/agent-handoff/internal/codex"
+	"github.com/DavidDingXu/agent-handoff/internal/idgen"
 	"github.com/DavidDingXu/agent-handoff/internal/ledger"
+	"github.com/DavidDingXu/agent-handoff/internal/workspace"
 )
 
 func cmdImport(args []string) error {
@@ -20,6 +24,8 @@ func cmdImport(args []string) error {
 	cwd := fs.String("cwd", "", "target cwd for the imported task (defaults to current directory)")
 	execute := fs.Bool("execute", false, "write the imported task into local agent history")
 	allowDuplicate := fs.Bool("allow-duplicate", false, "import even if this exact share was already imported before")
+	applyCode := fs.Bool("apply-code", false, "apply reviewed code to a new independent Git worktree")
+	codeDirectory := fs.String("code-directory", "", "new worktree path (defaults to a fresh sibling of --cwd)")
 	// Positional arg may come before flags: extract it first.
 	path := ""
 	rest := args
@@ -52,6 +58,12 @@ func cmdImport(args []string) error {
 	if err := bundle.ValidateDSHBundle(b); err != nil {
 		return err
 	}
+	if *applyCode && b.Code == nil {
+		return fmt.Errorf("this handoff has no code changes; import without --apply-code")
+	}
+	if *codeDirectory != "" && !*applyCode {
+		return fmt.Errorf("--code-directory requires --apply-code")
+	}
 	targetAgent, err := resolveTarget(*target)
 	if err != nil {
 		return err
@@ -69,9 +81,19 @@ func cmdImport(args []string) error {
 	}
 
 	// Duplicate detection against the target agent's ledger.
-	fingerprint := ledger.Fingerprint(b.Manifest.SourceAgent, b.Manifest.SourceThreadID, b.Session)
+	fingerprint := handoffFingerprint(b)
 	if prev := ledger.Find(targetHome, fingerprint); prev != nil && !*allowDuplicate {
-		return printJSON(map[string]any{
+		previousCWD := *cwd
+		if targetAgent == bundle.AgentCodex {
+			if d, e := codex.LoadThread(targetHome, prev.ImportedThread); e == nil {
+				previousCWD = d.CWD
+			}
+		} else {
+			if d, e := claude.LoadSession(targetHome, prev.ImportedThread); e == nil {
+				previousCWD = d.CWD
+			}
+		}
+		return printJSON(continuationResult(map[string]any{
 			"status":             "duplicate",
 			"existing_thread_id": prev.ImportedThread,
 			"existing_title":     prev.Title,
@@ -79,7 +101,7 @@ func cmdImport(args []string) error {
 			"source_agent":       b.Manifest.SourceAgent,
 			"source_thread_id":   b.Manifest.SourceThreadID,
 			"note":               "this share was already imported; re-run with --allow-duplicate to import a copy anyway",
-		})
+		}, targetAgent, prev.ImportedThread, previousCWD))
 	}
 
 	targetCWD := *cwd
@@ -93,10 +115,21 @@ func cmdImport(args []string) error {
 	if err != nil {
 		return err
 	}
+	codePath := ""
+	if *applyCode {
+		codePath = *codeDirectory
+		if codePath == "" {
+			codePath = filepath.Join(filepath.Dir(targetCWD), filepath.Base(targetCWD)+"-handoff-"+idgen.NewUUID()[:8])
+		}
+		codePath, err = filepath.Abs(codePath)
+		if err != nil {
+			return err
+		}
+	}
 
 	if !*execute {
 		newID := previewNewID(targetAgent)
-		return printJSON(map[string]any{
+		plan := map[string]any{
 			"source_agent":     b.Manifest.SourceAgent,
 			"source_thread_id": b.Manifest.SourceThreadID,
 			"status":           "planned",
@@ -106,7 +139,19 @@ func cmdImport(args []string) error {
 			"target_cwd":       targetCWD,
 			"dry_run":          true,
 			"note":             "dry run; re-run with --execute to write",
-		})
+			"brief":            b.Brief, "code": codeManifest(b),
+		}
+		if *applyCode {
+			plan["code_directory"] = codePath
+			plan["code_apply_planned"] = true
+		}
+		return printJSON(plan)
+	}
+	if *applyCode {
+		if err := workspace.Apply(targetCWD, codePath, b.Code); err != nil {
+			return fmt.Errorf("code was not applied; check the local base commit, then retry or import without --apply-code: %w", err)
+		}
+		targetCWD = codePath
 	}
 
 	var res any
@@ -127,7 +172,7 @@ func cmdImport(args []string) error {
 		newID = r.SessionID
 		title = r.Title
 		if err != nil {
-			return importError(r, err)
+			return importWithCodeError(r, err, codePath)
 		}
 	default:
 		r, err := codex.Restore(codex.RestoreInput{
@@ -147,7 +192,7 @@ func cmdImport(args []string) error {
 		newID = r.ThreadID
 		title = r.Title
 		if err != nil {
-			return importError(r, err)
+			return importWithCodeError(r, err, codePath)
 		}
 	}
 
@@ -164,7 +209,7 @@ func cmdImport(args []string) error {
 				r.Status = "error"
 				r.Error = "source audit could not be saved"
 			}
-			return importError(res, fmt.Errorf("created session %s; source audit could not be saved", newID))
+			return importWithCodeError(res, fmt.Errorf("created session %s; source audit could not be saved", newID), codePath)
 		}
 		switch r := res.(type) {
 		case *codex.RestoreResult:
@@ -174,14 +219,104 @@ func cmdImport(args []string) error {
 		}
 	}
 
-	// Record the import for duplicate detection.
-	if err := ledger.Record_(targetHome, fingerprint, b.Manifest.SourceAgent,
-		b.Manifest.SourceThreadID, newID, title); err != nil {
-		if m, ok := res.(map[string]any); ok {
-			m["ledger_warning"] = err.Error()
+	result := continuationResult(res, targetAgent, newID, targetCWD)
+	if b.Code != nil {
+		result["code"] = codeManifest(b)
+		result["code_applied"] = *applyCode
+		if *applyCode {
+			result["code_directory"] = codePath
 		}
 	}
-	return printJSON(res)
+	if b.Brief == nil {
+		v := brief.Generate(b.Neutral)
+		b.Brief = &v
+	}
+	briefPath, err := writeBriefAudit(targetHome, newID, b)
+	if err != nil {
+		result["status"] = "error"
+		result["error"] = "The task was created but its handoff sidecar could not be saved."
+		return importError(result, fmt.Errorf("created task %s; handoff sidecar could not be saved", newID))
+	}
+	result["brief_path"] = briefPath
+	// Only a complete task and saved sidecar count as a successful import.
+	if err := ledger.Record_(targetHome, fingerprint, b.Manifest.SourceAgent, b.Manifest.SourceThreadID, newID, title); err != nil {
+		result["ledger_warning"] = err.Error()
+	}
+	return printJSON(result)
+}
+
+func importWithCodeError(value any, err error, codePath string) error {
+	if codePath == "" {
+		return importError(value, err)
+	}
+	raw, _ := json.Marshal(value)
+	result := map[string]any{}
+	_ = json.Unmarshal(raw, &result)
+	result["code_directory"] = codePath
+	result["code_applied"] = true
+	return importError(result, err)
+}
+
+func continuationResult(value any, target, id, cwd string) map[string]any {
+	raw, _ := json.Marshal(value)
+	result := map[string]any{}
+	_ = json.Unmarshal(raw, &result)
+	args := []string{"resume", id}
+	if target == bundle.AgentClaude {
+		args = []string{"--resume", id}
+	}
+	if result["fallback_command"] == nil {
+		result["fallback_command"] = target + " " + strings.Join(args, " ")
+	}
+	result["target_agent"] = target
+	result["target_cwd"] = cwd
+	result["resume_command"] = map[string]any{"executable": target, "args": args, "cwd": cwd}
+	return result
+}
+
+func writeBriefAudit(home, id string, b *bundle.ReadResult) (string, error) {
+	dir := filepath.Join(home, "agent-handoff-assets", id)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return "", err
+	}
+	path := filepath.Join(dir, "brief.md")
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return "", err
+	}
+	_, err = f.WriteString(brief.RenderMarkdown(*b.Brief))
+	closeErr := f.Close()
+	if err != nil {
+		return "", err
+	}
+	if closeErr != nil {
+		return "", closeErr
+	}
+	if b.Code != nil {
+		entries, err := b.Code.Entries()
+		if err != nil {
+			return "", err
+		}
+		for name, data := range entries {
+			p := filepath.Join(dir, filepath.FromSlash(name))
+			if err = os.MkdirAll(filepath.Dir(p), 0700); err != nil {
+				return "", err
+			}
+			out, e := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+			if e != nil {
+				return "", e
+			}
+			_, e = out.Write(data)
+			ce := out.Close()
+			if e != nil {
+				return "", e
+			}
+			if ce != nil {
+				return "", ce
+			}
+		}
+	}
+	return path, nil
 }
 
 func importError(result any, err error) error {

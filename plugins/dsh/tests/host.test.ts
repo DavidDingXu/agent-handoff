@@ -34,11 +34,82 @@ async function harness(options: { attachFail?: boolean; native?: boolean; now?: 
     return { append: async (events: readonly SessionEvent[]) => { assertContiguous(h.id, events, stored.events.length); validateStoredEvents(h, structuredClone([...events])); stored.events.push(...structuredClone(events)) }, flush: async () => {}, close: async () => {} }
   })
   const ctx: HandoffHostContext = { workspaceRegistry: { list: () => [ws], get: id => id === ws.id ? ws : undefined }, sessionQuery: { readSession: query, readTitle: async () => ({ title: 'Synthetic task' }) }, sessionPersistence: { create, flush: async () => {} }, sessionController: { resolveAgent: vi.fn(async id => ({ agent: sessions.get(id) })), rename: vi.fn(async () => {}) } }
-  const run = vi.fn<(args: string[], input?: unknown, signal?: AbortSignal) => Promise<Record<string, unknown>>>(async () => structuredClone(payload) as unknown as Record<string, unknown>)
+  const run = vi.fn<(args: string[], input?: unknown, signal?: AbortSignal) => Promise<Record<string, unknown>>>(async args => args[1] === 'brief' ? {schema:'agent-handoff.brief.v1',objective:{entry_index:0,text:'synthetic question'},evidence:[]} : structuredClone(payload) as unknown as Record<string, unknown>)
   const service = createHandoffService(ctx, { stateDir: state }, { runBridge: run, now: options.now }); services.push(service)
   return { root, source, state, sessions, originals, service, ctx, create, ws, run, payload, query }
 }
 describe('owner Host service', () => {
+  it('prepares a local recorded brief and freezes selected code bytes for a secret retry', async () => {
+    const h = await harness()
+    h.run.mockImplementation(async (args, input) => {
+      if (args[1] === 'brief') return { schema: 'agent-handoff.brief.v1', objective: {entry_index:0,text:'synthetic question'}, evidence:[] }
+      if (args[1] === 'code-capture') return { manifest:{schema:'agent-handoff.code.v1',base_commit:'a'.repeat(40),files:[{path:'fix.txt',status:'modified',bytes:12}]},patch_base64:'Zml4ZWQgYnl0ZXM=',files_base64:{} }
+      if (!args.includes('--include-secrets')) return {status:'blocked',error_code:'secret_detected',safety:{findings:[{rule:'token'}]}}
+      expect(input).toMatchObject({brief_note:'Review first',code:{patch_base64:'Zml4ZWQgYnl0ZXM='}})
+      const out=args[args.indexOf('--out')+1]!;await writeFile(out,'synthetic zip')
+      return {schema:'agent-handoff.bridge.share-result.v1',status:'ok',path:out}
+    })
+    expect((await h.service.summary('source-id')).brief?.objective?.text).toBe('synthetic question')
+    const blocked=await h.service.share('source-id','zip',undefined,undefined,{briefNote:'Review first',codeFiles:['fix.txt']})
+    expect(blocked.status).toBe('blocked')
+    await h.service.share('source-id','zip',blocked.secretTicket,undefined,{briefNote:'changed after scan',codeFiles:['other.txt']})
+    expect(h.run.mock.calls.filter(([args])=>args[1]==='code-capture')).toHaveLength(1)
+  })
+  it('switches DSH to an explicitly chosen native target without executing a model', async () => {
+    const h=await harness()
+    h.run.mockImplementation(async args=>{
+      if(args[0]==='import') { expect(args).toContain('--execute');expect(args).toContain('claude');return {status:'ok',session_id:'new-target-id',target_cwd:h.root,fallback_command:'claude --resume new-target-id'} }
+      const out=args[args.indexOf('--out')+1]!;await writeFile(out,'synthetic zip');return {schema:'agent-handoff.bridge.share-result.v1',status:'ok',path:out}
+    })
+    const result=await h.service.switch('source-id','claude')
+    expect(result).toMatchObject({status:'ok',targetAgent:'claude',sessionId:'new-target-id',command:'claude --resume new-target-id'})
+    expect(h.ctx.sessionController.resolveAgent).not.toHaveBeenCalled()
+    expect(h.sessions.get('source-id')?.events).toEqual(h.originals.get('source-id'))
+    for(let i=0;i<9;i++) expect((await h.service.switch('source-id','claude')).status).toBe('ok')
+  })
+  it('offers the verified ZIP when a target switch cannot finish', async () => {
+    const h=await harness()
+    h.run.mockImplementation(async args=>{if(args[0]==='import')throw new Error('synthetic target failure');const out=args[args.indexOf('--out')+1]!;await writeFile(out,'synthetic zip');return {schema:'agent-handoff.bridge.share-result.v1',status:'ok',path:out}})
+    const result=await h.service.switch('source-id','claude')
+    expect(result).toMatchObject({status:'fallback_zip'})
+    if('downloadId' in result)expect((await h.service.download(result.downloadId!)).dataBase64).toBe(Buffer.from('synthetic zip').toString('base64'))
+    else throw new Error('missing usable fallback file')
+  })
+  it('can explicitly bring attached code into a new workspace after a conversation-only import', async () => {
+    const h=await harness()
+    h.payload.code={manifest:{schema:'agent-handoff.code.v1',base_commit:'a'.repeat(40),files:[{path:'fix.txt',status:'modified',bytes:12}]},patch_base64:'Zml4ZWQgYnl0ZXM=',files_base64:{}}
+    h.run.mockImplementation(async args=>args[1]==='code-apply'?{status:'ok',directory:args[args.indexOf('--out')+1]}:structuredClone(h.payload) as unknown as Record<string,unknown>)
+    h.ctx.workspaceRegistry.create=vi.fn(async path=>({...h.ws,id:'new-code-workspace',path}))
+    const first=await h.service.preview({kind:'path',path:h.source},h.ws.id)
+    const plain=await h.service.import(first.ticketId,h.ws.id,'conversation')
+    const preview=await h.service.preview({kind:'path',path:h.source},h.ws.id)
+    const result=await h.service.import(preview.ticketId,h.ws.id,'conversation',undefined,true)
+    expect(result.sessionId).not.toBe(plain.sessionId)
+    expect(result).toMatchObject({status:'imported',workspaceId:'new-code-workspace',codeDirectory:preview.codeDirectory})
+    expect(h.sessions.get(result.sessionId)?.header.cwd).toBe(preview.codeDirectory)
+    expect(h.sessions.get('source-id')?.events).toEqual(h.originals.get('source-id'))
+  })
+  it('retains an acknowledged code workspace across a retry before task creation', async () => {
+    const h=await harness()
+    h.payload.code={manifest:{schema:'agent-handoff.code.v1',base_commit:'a'.repeat(40),files:[{path:'fix.txt',status:'modified',bytes:12}]},patch_base64:'Zml4ZWQgYnl0ZXM=',files_base64:{}}
+    let applies=0, creates=0
+    h.run.mockImplementation(async args=>{if(args[1]==='code-apply'){applies++;if(applies>1)throw new Error('destination already exists');return {status:'ok',directory:args[args.indexOf('--out')+1]}}return structuredClone(h.payload) as unknown as Record<string,unknown>})
+    h.ctx.workspaceRegistry.create=async path=>{creates++;if(creates===1)throw new Error('synthetic registry failure');return {...h.ws,id:'recovered-workspace',path}}
+    const preview=await h.service.preview({kind:'path',path:h.source},h.ws.id)
+    await expect(h.service.import(preview.ticketId,h.ws.id,'conversation',undefined,true)).rejects.toMatchObject({code:'code_import_partial',recoveryDirectory:preview.codeDirectory})
+    expect((await h.service.import(preview.ticketId,h.ws.id,'conversation',undefined,true)).workspaceId).toBe('recovered-workspace')
+    expect(applies).toBe(1)
+  })
+  it('reports an uncertain code destination after a bridge timeout and never blindly reapplies it', async () => {
+    const h=await harness()
+    h.payload.code={manifest:{schema:'agent-handoff.code.v1',base_commit:'a'.repeat(40),files:[{path:'fix.txt',status:'modified',bytes:12}]},patch_base64:'Zml4ZWQgYnl0ZXM=',files_base64:{}}
+    let applies=0
+    h.ctx.workspaceRegistry.create=async path=>({...h.ws,id:'new',path})
+    h.run.mockImplementation(async args=>{if(args[1]==='code-apply'){applies++;throw new HandoffFailure('bridge_timeout','synthetic timeout after worktree creation')}return structuredClone(h.payload) as unknown as Record<string,unknown>})
+    const p=await h.service.preview({kind:'path',path:h.source},h.ws.id)
+    for(let i=0;i<2;i++)await expect(h.service.import(p.ticketId,h.ws.id,'conversation',undefined,true)).rejects.toMatchObject({code:'code_import_uncertain',recoveryDirectory:p.codeDirectory})
+    expect(applies).toBe(1);expect(h.create).not.toHaveBeenCalled()
+  })
   it('defaults private state to the trusted managed profile directory', async () => {
     const h = await harness(); h.ctx.profileDirectory = join(h.root, 'managed-profile')
     const service = createHandoffService(h.ctx, {}, { runBridge: h.run }); services.push(service)

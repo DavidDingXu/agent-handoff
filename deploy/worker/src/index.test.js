@@ -210,12 +210,46 @@ test("relay page is static and does not require storage bindings", async () => {
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type"), /^text\/html/);
   assert.equal(response.headers.get("referrer-policy"), "no-referrer");
-  assert.match(body, /URLSearchParams\(location\.hash/);
   assert.match(body, /agent-handoff import/);
   assert.match(body, /#h=/);
   assert.match(body, /claude plugin install agent-handoff@agent-handoff/);
   assert.match(body, /codex plugin add agent-handoff@agent-handoff/);
   assert.match(body, /github\.com\/DavidDingXu\/agent-handoff/);
+});
+
+test("hosted and anonymous reader pages enforce the same local-only content policy", async () => {
+  const manifest = validManifest(60);
+  const storage = new MemoryStorage([["share:reader", { id: "reader", manifest, expiresAt: new Date(Date.now() + 60000).toISOString() }]]);
+  const gate = new BudgetGate({ storage }, {});
+  const policies = [];
+  for (const path of ["/r", "/s/reader"]) {
+    const response = await worker.fetch(new Request("https://share.example" + path, { headers: { accept: "text/html" } }), { SHARE_BUDGET_GATE: gateBinding(gate) }, {});
+    const policy = response.headers.get("content-security-policy"), html = await response.text();
+    assert.ok(policy, "a reader must have a Content Security Policy");
+    assert.match(policy, /default-src 'none'/);
+    assert.match(policy, /script-src 'nonce-[A-Za-z0-9_-]+'/);
+    assert.match(policy, /connect-src 'self' https:/);
+    assert.match(policy, /frame-ancestors 'none'/);
+    assert.equal(response.headers.get("referrer-policy"), "no-referrer");
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+    const nonce = policy.match(/script-src 'nonce-([^']+)'/)[1];
+    assert.ok(html.includes(`<script nonce="${nonce}">`));
+    policies.push(policy.replaceAll(nonce, "NONCE"));
+  }
+  assert.equal(policies[0], policies[1]);
+});
+
+test("unavailable hosted browser links retain a readable error and import interface", async () => {
+  const storage = new MemoryStorage([["share:expired", { id: "expired", manifest: validManifest(60), expiresAt: "2000-01-01T00:00:00Z" }]]);
+  const gate = new BudgetGate({ storage }, {});
+  for (const id of ["expired", "missing"]) {
+    const response = await worker.fetch(new Request(`https://share.example/s/${id}`, { headers: { accept: "text/html" } }), { SHARE_BUDGET_GATE: gateBinding(gate) }, {});
+    assert.match(response.headers.get("content-type"), /^text\/html/);
+    assert.match(await response.text(), /id="error" role="alert"/);
+    const api = await worker.fetch(new Request(`https://share.example/v1/shares/${id}`), { SHARE_BUDGET_GATE: gateBinding(gate) }, {});
+    assert.equal(api.status, id === "expired" ? 410 : 404);
+  }
 });
 
 test("legacy budget state no longer blocks new shares", async () => {

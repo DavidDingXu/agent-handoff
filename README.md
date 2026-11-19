@@ -28,7 +28,7 @@ claude plugin marketplace add https://github.com/DavidDingXu/agent-handoff
 claude plugin install agent-handoff@agent-handoff
 ```
 
-Install or update to **0.5.1** on both sides, then restart the agent.
+Install or update to **0.6.0** on both sides, then restart the agent.
 
 ### DeepSeek Harness
 
@@ -48,7 +48,11 @@ Install or update to **0.5.1** on both sides, then restart the agent.
 
 - **Export from DSH:** search for and select the task, choose ZIP or encrypted link, then **Create share**. Send the file or complete link to the receiver.
 - **Import into DSH:** choose a ZIP or paste a share link, select a local workspace, then **Preview handoff**. Review and confirm, then **Open task** to continue.
+- **Switch agents:** select **Switch agent** in DSH to create a Codex/Claude native task, then use its continue command. In a terminal, `agent-handoff switch --target claude --open` needs no source model turn. [Buttons and commands](docs/usage.md#local-agent-switching).
+- **Automatic brief:** recorded requests, recent response and tool evidence are extracted locally, with optional notes. Receivers can read encrypted shares directly in a browser.
+- **Optional code changes:** select text changes and any new files. Receivers can explicitly apply them in a separate new workspace. Code is off by default.
 
+Open a share link to read it first; no plugin or deployment is needed. To continue the task, preview and confirm the import in your plugin.
 Imports create a new task. Repeated imports return the previously imported task.
 
 ![Native DSH task handoff](documentation/dsh-native-handoff.png)

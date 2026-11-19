@@ -1,0 +1,7 @@
+{
+  "name": "agent-handoff",
+  "version": "0.6.0",
+  "description": "在 Codex、Claude Code、DeepSeek Harness 间交接任务；/handoff 无需模型额度即可创建本地新任务。Share tasks across Codex, Claude Code and DeepSeek Harness; /handoff creates a local task without model usage.",
+  "author": { "name": "Agent Handoff" },
+  "license": "Apache-2.0"
+}

@@ -20,6 +20,10 @@ coding agents and contributors working on agent-handoff.
   on POSIX and inherited user ACL behavior on Windows.
 - A failed link upload must return a usable local zip; sharing must not fail
   silently.
+- Local switching must not require a source model turn. Select a source by an
+  exact host-provided identity or explicit user choice, never by recency.
+- Briefs quote attributed records; only notes are user-authored. Code is opt-in,
+  bounded and reviewed separately, and applies only into a fresh worktree.
 
 ## Architecture
 
