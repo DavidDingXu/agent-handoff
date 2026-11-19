@@ -84,7 +84,7 @@ irm https://raw.githubusercontent.com/DavidDingXu/agent-handoff/main/install.ps1
 
 也可以从 [Releases](https://github.com/DavidDingXu/agent-handoff/releases/latest) 下载压缩包。两套安装器都会强制下载并验证发布的 SHA-256 校验值。
 
-**源码编译（Go 1.25+）：**
+**源码编译（Go 1.26+）：**
 
 ```sh
 git clone https://github.com/DavidDingXu/agent-handoff && cd agent-handoff

@@ -89,7 +89,7 @@ irm https://raw.githubusercontent.com/DavidDingXu/agent-handoff/main/install.ps1
 
 Or download an archive from [Releases](https://github.com/DavidDingXu/agent-handoff/releases/latest). Both installers require and verify the published SHA-256 checksum.
 
-**From source (Go 1.25+):**
+**From source (Go 1.26+):**
 
 ```sh
 git clone https://github.com/DavidDingXu/agent-handoff && cd agent-handoff
