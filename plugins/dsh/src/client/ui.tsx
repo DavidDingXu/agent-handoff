@@ -4,6 +4,7 @@ import { Button, Input, MenuSurface, Modal, SegmentedTabs, IconShareOutlineRegul
 import { handoffStyles } from './styles.ts'
 import { HandoffApiError, readUpload, saveDownload, type ApiCall } from './api.ts'
 import { warningText, type Translate, type CopyKey } from './locales.ts'
+import { PROVIDER_WARNING } from '../types.ts'
 import type { DownloadResult, HandoffError, ImportMode, ImportPreview, ImportResult, ImportSource, SessionSummary, ShareFormat, ShareResult, WorkspaceChoice, TaskBrief, CodeInspection, ExportOptions, SwitchTarget, SwitchResult, SwitchedTask, CodeManifest } from '../types.ts'
 
 const column: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }
@@ -113,6 +114,65 @@ function SwitchResultDialog({ value, t, copy, onClose }: { value: SwitchedTask; 
     </div>
   </Modal>
 }
+function ShareResultDialog({ value, call, t, copy, save, busy, error, switchFallback, onClose, onRegenerate }: {
+  value: ShareResult; call: ApiCall; t: Translate; copy: (text: string) => Promise<boolean>; save: (file: DownloadResult) => void;
+  busy: boolean; error?: HandoffError; switchFallback: boolean; onClose: () => void; onRegenerate: () => void
+}) {
+  const task = useTask()
+  const [notice, setNotice] = useState<CopyKey | null>(null)
+  const [copyFailed, setCopyFailed] = useState(false)
+  const [now, setNow] = useState(Date.now)
+  const link = value.status === 'ok' ? value.shareUrl : undefined
+  const expires = value.expiresAt ? Date.parse(value.expiresAt) : NaN
+  const expired = !!link && Number.isFinite(expires) && expires <= now
+  useEffect(() => {
+    if (!link || !Number.isFinite(expires) || expires <= now) return
+    const timer = setTimeout(() => setNow(Date.now()), Math.min(expires - now, 2147483647))
+    return () => clearTimeout(timer)
+  }, [link, expires, now])
+  const download = () => void task.run('downloading', async signal => {
+    setNotice(null)
+    const file = await call<DownloadResult>({ action: 'download', downloadId: value.downloadId! }, signal)
+    signal.throwIfAborted(); save(file); setNotice('downloadStarted')
+  })
+  const copyLink = () => {
+    if (Number.isFinite(expires) && expires <= Date.now()) { setNow(Date.now()); return }
+    void task.run('copying', async signal => {
+      setNotice(null); setCopyFailed(false)
+      let accepted = false
+      try { accepted = await copy(link!) } catch { /* Preserve the link for manual copying. */ }
+      signal.throwIfAborted(); setCopyFailed(!accepted); if (accepted) setNotice('copied')
+    })
+  }
+  const fallback = value.status === 'fallback_zip'
+  const warnings = value.warnings.filter(text => text !== PROVIDER_WARNING && (!fallback || text !== 'Encrypted link upload was unavailable. The local file is ready to download.'))
+  const disabled = busy || task.phase !== null
+  const downloadExpired = !switchFallback && task.error?.code === 'download_expired'
+  return <Modal open onClose={onClose} closeLabel={t('close')}
+    title={t(switchFallback ? 'switchUnconfirmedTitle' : link ? 'linkReadyTitle' : fallback ? 'linkFailedTitle' : 'zipReadyTitle')}
+    description={t(switchFallback ? 'switchFallback' : fallback ? 'fallback' : link ? 'linkNextStep' : 'zipNextStep')}
+    className="agent-handoff agent-handoff-switch"
+    footer={<><Button variant="outline" onClick={onClose}>{t('close')}</Button>
+      {expired || downloadExpired ? <Button variant="primary" data-modal-autofocus disabled={disabled} onClick={onRegenerate}>{t(link ? 'createNewShare' : 'prepareZipAgain')}</Button>
+        : link ? <Button variant="primary" data-modal-autofocus disabled={disabled} onClick={copyLink}>{t('copyLink')}</Button>
+        : value.downloadId && <Button variant="primary" data-modal-autofocus disabled={disabled} onClick={download}>{t('download')}</Button>}</>}>
+    <style>{handoffStyles}</style>
+    <div className="handoff-stack">
+      <div><strong className="handoff-result-title">{value.title}</strong><p className="handoff-caption">{t('messages')}: {value.messageCount}</p></div>
+      {link && <label className="handoff-field"><span>{t('resultLink')}</span><textarea className="handoff-textarea handoff-command" readOnly rows={3} aria-label={t('resultLink')} value={link} onFocus={event => event.currentTarget.select()} /></label>}
+      {link && Number.isFinite(expires) && <p className="handoff-caption">{t('expires')}: <time dateTime={value.expiresAt}>{new Intl.DateTimeFormat(t('dateLocale'), { dateStyle: 'medium', timeStyle: 'short' }).format(expires)}</time></p>}
+      {expired && <p role="alert" className="handoff-alert">{t('shareExpired')}</p>}
+      <Warnings warnings={warnings} t={t} />
+      {link && (value.downloadId || value.warnings.includes(PROVIDER_WARNING)) && <details className="handoff-details"><summary>{t('shareDetails')}</summary><div className="handoff-stack handoff-details-content">
+        {value.warnings.includes(PROVIDER_WARNING) && <p className="handoff-caption">{t('warnProviders')}</p>}
+        {value.downloadId && <div className="handoff-actions"><Button variant="outline" size="sm" disabled={disabled} onClick={download}>{t('download')}</Button></div>}
+      </div></details>}
+      <ErrorBox error={task.error ?? error} t={t} />
+      {copyFailed && <p role="alert" className="handoff-alert">{t('copyFailed')}</p>}
+      <Status phase={busy ? 'preparing' : task.phase} notice={notice ? t(notice) : undefined} t={t} />
+    </div>
+  </Modal>
+}
 export interface ShareDialogProps {
   sessionId: string
   call: ApiCall
@@ -129,7 +189,7 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
   const [result, setResult] = useState<ShareResult | null>(null)
   const [consent, setConsent] = useState(false)
   const [notice, setNotice] = useState<CopyKey | null>(null)
-  const [copyError, setCopyError] = useState(false)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [reload, setReload] = useState(0)
   const actionId = useId()
   const [operation, setOperation] = useState<'share' | 'switch'>('share')
@@ -149,7 +209,7 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
   }, [call, sessionId, reload, task.run, task.cancel])
   const busy = task.phase !== null
   const empty = summary?.messageCount === 0
-  const invalidate = () => { setResult(null); setSwitched(null); setSwitchDialogOpen(false); setConsent(false); setNotice(null); setCopyError(false); task.clearError() }
+  const invalidate = () => { setResult(null); setShareDialogOpen(false); setSwitched(null); setSwitchDialogOpen(false); setConsent(false); setNotice(null); task.clearError() }
   const inspectCode = () => void task.run('inspectingCode', async signal => {
     const value = await call<CodeInspection>({ action: 'code-preview', sessionId }, signal)
     signal.throwIfAborted(); setCode(value); setSelectedFiles(value.files.filter(file => file.eligible && (file.status === 'modified' || file.status === 'deleted')).map(file => file.path))
@@ -157,19 +217,19 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
   const share = (secretTicket?: string) => {
     if (!summary || empty) return
     void task.run(operation === 'switch' ? 'switching' : 'preparing', async signal => {
-      setNotice(null); setCopyError(false)
+      setNotice(null)
       const options: ExportOptions = { ...(briefNote ? { briefNote } : {}), ...(includeCode ? { codeFiles: selectedFiles } : {}) }
       const extra = { ...(Object.keys(options).length ? { options } : {}), ...(secretTicket ? { secretTicket } : {}) }
       if (operation === 'switch') {
         const value = await call<SwitchResult>({ action: 'switch', sessionId, target, ...extra }, signal)
         signal.throwIfAborted(); setConsent(false)
         if ('targetAgent' in value) { setResult(null); setSwitched(value); setSwitchDialogOpen(true); setNotice('switchReady') }
-        else {setResult(value);if(value.status==='fallback_zip')setNotice('switchFallback')}
+        else { setResult(value); setShareDialogOpen(value.status === 'fallback_zip'); if (value.status === 'fallback_zip') setNotice('switchFallback') }
         return
       }
       const value = await call<ShareResult>({ action: 'share', sessionId, format, ...extra }, signal)
       signal.throwIfAborted(); setResult(value); setConsent(false)
-      setSummary(current => ({ ...current, sessionId, title: value.title, messageCount: value.messageCount, warnings: value.warnings }))
+      setShareDialogOpen(value.status !== 'blocked')
       if (value.status !== 'blocked') setNotice(value.status === 'fallback_zip' ? 'fallback' : 'shareReady')
     })
   }
@@ -183,7 +243,7 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
       ]} />
       <div id={`${actionId}-share-body`} role="tabpanel" aria-labelledby={`${actionId}-share`} hidden={operation !== 'share'} className="handoff-stack">
       <label className="handoff-field"><span>{t('format')}</span><select aria-label={t('format')} value={format} disabled={busy} className="handoff-select" onChange={event => {
-        setFormat(event.currentTarget.value as ShareFormat); setResult(null); setConsent(false); setNotice(null); setCopyError(false); task.clearError()
+        setFormat(event.currentTarget.value as ShareFormat); invalidate()
       }}><option value="zip">{t('zip')}</option><option value="link">{t('link')}</option></select></label>
       <div className="handoff-notice"><IconShareOutlineRegular size={16} /><p>{t(format === 'zip' ? 'zipNotice' : 'linkNotice')}</p></div>
       </div>
@@ -191,11 +251,16 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
         <label className="handoff-field"><span>{t('continueIn')}</span><select aria-label={t('continueIn')} className="handoff-select" value={target} disabled={busy} onChange={event => { setTarget(event.currentTarget.value as SwitchTarget); invalidate() }}><option value="claude">Claude Code</option><option value="codex">Codex</option></select></label>
         <div className="handoff-notice"><p>{t('localOnly')}</p></div>
       </div>
-      {!blocked && <div className="handoff-actions"><Button variant="primary" disabled={busy || summary === null || empty || includeCode && !selectedFiles.length} onClick={() => { if (operation === 'switch' && switched) setSwitchDialogOpen(true); else share() }}>{t(operation === 'switch' ? switched ? 'viewContinueCommand' : 'switchAgent' : 'createShare')}</Button></div>}
+      {!blocked && <div className="handoff-actions"><Button variant="primary" disabled={busy || summary === null || empty || includeCode && !selectedFiles.length} onClick={() => {
+        if (switched) setSwitchDialogOpen(true); else if (result) setShareDialogOpen(true); else share()
+      }}>{t(switched ? 'viewContinueCommand' : result ? 'viewShareResult' : operation === 'switch' ? 'switchAgent' : 'createShare')}</Button>
+        {operation === 'share' && format === 'link' && result && <Button variant="outline" size="sm" disabled={busy} onClick={() => share()}>{t('createNewShare')}</Button>}
+      </div>}
       {blocked && result.secretTicket && <div className="handoff-actions"><Button variant="primary" disabled={busy || !consent} onClick={() => { if (consent) share(result.secretTicket) }}>{t('overrideShare')}</Button></div>}
       <ErrorBox error={task.error} t={t} />
       <Status phase={task.phase} notice={notice ? t(notice) : undefined} t={t} />
       </div>
+      <details className="handoff-details"><summary>{t('optionalExport')}</summary><div className="handoff-stack handoff-details-content">
       <label className="handoff-field"><span>{t('handoffNote')}</span><textarea aria-label={t('handoffNote')} className="handoff-textarea" rows={2} maxLength={8192} value={briefNote} disabled={busy} placeholder={t('noteHint')} onChange={event => { setBriefNote(event.currentTarget.value); invalidate() }} /></label>
       <section className="handoff-stack handoff-code" aria-label={t('codeFiles')}>
         <label className="handoff-check"><input type="checkbox" checked={includeCode} disabled={busy} onChange={event => { const checked=event.currentTarget.checked;setIncludeCode(checked);invalidate();if(checked)inspectCode() }} /><span>{t('includeCode')}</span></label>
@@ -206,6 +271,7 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
           <p className="handoff-caption">{t('selectedBytes')}: {code.files.filter(file=>selectedFiles.includes(file.path)).reduce((sum,file)=>sum+file.bytes,0).toLocaleString()} B</p>
         </> : !busy && <Button size="sm" variant="outline" onClick={inspectCode}>{t('retry')}</Button>}</>}
       </section>
+      </div></details>
       {empty && <div className="handoff-stack"><p className="handoff-caption">{t('emptyTask')}</p><div className="handoff-actions"><Button size="sm" variant="outline" disabled={busy} onClick={() => setReload(value => value + 1)}>{t('refreshSummary')}</Button></div></div>}
       {blocked && <section className="handoff-warning handoff-stack" aria-label={t('blocked')}>
         <strong>{t('blocked')}</strong><p style={muted}>{t('blockedDescription')}</p>
@@ -218,25 +284,12 @@ export function ShareForm({ sessionId, call, t, copy = writeClipboard, save = sa
     </section>
     <aside className="handoff-card handoff-context handoff-stack" aria-label={t('taskOverview')}>
       <div><h2>{t('taskOverview')}</h2>{summary ? <><p className="handoff-task-title">{summary.title}</p><p className="handoff-caption">{t('messages')}: {summary.messageCount}</p></> : <p className="handoff-caption">{t('loading')}</p>}</div>
-      {summary && !result && <Warnings warnings={summary.warnings} t={t} />}
-      {result && !blocked && <section className="handoff-result" aria-label={t('resultHeading')}>
-        <hr className="handoff-divider" />
-        <Warnings warnings={result.warnings} t={t} />
-        {result.shareUrl && <><label className="handoff-field"><span>{t('resultLink')}</span><Input className="handoff-input" aria-label={t('resultLink')} readOnly value={result.shareUrl} onFocus={event => event.currentTarget.select()} /></label>
-          {result.expiresAt && <p className="handoff-caption">{t('expires')}: {result.expiresAt}</p>}
-          <div className="handoff-actions"><Button variant="outline" size="sm" disabled={busy} onClick={() => void task.run('copying', async signal => {
-            const accepted = await copy(result.shareUrl!); signal.throwIfAborted(); setCopyError(!accepted); setNotice(accepted ? 'copied' : null)
-          })}>{t('copyLink')}</Button></div></>}
-        {result.downloadId && <div className="handoff-actions"><Button variant="outline" size="sm" disabled={busy} onClick={() => void task.run('downloading', async signal => {
-          const file = await call<DownloadResult>({ action: 'download', downloadId: result.downloadId! }, signal)
-          signal.throwIfAborted(); save(file); setNotice('downloadStarted')
-        })}>{t('download')}</Button></div>}
-      </section>}
-      {copyError && <p role="alert" className="handoff-alert">{t('copyFailed')}</p>}
+      {summary && <Warnings warnings={summary.warnings} t={t} />}
       <BriefView value={summary?.brief} t={t} />
       <details className="handoff-details"><summary>{t('handoffDetails')}</summary><p style={identity}>{t('session')}: <span>{sessionId}</span></p></details>
     </aside>
     {switched && switchDialogOpen && <SwitchResultDialog value={switched} t={t} copy={copy} onClose={() => setSwitchDialogOpen(false)} />}
+    {result && !blocked && shareDialogOpen && <ShareResultDialog key={result.shareUrl ?? result.downloadId} value={result} call={call} t={t} copy={copy} save={save} busy={busy} error={task.error} switchFallback={operation === 'switch'} onClose={() => setShareDialogOpen(false)} onRegenerate={() => share()} />}
   </div>
 }
 

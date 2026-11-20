@@ -1,6 +1,6 @@
 {
   "name": "dsh-agent-handoff",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "任务交接、自动简报与可选代码改动，支持 Codex、Claude Code 与 DSH。Switch and share coding tasks, briefs and optional code changes across agents.",
   "type": "module",
   "license": "Apache-2.0",

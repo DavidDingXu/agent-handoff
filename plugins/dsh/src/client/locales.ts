@@ -1,6 +1,11 @@
 /** Product copy, registered through the Host's current locale rather than browser language. */
 export const NS = 'agentHandoff'
 export const en = {
+  optionalExport: 'Notes and code (optional)', viewShareResult: 'View result', shareDetails: 'Share details',
+  linkReadyTitle: 'Link ready to share', zipReadyTitle: 'ZIP ready to share', linkFailedTitle: 'Link could not be created',
+  switchUnconfirmedTitle: 'Target task not confirmed', linkNextStep: 'Send the complete link. The recipient can preview the task before importing it.',
+  zipNextStep: 'Download the ZIP and send it to the recipient.', createNewShare: 'Create new share',
+  shareExpired: 'This link has expired. Create a new share or download the ZIP.', prepareZipAgain: 'Prepare ZIP again', dateLocale: 'en-US',
   codeUncertain: 'Code application could not be confirmed. Check the displayed directory, then preview again or import without applying code.',
   switchFallback: 'The target task could not be verified. Download the ZIP and inspect or import it before retrying.',
   codePartial: 'The new code workspace is ready, but the task was not created. Retry this import to reuse that workspace.',
@@ -78,7 +83,7 @@ export const en = {
   warnReplay: 'Provider replay state cannot be restored natively. Choose conversation import.',
   warnNativeMedia: 'Media and file references require conversation import; their source files are not restored.',
   warnRecovery: 'A previous import created a task but did not finish. Open that task before importing this handoff again.',
-  warnProviders: 'Some upload services were unavailable.',
+  warnProviders: 'Some backup upload services were unavailable.',
   warnAttachments: 'Images and attachments may not be preserved by conversation import.',
   export: 'Export task', hubDescription: 'Take a task to another agent, or bring a received handoff into DSH.', actions: 'Handoff action',
   searchTasks: 'Search tasks', searchTasksHint: 'Search by task title or workspace path', clearSearch: 'Clear search',
@@ -92,6 +97,11 @@ export const en = {
 } as const
 export type CopyKey = keyof typeof en
 export const zh: Record<CopyKey, string> = {
+  optionalExport: '备注与代码（可选）', viewShareResult: '查看结果', shareDetails: '分享详情',
+  linkReadyTitle: '分享链接已生成', zipReadyTitle: 'ZIP 已准备好', linkFailedTitle: '未能生成分享链接',
+  switchUnconfirmedTitle: '目标任务尚未确认', linkNextStep: '发送完整链接，接收者可先预览，再决定是否导入。',
+  zipNextStep: '下载 ZIP 文件后发送给接收者。', createNewShare: '重新生成',
+  shareExpired: '此链接已过期，请重新生成分享，或下载 ZIP。', prepareZipAgain: '重新准备 ZIP', dateLocale: 'zh-CN',
   codeUncertain: '尚未确认代码是否应用成功。请先检查下方目录，再重新预览，或不应用代码导入任务。',
   switchFallback: '尚未确认目标任务创建成功。请先下载 ZIP，核对或手动导入后再决定是否重试。',
   codePartial: '代码工作区已准备好，但任务尚未创建。重试本次导入会继续使用该工作区。',
@@ -164,7 +174,7 @@ export const zh: Record<CopyKey, string> = {
   warnReplay: '模型服务的回放状态无法原生恢复，请选择对话导入。',
   warnNativeMedia: '媒体和文件引用需要通过对话方式导入，来源文件不会一并恢复。',
   warnRecovery: '上次导入已创建任务，但尚未完成。请先打开该任务，再决定是否重试此交接内容。',
-  warnProviders: '部分上传服务暂不可用。',
+  warnProviders: '部分备用上传服务未能完成上传。',
   warnAttachments: '图片和附件可能无法随对话导入保留。',
   export: '导出任务', hubDescription: '把当前任务带到另一个 Agent，或将收到的交接内容导入 DSH。', actions: '交接操作',
   searchTasks: '搜索任务', searchTasksHint: '搜索任务标题或工作区路径', clearSearch: '清空搜索',

@@ -3,8 +3,8 @@ import React from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ShareForm, ShareDialog, ImportPanel } from '../src/client/ui.tsx'
-import { en, type Translate } from '../src/client/locales.ts'
-import type { ApiCall } from '../src/client/api.ts'
+import { en, zh, type Translate } from '../src/client/locales.ts'
+import { HandoffApiError, type ApiCall } from '../src/client/api.ts'
 import type { ApiRequest } from '../src/types.ts'
 const t: Translate = key => en[key]
 const brief = { schema: 'agent-handoff.brief.v1', objective: { entry_index: 0, text: 'Fix the synthetic parser' }, latest_request: { entry_index: 2, text: 'Keep paths portable' }, latest_update: { entry_index: 3, text: 'Added a regression test' }, evidence: [], notes: '' }
@@ -24,6 +24,120 @@ it('keeps code off by default, previews recorded brief, and switches the exact s
   await screen.findByDisplayValue('claude --resume new-native-id')
   expect(api.calls.at(-1)).toEqual({action:'switch',sessionId:'picked-task',target:'claude'})
   expect(api.calls.some(r=>r.action==='code-preview')).toBe(false)
+})
+
+it.each(['en','zh'] as const)('keeps successful sharing in a focused result and reopens without uploading again (%s)', async language => {
+  const tr: Translate = key => (language === 'zh' ? zh : en)[key]
+  const copy = vi.fn(async()=>true)
+  let shares=0
+  const api=service(r=>r.action==='summary'?{sessionId:'picked-task',title:'Synthetic task',messageCount:4,warnings:[],brief}
+    :r.action==='share'?{status:'ok',title:'Captured task',messageCount:5,warnings:['One or more upload providers were unavailable.'],shareUrl:`https://share.example/s/demo#k=synthetic-${++shares}`,expiresAt:'2099-01-01T12:00:00Z'}:undefined)
+  render(<ShareForm sessionId="picked-task" call={api.call} t={tr} copy={copy} />)
+  await screen.findByText('Synthetic task')
+  const extras=screen.getByText(language==='zh'?'备注与代码（可选）':'Notes and code (optional)').closest('details')!
+  expect(extras.open).toBe(false)
+  fireEvent.change(screen.getByLabelText(tr('format')),{target:{value:'link'}})
+  fireEvent.click(screen.getByRole('button',{name:tr('createShare')}))
+  const resultName=language==='zh'?'分享链接已生成':'Link ready to share'
+  const dialog=await screen.findByRole('dialog',{name:resultName})
+  const modal=within(dialog)
+  expect(modal.getByLabelText(tr('resultLink'))).toHaveProperty('value','https://share.example/s/demo#k=synthetic-1')
+  const preview=within(screen.getByRole('complementary'))
+  expect(preview.queryByLabelText(tr('resultLink'))).toBeNull()
+  expect(preview.queryByText(tr('warnProviders'))).toBeNull()
+  expect(modal.getByText(language==='zh'?'分享详情':'Share details').closest('details')?.open).toBe(false)
+  expect(dialog.querySelector('time')?.dateTime).toBe('2099-01-01T12:00:00Z')
+  fireEvent.click(modal.getByRole('button',{name:tr('copyLink')}))
+  await modal.findByText(tr('copied'))
+  expect(copy).toHaveBeenCalledWith('https://share.example/s/demo#k=synthetic-1')
+  fireEvent.keyDown(document,{key:'Escape'})
+  await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull())
+  fireEvent.click(screen.getByRole('button',{name:language==='zh'?'查看结果':'View result'}))
+  await screen.findByRole('dialog',{name:resultName})
+  expect(shares).toBe(1)
+})
+
+it('offers the usable ZIP in the result dialog when link sharing fails', async () => {
+  const save=vi.fn()
+  const api=service(r=>r.action==='summary'?{sessionId:'picked-task',title:'Synthetic task',messageCount:4,warnings:[],brief}
+    :r.action==='share'?{status:'fallback_zip',title:'Captured task',messageCount:4,warnings:['Encrypted link upload was unavailable. The local file is ready to download.'],downloadId:'ready-zip'}
+    :r.action==='download'?{fileName:'task.zip',dataBase64:'UEs='}:undefined)
+  render(<ShareForm sessionId="picked-task" call={api.call} t={t} save={save} />)
+  await screen.findByText('Synthetic task')
+  fireEvent.change(screen.getByLabelText('Format'),{target:{value:'link'}})
+  fireEvent.click(screen.getByRole('button',{name:'Create share'}))
+  const modal=within(await screen.findByRole('dialog',{name:'Link could not be created'}))
+  expect(modal.queryByLabelText('Share link')).toBeNull()
+  fireEvent.click(modal.getByRole('button',{name:'Download ZIP'}))
+  await waitFor(()=>expect(save).toHaveBeenCalledWith({fileName:'task.zip',dataBase64:'UEs='}))
+  expect(api.calls.filter(r=>r.action==='share')).toHaveLength(1)
+})
+
+it('prepares a new ZIP only after the expired download offers explicit recovery', async () => {
+  let shares=0
+  const save=vi.fn()
+  const api=service(r=>{
+    if(r.action==='summary')return {sessionId:'picked-task',title:'Synthetic task',messageCount:4,warnings:[]}
+    if(r.action==='share')return {status:'ok',title:'Synthetic task',messageCount:4,warnings:[],downloadId:`zip-${++shares}`}
+    if(r.action==='download'){
+      if(r.downloadId==='zip-1')throw new HandoffApiError({code:'download_expired',message:''})
+      return {fileName:'task.zip',dataBase64:'UEs='}
+    }
+  })
+  render(<ShareForm sessionId="picked-task" call={api.call} t={t} save={save} />)
+  await screen.findByText('Synthetic task')
+  fireEvent.click(screen.getByRole('button',{name:'Create share'}))
+  let modal=within(await screen.findByRole('dialog',{name:'ZIP ready to share'}))
+  fireEvent.click(modal.getByRole('button',{name:'Download ZIP'}))
+  await modal.findByText(en.downloadExpired)
+  expect(shares).toBe(1)
+  fireEvent.click(modal.getByRole('button',{name:'Prepare ZIP again'}))
+  await waitFor(()=>expect(shares).toBe(2))
+  modal=within(screen.getByRole('dialog',{name:'ZIP ready to share'}))
+  fireEvent.click(modal.getByRole('button',{name:'Download ZIP'}))
+  await waitFor(()=>expect(save).toHaveBeenCalledWith({fileName:'task.zip',dataBase64:'UEs='}))
+})
+
+it('regenerates an expired share only after an explicit click', async () => {
+  let shares=0
+  const copy=vi.fn(async()=>true)
+  const api=service(r=>r.action==='summary'?{sessionId:'picked-task',title:'Synthetic task',messageCount:4,warnings:[],brief}
+    :r.action==='share'?{status:'ok',title:'Captured task',messageCount:4,warnings:[],shareUrl:`https://share.example/s/demo#k=synthetic-${++shares}`,expiresAt:shares===1?'2000-01-01T00:00:00Z':'2099-01-01T00:00:00Z'}:undefined)
+  render(<ShareForm sessionId="picked-task" call={api.call} t={t} copy={copy} />)
+  await screen.findByText('Synthetic task')
+  fireEvent.change(screen.getByLabelText('Format'),{target:{value:'link'}})
+  fireEvent.click(screen.getByRole('button',{name:'Create share'}))
+  const modal=within(await screen.findByRole('dialog',{name:'Link ready to share'}))
+  expect(modal.getByRole('alert').textContent).toMatch(/expired/i)
+  expect(modal.queryByRole('button',{name:'Copy link'})).toBeNull()
+  fireEvent.click(modal.getByRole('button',{name:'Create new share'}))
+  await screen.findByDisplayValue('https://share.example/s/demo#k=synthetic-2')
+  expect(shares).toBe(2)
+  expect(copy).not.toHaveBeenCalled()
+})
+
+it('keeps regeneration failures visible inside the result dialog with the ZIP still available', async () => {
+  let shares=0
+  const save=vi.fn()
+  const api=service(r=>{
+    if(r.action==='summary')return {sessionId:'picked-task',title:'Synthetic task',messageCount:4,warnings:[]}
+    if(r.action==='download')return {fileName:'task.zip',dataBase64:'UEs='}
+    if(r.action==='share'){
+      if(++shares>1)throw new HandoffApiError({code:'ui/offline',message:''})
+      return {status:'ok',title:'Synthetic task',messageCount:4,warnings:[],shareUrl:'https://share.example/s/demo#k=synthetic',expiresAt:'2000-01-01T00:00:00Z',downloadId:'ready-zip'}
+    }
+  })
+  render(<ShareForm sessionId="picked-task" call={api.call} t={t} save={save} />)
+  await screen.findByText('Synthetic task')
+  fireEvent.change(screen.getByLabelText('Format'),{target:{value:'link'}})
+  fireEvent.click(screen.getByRole('button',{name:'Create share'}))
+  const modal=within(await screen.findByRole('dialog',{name:'Link ready to share'}))
+  fireEvent.click(modal.getByRole('button',{name:'Create new share'}))
+  await modal.findByText(en.offline)
+  fireEvent.click(modal.getByText('Share details'))
+  fireEvent.click(modal.getByRole('button',{name:'Download ZIP'}))
+  await waitFor(()=>expect(save).toHaveBeenCalledWith({fileName:'task.zip',dataBase64:'UEs='}))
+  expect(shares).toBe(2)
 })
 
 it('opens switch results in a focused dialog and reopens them without creating another task', async () => {
@@ -85,6 +199,7 @@ it('includes only explicitly selected code files and clears stale share results 
     :r.action==='share'?{status:'ok',title:'Synthetic task',messageCount:4,warnings:[],shareUrl:'https://share.example/s/example#k=synthetic'}:undefined)
   render(<ShareForm sessionId="picked-task" call={api.call} t={t} />)
   await screen.findByText('Synthetic task')
+  fireEvent.click(screen.getByText('Notes and code (optional)'))
   fireEvent.click(screen.getByLabelText('Include code changes'))
   await screen.findByLabelText('src/fix.go')
   expect((screen.getByLabelText('new.txt') as HTMLInputElement).checked).toBe(false)
@@ -96,6 +211,8 @@ it('includes only explicitly selected code files and clears stale share results 
   fireEvent.click(screen.getByRole('button',{name:'Create share'}))
   await screen.findByDisplayValue('https://share.example/s/example#k=synthetic')
   expect(api.calls.at(-1)).toMatchObject({action:'share',sessionId:'picked-task',options:{briefNote:'Please review the new file.',codeFiles:['src/fix.go','new.txt','staged-new.txt']}})
+  fireEvent.keyDown(document,{key:'Escape'})
+  await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull())
   fireEvent.change(screen.getByLabelText('Handoff note'),{target:{value:'Changed note'}})
   expect(screen.queryByDisplayValue('https://share.example/s/example#k=synthetic')).toBeNull()
 })

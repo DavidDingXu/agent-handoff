@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ImportPanel, ShareDialog, ImportAction } from '../src/client/ui.tsx'
 import { en, zh, type Translate } from '../src/client/locales.ts'
 const makeTranslator = (language: 'en' | 'zh'): Translate => key => (language === 'zh' ? zh : en)[key]
@@ -105,14 +105,14 @@ describe('native share controls', () => {
     expect(service.calls.filter(r => r.action === 'share').at(-1)).toEqual({ action: 'share', sessionId: 'session-a', format: 'zip', secretTicket: 'snapshot-ticket' })
   })
 
-  it('discards a blocked override when format changes and renders link expiry, copy and file fallback', async () => {
+  it('discards a blocked override when format changes and offers a link with a ZIP backup', async () => {
     const copy = vi.fn(async () => true)
     const save = vi.fn()
     const service = api(request => {
       if (request.action === 'summary') return summary
       if (request.action === 'share') return request.format === 'zip'
         ? { status: 'blocked', title: summary.title, messageCount: 3, warnings: [], secretTicket: 'old-ticket', findings: [] }
-        : { status: 'fallback_zip', title: summary.title, messageCount: 3, warnings: ['A local ZIP is available.'], shareUrl: 'https://share.example/item#key', expiresAt: '2026-11-20T12:00:00Z', downloadId: 'download-one' }
+        : { status: 'ok', title: summary.title, messageCount: 3, warnings: [], shareUrl: 'https://share.example/item#key', expiresAt: '2099-11-20T12:00:00Z', downloadId: 'download-one' }
       if (request.action === 'download') return { fileName: 'handoff.zip', dataBase64: 'UEs=' }
     })
     render(<ShareDialog sessionId="session-a" call={service.call} onClose={() => {}} t={t} copy={copy} save={save} />)
@@ -123,9 +123,11 @@ describe('native share controls', () => {
     expect(screen.queryByRole('checkbox', { name: /I understand/ })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Create share' }))
     await screen.findByDisplayValue('https://share.example/item#key')
-    expect(screen.getByText(/2026-11-20T12:00:00Z/)).toBeTruthy()
+    expect(document.querySelector('time')?.dateTime).toBe('2099-11-20T12:00:00Z')
+    expect(document.querySelector('time')?.textContent).not.toBe('2099-11-20T12:00:00Z')
     fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
     await waitFor(() => expect(copy).toHaveBeenCalledWith('https://share.example/item#key'))
+    fireEvent.click(screen.getByText('Share details'))
     fireEvent.click(screen.getByRole('button', { name: 'Download ZIP' }))
     await waitFor(() => expect(save).toHaveBeenCalledWith({ fileName: 'handoff.zip', dataBase64: 'UEs=' }))
     expect(service.calls.filter(r => r.action === 'share').at(-1)).toEqual({ action: 'share', sessionId: 'session-a', format: 'link' })
@@ -137,8 +139,10 @@ describe('native share controls', () => {
     await screen.findByText('Original session')
     fireEvent.click(screen.getByRole('button', { name: 'Create share' }))
     await screen.findByRole('button', { name: 'Download ZIP' })
-    expect(screen.getByText('Exported snapshot')).toBeTruthy()
-    expect(screen.getByText('Messages: 8')).toBeTruthy()
+    const result = within(screen.getByRole('dialog', { name: 'ZIP ready to share' }))
+    expect(result.getByText('Exported snapshot')).toBeTruthy()
+    expect(result.getByText('Messages: 8')).toBeTruthy()
+    expect(within(screen.getByRole('complementary')).getByText('Original session')).toBeTruthy()
   })
 
   it('reports clipboard rejection without claiming the link was copied', async () => {

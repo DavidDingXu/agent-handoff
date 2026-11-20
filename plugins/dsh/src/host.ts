@@ -8,7 +8,7 @@ import { validateStoredEvents, assertContiguous } from '@deepseek-ai/dsh-session
 import { withFileLock } from '@deepseek-ai/dsh-atomic-write'
 import { createBridge, type BridgeConfig, type BridgeRunner } from './bridge.ts'
 import { HandoffFailure, installedDshVersion, nativeEnvelope, nativeSupport, validateNative, validateSessionRelationships, fromNeutral, toNeutral, freshHeader, validateReadResult, record, type ReadResult, type SessionSnapshot } from './session.ts'
-import { MAX_UPLOAD_BYTES, type ApiResponse, type HandoffService, type ImportMode, type ImportSource, type ImportResult, type ImportPreview, type ShareResult, type ShareFormat, type WorkspaceChoice, type SafeFinding, type ExportOptions, type CodeInspection, type SwitchTarget, type SwitchResult, type TaskBrief } from './types.ts'
+import { MAX_UPLOAD_BYTES, PROVIDER_WARNING, type ApiResponse, type HandoffService, type ImportMode, type ImportSource, type ImportResult, type ImportPreview, type ShareResult, type ShareFormat, type WorkspaceChoice, type SafeFinding, type ExportOptions, type CodeInspection, type SwitchTarget, type SwitchResult, type TaskBrief } from './types.ts'
 
 export interface HandoffConfig extends BridgeConfig { stateDir?: string }
 export interface Workspace { id: string; title: string; path: string; attachSession(id: SessionId): Promise<void> }
@@ -140,7 +140,7 @@ export function createHandoffService(ctx: HandoffHostContext, config: HandoffCon
         output.shareUrl = result.share_url; if (typeof result.expires_at === 'string') output.expiresAt = result.expires_at
       }
       if (result.status === 'fallback_zip') output.warnings.push('Encrypted link upload was unavailable. The local file is ready to download.')
-      if (Array.isArray(result.provider_warnings)) output.warnings.push('One or more upload providers were unavailable.')
+      if (Array.isArray(result.provider_warnings) && result.provider_warnings.length) output.warnings.push(PROVIDER_WARNING)
       if (result.path !== undefined) {
         // Only the generated output path is an allowed download; a child response cannot select another local file.
         if (result.path !== path) throw new HandoffFailure('invalid_bridge_response', 'The generated transfer file path did not match the request.')

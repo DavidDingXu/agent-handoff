@@ -3,6 +3,7 @@ export const API_PATH = '/api/agent-handoff'
 export const DSH_VERSION = '0.2.2-rc.5'
 export const SUPPORTED_DSH_VERSIONS = ['0.2.2-rc.1', '0.2.2-rc.5'] as const
 export const MAX_UPLOAD_BYTES = 16 * 1024 * 1024
+export const PROVIDER_WARNING = 'One or more upload providers were unavailable.'
 
 export interface WorkspaceChoice { id: string; name: string; directory: string }
 export interface BriefExcerpt { entry_index: number; text: string; truncated?: boolean }

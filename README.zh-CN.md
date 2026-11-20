@@ -27,7 +27,7 @@ claude plugin marketplace add https://github.com/DavidDingXu/agent-handoff
 claude plugin install agent-handoff@agent-handoff
 ```
 
-发送方和接收方均安装或更新至 **0.6.0**，然后重启智能体。
+发送方和接收方均安装或更新至 **0.6.1**，然后重启智能体。
 
 ### DeepSeek Harness
 

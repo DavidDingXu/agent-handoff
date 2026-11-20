@@ -1,5 +1,39 @@
 # DSH verification receipt
 
+## 0.6.1 simpler sharing and reader repair
+
+Validated on 2026-11-20 with Go 1.26.7, Node 24.14.1 and the released DSH
+rc.1 / rc.5 SDKs:
+
+- Go race tests, vet and `make cross VERSION=v0.6.1` passed for all five cores.
+  No migration or native-session contract changed; the nine-direction native
+  continuation baseline from 0.6.0 remains applicable.
+- Both DSH SDKs passed **109 tests / 10 files** and Host typecheck. rc.5
+  Host/Client builds and the 42-file package checker passed. New regressions
+  cover bilingual result dialogs, copy failure, explicit expiry recovery,
+  ZIP download recovery, safe reopening and nonempty provider notices.
+- The official DSH installer updated an isolated Web profile. Actual browser
+  acceptance checked collapsed optional controls, a focused ZIP result, a
+  successful saved download and reopening. The downloaded synthetic bundle
+  passed CLI preview with two messages and `checksum_status: ok`.
+- At an actual 390×844 emulated viewport, the result and download action fit
+  without horizontal overflow. The default 1280×720 view was also observed.
+- The Worker passed **55 tests**, including the minified Wrangler bundle in
+  real workerd with synthetic responses for all four built-in download
+  protocols, ciphertext validation and bounded same-origin recovery.
+- Actual browser acceptance of a synthetic encrypted replica checked readable
+  content after direct-download failure, complete-link copying, collapsed
+  terminal commands, English/Chinese copy, and a documentation link opening
+  another tab while retaining the original preview. An unavailable fixture
+  retained the link-copy action and showed a concise recovery message.
+- The shared skill passed its structural validator. An independent read-only
+  review found and verified the ZIP expiry recovery fix; no blockers remained.
+
+All acceptance sessions and target homes were synthetic and isolated. Physical
+Desktop UI reacceptance remains unverified because its computer-control surface
+has reported a locked Mac after manual unlock; installed Web acceptance is
+reported separately. No physical Windows or paid-model acceptance is claimed.
+
 ## 0.6.0 handoff workflow update
 
 Validated on 2026-11-19 with Go 1.26.7, Node 24.14.1, Codex CLI 0.167.1,

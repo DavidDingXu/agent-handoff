@@ -5,6 +5,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-20
+
+### Changed
+
+- Keep DSH share results in a focused dialog with one copy or download action.
+  Reopening the result does not upload again; optional notes/code and backup
+  upload diagnostics stay collapsed. Task previews remain separate from results.
+- Simplify browser continuation to copying the complete link. Terminal commands
+  and installation details are available on demand in English or Chinese.
+- Keep skill success responses focused on the usable result and next step.
+
+### Fixed
+
+- Read encrypted anonymous shares with each provider's download protocol and a
+  bounded same-origin ciphertext fallback when browser downloads are blocked.
+  Keys and plaintext remain in the browser; only built-in storage URLs are accepted.
+- Distinguish failed link creation from a usable ZIP fallback, localize expiry
+  times, and keep copy/download errors recoverable in the result dialog.
+- Open source-code/documentation links in a new tab without losing the preview.
+
 ## [0.6.0] - 2026-11-19
 
 ### Added
