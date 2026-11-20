@@ -62,10 +62,13 @@ before adding another source or target agent.
 - Keep export actions and import confirmation near their primary controls and
   reachable while scrolling. Long briefs, file lists and session metadata must
   not push the next action to the bottom; collapse secondary details by default.
-- Show local-switch completion in a focused native dialog with its copyable
-  command, project directory and next step. Reopening a result must not create
-  another task. Keep UI and skill results concise, with one clear next action;
-  ask only for missing choices and reveal technical details when needed.
+- Show share and local-switch results in focused native dialogs. Keep the task
+  preview separate from operation results, with one clear copy/download/continue
+  action. Reopening a result must not repeat an upload or create another task.
+  Collapse optional notes/code and backup-provider diagnostics by default; a
+  successful share must not look failed because a backup service was unavailable.
+  Keep UI and skill results concise; ask only for missing choices and reveal
+  technical details when needed. If no link was created, offer the usable ZIP.
 - When changing handoff compatibility, cover Codex, Claude and DSH in all nine
   source/destination directions. Distinguish history reopening from a completed
   continuation turn, and record exact client versions and material limits.

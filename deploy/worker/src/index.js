@@ -1,4 +1,5 @@
 import { readerPageResponse } from "./reader.js";
+import { relayCiphertextResponse } from "./relay.js";
 
 /**
  * agent-handoff link service (Cloudflare Worker).
@@ -17,6 +18,7 @@ import { readerPageResponse } from "./reader.js";
  *   GET  /s/:id.agent.md         agent handoff markdown
  *   GET  /s/:id.agent.json       agent handoff JSON
  *   GET  /r                      static resolver for anonymous #h= links
+ *   POST /v1/relay/blob          bounded built-in provider ciphertext fallback
  *
  * Bindings: R2 bucket SHARE_BUCKET and/or KV namespace SHARE_KV (KV caps
  * blobs at 25 MiB); Durable Object BudgetGate for share metadata; cron
@@ -149,6 +151,9 @@ async function route(request, env, ctx) {
     }
     if (path === "/r" && request.method === "GET") {
       return relayPageHTML();
+    }
+    if (path === "/v1/relay/blob" && request.method === "POST") {
+      return await relayCiphertextResponse(request);
     }
     if (path === "/v1/shares" && request.method === "POST") {
       return await createShare(request, env);

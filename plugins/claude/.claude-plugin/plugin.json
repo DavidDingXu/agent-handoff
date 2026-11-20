@@ -1,6 +1,6 @@
 {
   "name": "agent-handoff",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "无需模型额度的本地 /handoff 命令。Local /handoff command without model usage.",
   "author": { "name": "Agent Handoff" },
   "license": "Apache-2.0"

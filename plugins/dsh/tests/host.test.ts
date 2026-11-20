@@ -39,6 +39,12 @@ async function harness(options: { attachFail?: boolean; native?: boolean; now?: 
   return { root, source, state, sessions, originals, service, ctx, create, ws, run, payload, query }
 }
 describe('owner Host service', () => {
+  it.each([{warnings:undefined}, {warnings:[]}, {warnings:['synthetic provider failure']}])('reports upload notices only for nonempty provider failures: %j', async ({warnings}) => {
+    const h=await harness()
+    h.run.mockImplementation(async args=>args[1]==='brief'?{schema:'agent-handoff.brief.v1',evidence:[]}:{schema:'agent-handoff.bridge.share-result.v1',status:'ok',share_url:'https://share.example/s/synthetic#k=test',...(warnings!==undefined?{provider_warnings:warnings}:{})})
+    const result=await h.service.share('source-id','link')
+    expect(result.warnings.includes('One or more upload providers were unavailable.')).toBe(!!warnings?.length)
+  })
   it('prepares a local recorded brief and freezes selected code bytes for a secret retry', async () => {
     const h = await harness()
     h.run.mockImplementation(async (args, input) => {

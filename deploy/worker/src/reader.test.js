@@ -214,15 +214,64 @@ test("relay links validate all capability fields before fetching and retry the n
   const result = await core().loadLink({ kind: "relay" }, relayURL(manifest), async (url) => {
     requested.push(url);
     if (url.includes("tmpfiles")) throw new TypeError("CORS");
+    if (url === "https://share.example/v1/relay/blob") return new Response("synthetic bridge outage", { status: 502 });
     return new Response(fixture.ciphertext);
   });
-  assert.equal(requested.length, 2);
+  assert.deepEqual(requested, ["https://tmpfiles.org/dl/1/a.enc", "https://share.example/v1/relay/blob", "https://a.uguu.se/a.enc"]);
   assert.deepEqual(result.bytes, new Uint8Array(fixture.bytes));
   for (const overrides of [{ k: "wrong" }, { n: "wrong" }, { e: "2000-01-01T00:00:00Z" }, { b: 65 * 1024 * 1024 }, { r: [{ p: "tmpfiles.org", u: "https://attacker.example/dl/a" }] }, { r: [{ p: "custom-test", u: "https://127.0.0.1/a" }] }]) {
     let contacted = false;
     await assert.rejects(core().loadLink({ kind: "relay" }, relayURL(relay(fixture, overrides)), async () => { contacted = true; return new Response(fixture.ciphertext); }));
     assert.equal(contacted, false);
   }
+});
+
+test("temp.sh replicas download with POST like the CLI", async () => {
+  const fixture = await encryptedFixture();
+  const href = relayURL(relay(fixture, { r: [{ p: "temp.sh", u: "https://temp.sh/synthetic/task.enc" }] }));
+  const result = await core().loadLink({ kind: "relay" }, href, async (url, options) => {
+    if (url !== "https://temp.sh/synthetic/task.enc" || options.method !== "POST") return new Response("download requires POST", { status: 405 });
+    return new Response(fixture.ciphertext);
+  });
+  assert.deepEqual(result.bytes, new Uint8Array(fixture.bytes));
+});
+
+test("a browser CORS failure uses the same-origin ciphertext bridge without sending the fragment capability", async () => {
+  const fixture = await encryptedFixture(), href = relayURL(relay(fixture));
+  const result = await core().loadLink({ kind: "relay" }, href, async (url, options) => {
+    if (url === "https://tmpfiles.org/dl/123/a.enc") throw new TypeError("Failed to fetch: CORS");
+    assert.equal(url, "https://share.example/v1/relay/blob");
+    assert.equal(options.method, "POST");
+    assert.deepEqual(JSON.parse(options.body), { p: "tmpfiles.org", u: "https://tmpfiles.org/dl/123/a.enc", b: fixture.ciphertext.length });
+    for (const secret of [fixture.key, fixture.nonce, "#h=", "#k="]) assert.equal((url + options.body).includes(secret), false);
+    return new Response(fixture.ciphertext);
+  });
+  assert.deepEqual(result.bytes, new Uint8Array(fixture.bytes));
+  assert.equal(result.command, `agent-handoff import "${href}" --execute`);
+  assert.equal((await core().readBundle(result.bytes)).checksummed, true);
+});
+
+test("the ciphertext bridge cannot bypass local size, checksum or AES-GCM verification", async () => {
+  const fixture = await encryptedFixture();
+  for (const mutation of [
+    { overrides: { s: "0".repeat(64) }, ciphertext: fixture.ciphertext },
+    { overrides: { b: fixture.ciphertext.length - 1 }, ciphertext: fixture.ciphertext },
+    { overrides: { k: Buffer.alloc(32, 9).toString("base64url") }, ciphertext: fixture.ciphertext },
+    { overrides: {}, ciphertext: fixture.ciphertext.slice(0, -1) },
+  ]) {
+    await assert.rejects(core().loadLink({ kind: "relay" }, relayURL(relay(fixture, mutation.overrides)), async url => {
+      if (url === "https://share.example/v1/relay/blob") return new Response(mutation.ciphertext);
+      throw new TypeError("CORS");
+    }));
+  }
+});
+
+test("configured providers remain browser-direct and are never sent through the public bridge", async () => {
+  const fixture = await encryptedFixture(), requested = [];
+  await assert.rejects(core().loadLink({ kind: "relay" }, relayURL(relay(fixture, { r: [{ p: "config:company", u: "https://files.example/a.enc" }] })), async url => {
+    requested.push(url); throw new TypeError("CORS");
+  }));
+  assert.deepEqual(requested, ["https://files.example/a.enc"]);
 });
 
 test("never decrypts a ciphertext with a mismatched size or checksum", async () => {
@@ -261,7 +310,8 @@ class Element {
   select() { this.selected = true; }
 }
 function pageScope(href, ciphertext) {
-  const elements = Object.fromEntries(["language", "privacy", "subtitle", "status", "error", "retry", "download", "command", "copy", "import-label", "fallback", "content", "verified", "heading"].map(id => [id, new Element(id === "command" ? "textarea" : "div")]));
+  const elements = Object.fromEntries(["language", "privacy", "subtitle", "status", "error", "retry", "download", "command", "copy", "share-link", "copy-command", "command-label", "install-label", "install-text", "docs", "import-label", "fallback", "content", "verified", "heading"].map(id => [id, new Element(id === "command" ? "textarea" : "div")]));
+  elements.heading.textContent = "Shared session";
   elements.download.disabled = true;
   const copied = [], requests = [];
   class LocalURL extends URL { static createObjectURL() { return "blob:local-download"; } static revokeObjectURL() {} }
@@ -298,7 +348,9 @@ test("the readable page uses inert text, lazy tool evidence, a downloadable ZIP 
   assert.match(tool.textContent, /go test \.\/\.\.\./);
   assert.match(tool.textContent, /PASS/);
   await elements.copy.fire("click");
-  assert.equal(copied[0], `agent-handoff import "${href}" --execute`);
+  assert.equal(copied[0], href);
+  await elements["copy-command"].fire("click");
+  assert.equal(copied[1], `agent-handoff import "${href}" --execute`);
   elements.language.value = "zh"; await elements.language.fire("change");
   assert.match(elements.content.textContent, /对话/);
 });
@@ -309,6 +361,39 @@ test("invalid links show the recovery interface without offering an empty copy c
   assert.equal(elements.error.hidden, false);
   assert.equal(elements.copy.disabled, true);
   assert.equal(elements.retry.disabled, false);
+});
+
+test("load errors appear before any navigation and all surrounding reader text follows the selected language", async () => {
+  const fixture = await encryptedFixture(), href = relayURL(relay(fixture));
+  const { elements, scope, copied } = pageScope(href, fixture.ciphertext);
+  scope.fetch = async () => { throw new TypeError("CORS"); };
+  scope.navigator.language = "zh-CN";
+  await module.mountReader(core(), { kind: "relay" }, scope);
+  assert.equal(elements.error.hidden, false);
+  assert.equal(elements.heading.textContent, "共享任务");
+  assert.equal(elements.docs.textContent, "源码与文档");
+  assert.match(elements["install-label"].textContent, /首次/);
+  assert.match(elements["install-text"].textContent, /安装/);
+  assert.equal(/CORS|跨域/.test(elements.error.textContent), false);
+  await elements.copy.fire("click");
+  assert.equal(copied[0], href);
+  elements.language.value = "en"; await elements.language.fire("change");
+  assert.equal(elements.heading.textContent, "Shared session");
+  assert.equal(elements.docs.textContent, "Source code and documentation");
+});
+
+test("the command is collapsed and documentation opens separately so the reader remains available", async () => {
+  const response = readerModule.readerPageResponse({ kind: "relay" }, "Shared session", value => value);
+  const html = await response.text();
+  const details = html.match(/<details[^>]*>\s*<summary id="command-label">[\s\S]*?<\/details>/)?.[0];
+  assert.ok(details);
+  assert.equal(/<details[^>]*\bopen\b/.test(details), false);
+  assert.match(details, /id="command"/);
+  const source = html.match(/<a[^>]*id="docs"[^>]*>/)?.[0];
+  assert.ok(source);
+  assert.match(source, /href="https:\/\/github\.com\/DavidDingXu\/agent-handoff"/);
+  assert.match(source, /target="_blank"/);
+  assert.match(source, /rel="noopener noreferrer"/);
 });
 
 test("a failed checksum renders no archive text, keeps ZIP download available and permits retry", async () => {
@@ -355,5 +440,31 @@ test("Wrangler's minified deployed page still decrypts and renders the same hand
     await vm.runInNewContext(script, { ...scope, ...browserGlobals });
     assert.match(elements.content.textContent, /Repair the login flow/);
     assert.equal(elements.error.hidden, true);
+    // Exercise the bundled server route inside workerd, with synthetic providers
+    // behind its real fetch boundary (no network or real share is contacted).
+    const { Miniflare, convertV4MiniflareOptions } = await import("miniflare");
+    const upstream = [];
+    const runtime = new Miniflare(convertV4MiniflareOptions({
+      modules: true, script: source, compatibilityDate: "2026-08-24",
+      outboundService: async request => {
+        upstream.push({ url: request.url, method: request.method });
+        assert.equal(request.url.includes(fixture.key), false);
+        if (new URL(request.url).hostname === "filebin.net") return new Response(null, { status: 302, headers: { location: "https://s3.filebin.net/synthetic/task.enc?signature=synthetic" } });
+        return new Response(fixture.ciphertext);
+      },
+    }));
+    try {
+      for (const [p, u] of [["tmpfiles.org", "https://tmpfiles.org/dl/123/a.enc"], ["temp.sh", "https://temp.sh/synthetic/task.enc"], ["filebin.net", "https://filebin.net/synthetic/task.enc"], ["uguu.se", "https://a.uguu.se/synthetic.enc"]]) {
+        const shared = relayURL(relay(fixture, { r: [{ p, u }] }));
+        const loaded = await core().loadLink({ kind: "relay" }, shared, async (url, options) => {
+          if (new URL(url).origin !== "https://share.example") throw new TypeError("synthetic browser CORS failure");
+          return runtime.dispatchFetch(url, options);
+        });
+        assert.deepEqual(loaded.bytes, new Uint8Array(fixture.bytes));
+        assert.equal((await core().readBundle(loaded.bytes)).checksummed, true);
+      }
+      assert.equal(upstream.find(request => new URL(request.url).hostname === "temp.sh").method, "POST");
+      assert.equal(upstream.some(request => request.url.startsWith("https://s3.filebin.net/")), true);
+    } finally { await runtime.dispose(); }
   } finally { await rm(temporary, { recursive: true, force: true }); }
 });

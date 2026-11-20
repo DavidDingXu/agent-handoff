@@ -15,7 +15,7 @@ To upgrade, uninstall the old third-party plugin, then install and enable the ne
 version using the same steps. If a regional mirror cannot find a new release,
 select the official npm registry in the installer.
 
-For offline installation, download `dsh-agent-handoff-0.6.0.tgz` and
+For offline installation, download `dsh-agent-handoff-0.6.1.tgz` and
 `checksums.txt` from [GitHub Releases](https://github.com/DavidDingXu/agent-handoff/releases).
 Compare the file's SHA-256 with the published checksum, then enter the tarball's
 absolute path in the same installer.
@@ -42,14 +42,15 @@ npm run package
 npm run check:package
 ```
 
-Install the generated `dist/dsh-agent-handoff-0.6.0.tgz` as above. For development,
+Install the generated `dist/dsh-agent-handoff-0.6.1.tgz` as above. For development,
 run `npm run check` and `npm run check:compat` before packaging.
 
 ## Use
 
 - Open **Task handoff → Export task**. Search and select by title or workspace path in the task dropdown, then choose a plaintext ZIP or
-  encrypted link. Secret findings require explicit acknowledgment; an unavailable
-  upload produces a downloadable ZIP. The session-header Share action is a shortcut.
+  encrypted link. Secret findings require explicit acknowledgment. Copy or download
+  the result in its dialog; **View result** reopens it without uploading again.
+  Failed link creation offers a ZIP. The session-header Share action is a shortcut.
 - Open **Task handoff → Import task**. Choose a ZIP or encrypted link, then select a local workspace.
 - Review the content and available import modes, confirm the new task, then open it.
 - **Switch locally:** choose **Switch agent** and the target app to create a Codex/Claude native task.
@@ -57,9 +58,9 @@ run `npm run check` and `npm run check:compat` before packaging.
   to reopen the same result without creating another task.
   Run the displayed continue command in its directory on the DSH machine. No source model turn or
   continuation prompt is sent.
-- **Brief and notes:** review recorded requests, response and tool evidence, and add an optional note.
+- **Brief and notes:** expand recorded requests, responses and tool evidence. Add a note under **Notes and code (optional)**.
   Receivers can decrypt and read encrypted links locally in a browser without installing first.
-- **Carry code:** off by default. Select text changes, with new files initially unchecked. The receiver
+- **Carry code:** open **Notes and code (optional)**; code stays off until checked. Select text changes, with new files initially unchecked. The receiver
   reviews files and the new directory; only **Apply code in a new workspace** creates a separate
   Git worktree, preserving the original workspace.
 
