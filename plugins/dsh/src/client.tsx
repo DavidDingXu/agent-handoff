@@ -4,6 +4,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { createSnapshotStore, type ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import { Button, IconShareOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
+import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
 import type { SidebarPanelIconOwnerProps } from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type { PropsHooks, PropsLocale, PropsRenderFactories, PropsRuntime, HocShare, SlotMap } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -51,6 +52,16 @@ type SidebarActionProps = PropsRuntime<'sidebar.session.action'> & HocShare<Slot
 function SidebarImportAction({ children, wide, t, onOpen }: SidebarActionProps) {
   return <ImportAction wide={wide} t={t} onOpen={onOpen}>{children}</ImportAction>
 }
+type HandoffToolProps = ToolCallViewProps & PropsLocale<typeof NS> & {
+  openPanel: (tab: HubTab) => void
+  openShare: (id: string) => void
+}
+function HandoffTool({ phase, block, sessionId, openPanel, openShare, t }: HandoffToolProps) {
+  if (phase !== 'result' || block.isError) return null
+  const mode = block.args.text('mode')
+  if (mode !== 'export' && mode !== 'import') return null
+  return <Button size="sm" onClick={() => mode === 'export' ? openShare(sessionId) : openPanel('import')}>{t(mode === 'import' ? 'import' : 'share')}</Button>
+}
 function PanelIcon({ size }: SidebarPanelIconOwnerProps) { return <IconShareOutlineRegular size={size} /> }
 
 export const inject = ['slots', 'locale', 'sessions', 'uiWorkspace', 'layout']
@@ -62,6 +73,7 @@ export function apply(ctx: Context & { sessions: ISessions }): void {
   const share = createSnapshotStore<ShareTarget | null>(null)
   const hubTab = createSnapshotStore<HubTab>('export')
   const panelId = 'agent-handoff' as MainPanelId
+  const openPanel = (tab: HubTab) => { hubTab.set(tab); ctx.layout.selectPanel(panelId) }
   const openShare = (sessionId: string) => { share.set({ sessionId }) }
   const openSession = async (id: string) => {
     await ctx.sessions.refresh()
@@ -85,6 +97,9 @@ export function apply(ctx: Context & { sessions: ISessions }): void {
   }, PanelIcon))
   ctx.slots.inject('sidebar.session.action', () => ctx.slots.register({
     name: 'sidebar.session.action', id: 'agent-handoff-import', locale: NS,
-    inject: () => ({ onOpen: () => { hubTab.set('import'); ctx.layout.selectPanel(panelId) } }),
+    inject: () => ({ onOpen: () => openPanel('import') }),
   }, SidebarImportAction))
+  ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
+    name: 'tool.call.toolview', key: 'open_agent_handoff', locale: NS, inject: () => ({ openPanel, openShare }),
+  }, HandoffTool))
 }

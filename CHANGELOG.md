@@ -5,6 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- Preview task handoff support for Qoder Desktop and an optional visual panel
+  for Codex Desktop. Both panels support ZIP or encrypted-link import with
+  explicit workspace selection and preview.
+- Build a single-plugin ZIP for Codex Desktop's Create plugin dialog and retain
+  a separate archive for local marketplace installation.
+- Bundle a chat-invocable Agent Handoff Skill with the DSH and Qoder plugins.
+
 ## [0.6.1] - 2026-11-20
 
 ### Changed

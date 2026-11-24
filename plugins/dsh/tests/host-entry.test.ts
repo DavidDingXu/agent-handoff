@@ -2,6 +2,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
+import SkillRegistry from '@deepseek-ai/dsh-skill'
 import Storage from '@deepseek-ai/dsh-storage'
 import * as StorageJson from '@deepseek-ai/dsh-storage-json'
 import * as StorageDomain from '@deepseek-ai/dsh-storage-domain'
@@ -32,6 +33,7 @@ it('registers the applied code directory and persists its new task through the i
   const root = await mkdtemp(join(tmpdir(), 'handoff-entry-')); roots.push(root)
   const ctx = new Context(); contexts.push(ctx)
   await mountAgentLoopTestDependencies(ctx)
+  await ctx.plugin(SkillRegistry).await()
   await ctx.plugin(JsonlPersistence, { root: join(root, 'sessions'), compression: 'none' })
   await ctx.plugin(QueryEngine, { path: join(root, 'query.sqlite'), openAt: 'never' })
   await ctx.plugin(Storage)
@@ -67,6 +69,11 @@ it('registers the applied code directory and persists its new task through the i
     throw new Error('Unexpected subprocess request')
   })
   const plugin = ctx.plugin({ inject: [...inject], apply }, { stateDir: join(root, 'state') }); await plugin.await()
+  const skill = await ctx.skills.get('agent-handoff')
+  expect(skill?.invocation).toEqual({ userInvocable: true, modelInvocable: true })
+  expect(skill?.content).toContain('open_agent_handoff')
+  expect(ctx.tools.get('open_agent_handoff')).toBeDefined()
+  expect(runBridge).not.toHaveBeenCalled()
   async function request<T>(body: object): Promise<T> {
     if (!route) throw new Error('Installed Host registered no route')
     const response = await route(new Request('http://dsh.local' + API_PATH, { method: 'POST', body: JSON.stringify(body) }))

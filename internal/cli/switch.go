@@ -90,6 +90,9 @@ func runSwitch(args []string, runtime switchRuntime) error {
 		}
 	}
 	id := strings.TrimSpace(*thread)
+	if agent == bundle.AgentQoder && (id == "" || id == "current") {
+		return fmt.Errorf("select the Qoder task ID with agent-handoff qoder list and pass --thread ID")
+	}
 	if id == "current" {
 		id = ""
 	}

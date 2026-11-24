@@ -8,6 +8,7 @@ import (
 	"github.com/DavidDingXu/agent-handoff/internal/bundle"
 	"github.com/DavidDingXu/agent-handoff/internal/claude"
 	"github.com/DavidDingXu/agent-handoff/internal/codex"
+	"github.com/DavidDingXu/agent-handoff/internal/qoder"
 )
 
 type localTask struct {
@@ -20,13 +21,14 @@ type localTask struct {
 func cmdTasks(args []string) error {
 	fs := flag.NewFlagSet("tasks", flag.ContinueOnError)
 	source := sourceFlag(fs)
+	database := fs.String("database", "", "Qoder desktop main.sqlite")
 	home := fs.String("home", "", "source agent home")
 	cwd := fs.String("cwd", "", "only list tasks whose workspace matches this directory")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() != 0 {
-		return fmt.Errorf("usage: agent-handoff tasks [--source codex|claude] [--home DIR] [--cwd DIR]")
+		return fmt.Errorf("usage: agent-handoff tasks [--source codex|claude|qoder] [--home DIR] [--cwd DIR]")
 	}
 	agent, err := detectSource(*source)
 	if err != nil {
@@ -38,6 +40,23 @@ func cmdTasks(args []string) error {
 		if err != nil {
 			return err
 		}
+	}
+	if agent == bundle.AgentQoder {
+		path, runtimeHome, err := qoderPaths(*database, *home)
+		if err != nil {
+			return err
+		}
+		tasks, err := qoder.List(path, "")
+		if err != nil {
+			return err
+		}
+		filtered := []qoder.Task{}
+		for _, task := range tasks {
+			if filter == "" || filepath.Clean(task.CWD) == filepath.Clean(filter) {
+				filtered = append(filtered, task)
+			}
+		}
+		return printJSON(map[string]any{"status": "ok", "source_agent": agent, "source_home": runtimeHome, "tasks": filtered})
 	}
 	resolvedHome, tasks, err := listLocalTasks(agent, *home, filter)
 	if err != nil {

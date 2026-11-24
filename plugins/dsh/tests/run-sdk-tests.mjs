@@ -31,6 +31,7 @@ async function run(command, argv) {
 }
 try {
   await cp(join(plugin, 'src'), join(overlay, 'src'), { recursive: true })
+  await cp(join(plugin, 'skills'), join(overlay, 'skills'), { recursive: true })
   await mkdir(join(overlay, 'tests')); await mkdir(join(overlay, 'node_modules', '@deepseek-ai'), { recursive: true })
   for (const test of serverTests) await cp(join(plugin, 'tests', test), join(overlay, 'tests', test))
   if (withClient) for (const test of [...clientTests, 'native-registry.ts', 'styles.d.ts']) await cp(join(plugin, 'tests', test), join(overlay, 'tests', test))
