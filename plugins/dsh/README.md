@@ -47,6 +47,8 @@ run `npm run check` and `npm run check:compat` before packaging.
 
 ## Use
 
+In DSH chat, type `/agent-handoff` and say what to share or import. Click **Share task** or **Import task** in the result to open the corresponding native view.
+
 - Open **Task handoff → Export task**. Search and select by title or workspace path in the task dropdown, then choose a plaintext ZIP or
   encrypted link. Secret findings require explicit acknowledgment. Copy or download
   the result in its dialog; **View result** reopens it without uploading again.

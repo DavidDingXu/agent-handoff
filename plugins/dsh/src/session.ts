@@ -193,7 +193,7 @@ export function fromNeutral(neutral: NeutralTranscript): SessionEvent[] {
 export function validateReadResult(value: unknown): ReadResult {
   if (!record(value) || value.schema !== 'agent-handoff.bridge.read-result.v1' || value.status !== 'ok' || typeof value.fingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(value.fingerprint)
     || !['ok', 'not_available_v1'].includes(String(value.checksum_status)) || !record(value.manifest) || !record(value.neutral) || typeof value.source_session !== 'string'
-    || !['codex', 'claude', 'dsh'].includes(String(value.manifest.source_agent)) || typeof value.manifest.source_thread_id !== 'string' || !value.manifest.source_thread_id
+    || !['codex', 'claude', 'dsh', 'qoder'].includes(String(value.manifest.source_agent)) || typeof value.manifest.source_thread_id !== 'string' || !value.manifest.source_thread_id
     || typeof value.manifest.title !== 'string' || !Array.isArray(value.warnings) || value.warnings.some(x => typeof x !== 'string')) throw new HandoffFailure('invalid_bridge_response', 'The verified bundle response is invalid.')
   const result = value as unknown as ReadResult
   if (result.neutral.schema !== 'agent-handoff.neutral.v1' || result.neutral.source_agent !== result.manifest.source_agent || result.neutral.source_id !== result.manifest.source_thread_id) fail('Bundle identities do not match.')

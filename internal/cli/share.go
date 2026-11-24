@@ -21,6 +21,7 @@ import (
 func cmdShare(args []string) error {
 	fs := flag.NewFlagSet("share", flag.ExitOnError)
 	source := sourceFlag(fs)
+	database := fs.String("database", "", "Qoder desktop main.sqlite")
 	thread := fs.String("thread", "current", "thread/session id, or current")
 	home := fs.String("home", "", "agent home (defaults to CODEX_HOME/~/.codex or CLAUDE_CONFIG_DIR/~/.claude)")
 	out := fs.String("out", "", "output zip path (defaults to ./<slug>.agent-handoff.zip)")
@@ -48,12 +49,15 @@ func cmdShare(args []string) error {
 	var meta map[string]any
 	var imgs []bundle.ImageAsset
 	var imageData map[string][]byte
+	var transcript neutral.Transcript
 
 	switch sourceAgent {
 	case bundle.AgentCodex:
 		manifest, sessionBytes, meta, imgs, imageData, err = exportCodex(*home, *thread)
 	case bundle.AgentClaude:
 		manifest, sessionBytes, meta, imgs, imageData, err = exportClaude(*home, *thread)
+	case bundle.AgentQoder:
+		manifest, sessionBytes, transcript, err = exportQoder(*database, *home, *thread)
 	}
 	if err != nil {
 		return err
@@ -67,7 +71,9 @@ func cmdShare(args []string) error {
 		"message_count": manifest.MessageCount,
 	}
 
-	transcript := neutralFrom(manifest, sessionBytes)
+	if transcript.Schema == "" {
+		transcript = neutralFrom(manifest, sessionBytes)
+	}
 	generated := brief.Generate(transcript)
 	generated.Notes = *briefNote
 	if err := brief.Validate(generated); err != nil {
@@ -101,6 +107,11 @@ func cmdShare(args []string) error {
 		}
 	}
 	findings, _ := sessionFindings(manifest, sessionBytes)
+	if manifest.SourceAgent == bundle.AgentQoder {
+		for _, value := range []string{manifest.Title, manifest.SourceCWD} {
+			findings = append(findings, safety.ScanPlain(value)...)
+		}
+	}
 	for _, f := range safety.ScanPlain(*briefNote) {
 		findings = append(findings, safety.Finding{Rule: f.Rule, Path: "agent/brief.notes"})
 	}
@@ -265,7 +276,7 @@ func addZipFallback(result map[string]any, zipPath, reason string) error {
 }
 
 func sessionFindings(m *bundle.Manifest, sessionBytes []byte) ([]safety.Finding, error) {
-	if m.SourceAgent == bundle.AgentClaude {
+	if m.SourceAgent == bundle.AgentClaude || m.SourceAgent == bundle.AgentQoder {
 		var findings []safety.Finding
 		session.IterLines(sessionBytes, func(line session.Line) {
 			if line.Obj == nil {
@@ -315,7 +326,7 @@ func exportCodex(homeFlag, threadFlag string) (*bundle.Manifest, []byte, map[str
 		FormatVersion:  bundle.Version2,
 		ArtifactType:   bundle.ArtifactType,
 		SourceAgent:    bundle.AgentCodex,
-		TargetSupport:  []string{bundle.AgentCodex, bundle.AgentClaude},
+		TargetSupport:  []string{bundle.AgentCodex, bundle.AgentClaude, bundle.AgentQoder},
 		SourceThreadID: threadID,
 		Title:          data.Title,
 		SourceCWD:      data.CWD,
@@ -364,7 +375,7 @@ func exportClaude(homeFlag, sessionFlag string) (*bundle.Manifest, []byte, map[s
 		FormatVersion:  bundle.Version2,
 		ArtifactType:   bundle.ArtifactType,
 		SourceAgent:    bundle.AgentClaude,
-		TargetSupport:  []string{bundle.AgentClaude, bundle.AgentCodex},
+		TargetSupport:  []string{bundle.AgentClaude, bundle.AgentCodex, bundle.AgentQoder},
 		SourceThreadID: sessionID,
 		Title:          data.Title,
 		SourceCWD:      data.CWD,

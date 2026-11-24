@@ -57,8 +57,12 @@ before adding another source or target agent.
 - Keep DSH export and import in clearly separated views, using the host's theme
   and native controls with a compact, responsive layout. Verify the actual
   installed interface as well as component tests when changing this flow.
-- Use one searchable dropdown for DSH task selection. Filtering or dismissing
-  its results must not change the export task without an explicit choice.
+- Keep the Codex and Qoder handoff panels aligned with the DSH layout, control
+  order, and result dialogs. Use a searchable task selector and an explicit
+  destination workspace selector. Filtering or dismissing a selector preserves
+  its selection. Changing the destination requires a new import preview.
+  Keep chat-invocable handoff skills available alongside the native DSH and
+  Qoder panels. Skills open the same preview and confirmation flow.
 - Keep export actions and import confirmation near their primary controls and
   reachable while scrolling. Long briefs, file lists and session metadata must
   not push the next action to the bottom; collapse secondary details by default.

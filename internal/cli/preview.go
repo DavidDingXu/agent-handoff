@@ -32,6 +32,15 @@ func cmdPreview(args []string) error {
 		}
 	}
 
+	if b.Manifest.SourceAgent == bundle.AgentQoder {
+		if err := b.VerifyChecksums(); err != nil {
+			return fmt.Errorf("share file integrity check failed: %w", err)
+		}
+		if err := validateQoderTranscript(b); err != nil {
+			return err
+		}
+	}
+
 	detail := extractDetail(b)
 	result := map[string]any{
 		"status":             "ok",
@@ -39,6 +48,7 @@ func cmdPreview(args []string) error {
 		"title":              b.Manifest.Title,
 		"source_cwd":         b.Manifest.SourceCWD,
 		"source_thread":      b.Manifest.SourceThreadID,
+		"fingerprint":        reviewFingerprint(b),
 		"created_at":         b.Manifest.CreatedAt,
 		"message_count":      b.Manifest.MessageCount,
 		"image_count":        bundle.CountCopied(b.Images),
@@ -69,7 +79,9 @@ func cmdPreview(args []string) error {
 			}
 		}
 	}
-	if b.Manifest.FormatVersion == bundle.Version2 {
+	if b.Manifest.FormatVersion == bundle.Version1 && b.Files[bundle.ChecksumsEntry] == nil {
+		result["checksum_status"] = "not_available_v1"
+	} else {
 		if err := b.VerifyChecksums(); err != nil {
 			result["checksum_status"] = fmt.Sprintf("failed: %v", err)
 		} else {
@@ -88,7 +100,7 @@ func codeManifest(b *bundle.ReadResult) any {
 
 // extractDetail summarizes either a codex or claude session payload.
 func extractDetail(b *bundle.ReadResult) session.Detail {
-	if b.Manifest.SourceAgent == bundle.AgentDSH {
+	if b.Manifest.SourceAgent == bundle.AgentDSH || b.Manifest.SourceAgent == bundle.AgentQoder {
 		var d session.Detail
 		for _, e := range b.Neutral.Entries {
 			if e.Timestamp != "" {
