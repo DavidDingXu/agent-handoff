@@ -18,6 +18,8 @@ then opens a **new native task**. Existing tasks stay intact.
 
 ### Codex / Claude Code
 
+Install the chat Skill online from this GitHub repository.
+
 ```sh
 # Codex
 codex plugin marketplace add https://github.com/DavidDingXu/agent-handoff
@@ -32,6 +34,8 @@ Install or update to **0.7.0** on both sides, then restart the agent.
 
 ### Codex Desktop panel preview
 
+The **Agent Handoff UI** panel is available as a platform-specific Release ZIP.
+
 1. Download `agent-handoff-codex-ui-v0.7.0-<platform>.zip` for your system.
 2. Open **Customize → Plugins → Add → Create plugin** and select the ZIP.
 3. In a local chat, mention **Agent Handoff UI** to open the panel. In **Import task**, choose a ZIP or encrypted link, select the destination workspace, and review the preview.
@@ -41,14 +45,15 @@ Install or update to **0.7.0** on both sides, then restart the agent.
 
 ### DeepSeek Harness
 
-1. Download `dsh-agent-handoff-0.7.0.tgz`.
-2. Open **Plugins → Add plugin**, enter the absolute path to the package, install it, and enable it.
-3. Open **Task handoff** in the sidebar or invoke `/agent-handoff` in chat.
+- **Install by npm package name.** Open **Plugins → Add plugin**, select the **official npm registry**, enter `dsh-agent-handoff`, then install and enable it. This installs the [version published on npm](https://www.npmjs.com/package/dsh-agent-handoff).
+- **Install v0.7.0 from GitHub.** Download `dsh-agent-handoff-0.7.0.tgz` and enter its absolute path in the same installer. Open **Task handoff** in the sidebar or invoke `/agent-handoff` in chat.
 
 [Download the DSH package](https://github.com/DavidDingXu/agent-handoff/releases/download/v0.7.0/dsh-agent-handoff-0.7.0.tgz) ·
 [Web profiles and source builds](plugins/dsh/README.md)
 
 ### Qoder Desktop preview
+
+Qoder supports online installation from its marketplace and eligible sharing links. The Agent Handoff preview is available from GitHub as a ZIP. [Qoder plugin installation](https://docs.qoder.com/qoder/plugins)
 
 1. Download `agent-handoff-qoder-v0.7.0-<platform>.zip`. Choose `darwin-universal` for either Apple Silicon or Intel Macs.
 2. Open **Extensions → Plugins → Add plugin → Import plugin**, select the ZIP, and enable **Agent Handoff**.

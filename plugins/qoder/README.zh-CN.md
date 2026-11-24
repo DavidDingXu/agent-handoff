@@ -6,6 +6,8 @@
 
 ## 安装和使用
 
+Qoder 可以从扩展市场在线安装已上架的插件，也能打开符合条件的插件分享链接进行安装。Agent Handoff 可从 GitHub 下载对应平台的 ZIP 后本地导入。[Qoder 在线安装说明](https://docs.qoder.com/qoder/plugins) · [Release 下载](https://github.com/DavidDingXu/agent-handoff/releases/tag/v0.7.0)
+
 在 Qoder 对话里输入 `/` 并选择 Agent Handoff Skill，也可以直接说「分享当前任务」或「导入交接包」。Skill 会打开相应的面板。
 
 1. 在 Qoder 桌面端打开 **扩展 → 插件 → 添加插件 → 导入插件**，选择适合当前系统和处理器的 Agent Handoff ZIP。
