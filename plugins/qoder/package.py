@@ -82,6 +82,8 @@ def package(target: str, destination: Path, database: str | None = None, runtime
             output.writestr(".qoder-plugin/plugin.json", json.dumps(manifest, ensure_ascii=False))
             output.writestr("mcp.json", json.dumps({"mcpServers": {manifest["name"]: connector}}))
             output.write(REPO / "LICENSE", "LICENSE")
+            skill = "skills/agent-handoff/SKILL.md"
+            output.write(PLUGIN / skill, skill)
             info = ZipInfo(resource)
             info.create_system = 3
             info.external_attr = 0o100755 << 16

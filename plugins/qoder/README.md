@@ -6,6 +6,8 @@ Share a local Qoder task as a ZIP or an end-to-end encrypted link. Import a hand
 
 ## Install and use
 
+In Qoder chat, type `/` and choose the Agent Handoff skill, or ask to share the current task or import a handoff. The skill opens the matching tab in the panel.
+
 1. In Qoder Desktop, open **Extensions → Plugins → Add Plugins → Import plugin** and select the Agent Handoff ZIP for your operating system and CPU.
 2. Enable the plugin, then open **Agent Handoff** from its app entry. You can also ask Qoder to open Agent Handoff in a conversation.
 3. In the export tab, search for and select the task. Select **ZIP file** or **Encrypted link**, then create the handoff. ZIPs are saved to Downloads, or your home directory if Downloads is unavailable. ZIPs contain plaintext conversation data. If the link service is unavailable, the app shows the saved ZIP path.

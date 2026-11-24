@@ -38,13 +38,13 @@ func List(dbPath, query string) ([]Task, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	rows, err := db.Query(desktopTasks + ` ORDER BY updated_at DESC, session_id ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("read Qoder Desktop task catalog: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	query = strings.ToLower(strings.TrimSpace(query))
 	tasks := []Task{}
@@ -74,11 +74,11 @@ func Load(dbPath, runtimeHome, id string) (Task, []byte, neutral.Transcript, err
 	if err != nil {
 		return Task{}, nil, empty, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	task, createdAt, err := scanTask(db.QueryRow(desktopTasks+` AND session_id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
-		return Task{}, nil, empty, fmt.Errorf("Qoder Desktop task %s was not found", id)
+		return Task{}, nil, empty, fmt.Errorf("the Qoder Desktop task %s was not found", id)
 	}
 	if err != nil {
 		return Task{}, nil, empty, fmt.Errorf("read Qoder Desktop task: %w", err)
@@ -99,7 +99,7 @@ func Load(dbPath, runtimeHome, id string) (Task, []byte, neutral.Transcript, err
 
 func openTaskCatalog(path string) (*sql.DB, error) {
 	if path == "" {
-		return nil, fmt.Errorf("Qoder Desktop database path is required")
+		return nil, fmt.Errorf("the Qoder Desktop database path is required")
 	}
 	absolute, err := filepath.Abs(path)
 	if err != nil {
@@ -137,13 +137,13 @@ func sqliteTimestamp(milliseconds int64) string {
 
 func readRuntimeHistory(runtimeHome, id string) ([]byte, error) {
 	if runtimeHome == "" {
-		return nil, fmt.Errorf("Qoder runtime home is required")
+		return nil, fmt.Errorf("the Qoder runtime home is required")
 	}
 	root, err := os.OpenRoot(filepath.Join(runtimeHome, "projects"))
 	if err != nil {
 		return nil, fmt.Errorf("open Qoder runtime projects: %w", err)
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 
 	projects, err := fs.ReadDir(root.FS(), ".")
 	if err != nil {
@@ -163,7 +163,7 @@ func readRuntimeHistory(runtimeHome, id string) ([]byte, error) {
 			return nil, fmt.Errorf("check Qoder runtime history: %w", err)
 		}
 		if !info.Mode().IsRegular() {
-			return nil, fmt.Errorf("Qoder runtime history for %s is not a regular file", id)
+			return nil, fmt.Errorf("the Qoder runtime history for %s is not a regular file", id)
 		}
 		if found != "" {
 			return nil, fmt.Errorf("multiple Qoder runtime histories found for task %s", id)
@@ -171,7 +171,7 @@ func readRuntimeHistory(runtimeHome, id string) ([]byte, error) {
 		found = candidate
 	}
 	if found == "" {
-		return nil, fmt.Errorf("Qoder runtime history for task %s was not found", id)
+		return nil, fmt.Errorf("the Qoder runtime history for task %s was not found", id)
 	}
 	history, err := root.ReadFile(found)
 	if err != nil {
@@ -251,7 +251,7 @@ func activeRecords(id string, history []byte) ([]sourceRecord, error) {
 			return nil, fmt.Errorf("invalid Qoder history record on line %d", lineNumber)
 		}
 		if record.SessionID != "" && record.SessionID != id {
-			return nil, fmt.Errorf("Qoder history contains a different task identity on line %d", lineNumber)
+			return nil, fmt.Errorf("the Qoder history contains a different task identity on line %d", lineNumber)
 		}
 		if record.Type == "active-leaf" {
 			leaf = record.LeafUUID
@@ -275,7 +275,7 @@ func activeRecords(id string, history []byte) ([]sourceRecord, error) {
 	for current := leaf; current != ""; {
 		record, exists := byID[current]
 		if !exists || seen[current] {
-			return nil, fmt.Errorf("Qoder history has an invalid active branch")
+			return nil, fmt.Errorf("the Qoder history has an invalid active branch")
 		}
 		seen[current] = true
 		branch = append(branch, record)
@@ -361,7 +361,7 @@ func convertHistory(task Task, history []byte) ([]byte, neutral.Transcript, erro
 		parent = &record.UUID
 	}
 	if len(transcript.Entries) == 0 {
-		return nil, neutral.Transcript{}, fmt.Errorf("Qoder task %s has no visible conversation or tool history", task.ID)
+		return nil, neutral.Transcript{}, fmt.Errorf("the Qoder task %s has no visible conversation or tool history", task.ID)
 	}
 	return portable.Bytes(), transcript, nil
 }

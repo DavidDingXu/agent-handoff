@@ -53,6 +53,9 @@ Qoder Desktop (preview) can share a local task as a ZIP or encrypted link and re
 | --- | --- | --- |
 | Codex / Claude Code | Say “share the current task” | Say “import <file/link>” |
 | DSH | **Task handoff → Export task** | **Task handoff → Import task** |
+| Qoder Desktop | Agent Handoff panel or Skill | Agent Handoff panel or Skill |
+
+In DSH and Qoder Desktop, the bundled Agent Handoff Skill opens the share or import view from chat.
 
 - **Export from DSH:** search for and select the task, choose ZIP or encrypted link, then **Create share**. Send the file or complete link to the receiver.
 - **Import into DSH:** choose a ZIP or paste a share link, select a local workspace, then **Preview handoff**. Review and confirm, then **Open task** to continue.

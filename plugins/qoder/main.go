@@ -76,7 +76,7 @@ func runServer(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(temp)
+	defer func() { _ = os.RemoveAll(temp) }()
 	app := newServer(temp, func(ctx context.Context, args ...string) (map[string]any, error) {
 		ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 		defer cancel()
@@ -243,7 +243,10 @@ func (s *server) tools() []map[string]any {
 		{
 			"name": "open_handoff", "title": "Agent Handoff",
 			"description": "Open the Agent Handoff panel to share a " + label + " task or import a shared task.",
-			"inputSchema": inputSchema(nil),
+			"inputSchema": map[string]any{
+				"type": "object", "additionalProperties": false,
+				"properties": map[string]any{"mode": map[string]any{"type": "string", "enum": []string{"export", "import"}}},
+			},
 			"annotations": map[string]any{"readOnlyHint": true, "destructiveHint": false},
 			"_meta":       metadata,
 		},
@@ -289,7 +292,11 @@ func (s *server) callTool(ctx context.Context, name string, args json.RawMessage
 	}
 	switch name {
 	case "open_handoff":
-		return map[string]any{}, nil
+		mode := input["mode"]
+		if mode != "" && mode != "export" && mode != "import" {
+			return nil, fmt.Errorf("choose export or import")
+		}
+		return map[string]any{"mode": mode}, nil
 	case "upload_handoff_zip":
 		return s.upload(input)
 	case "list_workspaces":

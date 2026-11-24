@@ -219,7 +219,7 @@ func (s *server) importTask(ctx context.Context, key string) (map[string]any, er
 		return nil, fmt.Errorf("preview this handoff again before importing")
 	}
 	delete(s.tickets, key)
-	defer os.Remove(ticket.path)
+	defer func() { _ = os.Remove(ticket.path) }()
 	args := s.codexProfileArgs([]string{"import", ticket.path, "--target", s.host, "--cwd", ticket.cwd, "--expected-fingerprint", ticket.fingerprint, "--execute"})
 	return s.run(ctx, args...)
 }
@@ -254,7 +254,7 @@ func readZIP(path string, limit int64) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	data, err := io.ReadAll(io.LimitReader(file, limit+1))
 	if err == nil && int64(len(data)) > limit {
 		return nil, fmt.Errorf("ZIP exceeds %d bytes", limit)

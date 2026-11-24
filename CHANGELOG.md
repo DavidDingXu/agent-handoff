@@ -12,6 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
   explicit workspace selection and preview.
 - Build a single-plugin ZIP for Codex Desktop's Create plugin dialog and retain
   a separate archive for local marketplace installation.
+- Bundle a chat-invocable Agent Handoff Skill with the DSH and Qoder plugins.
 
 ## [0.6.1] - 2026-11-20
 

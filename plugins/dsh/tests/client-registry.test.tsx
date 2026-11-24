@@ -20,12 +20,14 @@ it('contributes a real header action, import panel and preserved New session HOC
     main: { kind: 'keyed', scope: 'root' },
     'sidebar.panellist': { kind: 'list', scope: 'root' },
     'sidebar.session.action': { kind: 'hoc', scope: 'root' },
+    'tool.call.toolview': { kind: 'keyed', scope: 'session' },
   } } as never, () => null)
   ctx.provide('locale', { register: () => () => {}, bind: () => makeTranslator('en') } as never)
   ctx.provide('sessions', { refresh: vi.fn(async () => {}), list: createSnapshotStore({ phase: 'ready', byId: { imported: { id: 'imported' } } }) } as never)
   const open = vi.fn()
   ctx.provide('uiWorkspace', { openSession: open } as never)
-  ctx.provide('layout', { selectPanel: vi.fn() } as never)
+  const selectPanel = vi.fn()
+  ctx.provide('layout', { selectPanel } as never)
   const fiber = ctx.plugin({ inject: [...inject], apply })
   await fiber.await()
   const header = ctx.slots.entries('conversation.session.header.utilities').find(entry => entry.options.id === 'agent-handoff')
@@ -39,6 +41,18 @@ it('contributes a real header action, import panel and preserved New session HOC
   expect(ctx.slots.entries('main').some(entry => entry.options.key === 'agent-handoff')).toBe(true)
   expect(ctx.slots.entries('sidebar.panellist').some(entry => entry.options.id === 'agent-handoff')).toBe(true)
   expect(ctx.slots.entries('sidebar.session.action').some(entry => entry.options.id === 'agent-handoff-import')).toBe(true)
+  const handoffTool = ctx.slots.entries('tool.call.toolview').find(entry => entry.options.key === 'open_agent_handoff')!
+  const HandoffTool = handoffTool.component as ComponentType<Record<string, unknown>>
+  const toolFace = (handoffTool.inject as () => object)()
+  const toolProps = { ...toolFace, sessionId: 'chat-session', phase: 'result', t: makeTranslator('en') }
+  const view = render(<HandoffTool {...toolProps} block={{ args: { text: () => 'export' }, isError: false }} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Share task' }))
+  expect(overlayFace.hooks.share.getSnapshot()).toEqual({ sessionId: 'chat-session' })
+  expect(selectPanel).not.toHaveBeenCalled()
+  view.rerender(<HandoffTool {...toolProps} block={{ args: { text: () => 'import' }, isError: false }} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Import task' }))
+  expect(selectPanel).toHaveBeenCalledWith('agent-handoff')
+  view.unmount()
   const main = ctx.slots.entries('main').find(entry => entry.options.key === 'agent-handoff')!
   const mainFace = (main.inject as () => { openSession: (id: string) => Promise<void> })()
   await mainFace.openSession('imported')

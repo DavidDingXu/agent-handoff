@@ -77,6 +77,8 @@ def check_package(archive: Path, root: Path, architecture: str | None = None) ->
     with ZipFile(archive) as zipped:
         assert zipped.testzip() is None
         manifest = json.loads(zipped.read(".qoder-plugin/plugin.json"))
+        skill = manifest["skills"].removeprefix("./") + "agent-handoff/SKILL.md"
+        assert b"name: agent-handoff" in zipped.read(skill)
         configuration = json.loads(zipped.read("mcp.json"))["mcpServers"][manifest["name"]]
         resource = configuration["command"].removeprefix("${QODER_PLUGIN_ROOT}/")
         mode = zipped.getinfo(resource).external_attr >> 16
@@ -120,6 +122,8 @@ def check_package(archive: Path, root: Path, architecture: str | None = None) ->
             ui = client.call("resources/read", uri=tools[0]["_meta"]["ui"]["resourceUri"])["contents"][0]
             assert ui["mimeType"] == "text/html;profile=mcp-app" and "ui/initialize" in ui["text"]
 
+            assert client.tool("open_handoff", mode="import") == {"mode": "import"}
+            assert client.tool("open_handoff", mode="export") == {"mode": "export"}
             workspaces = client.tool("list_workspaces")["workspaces"]
             assert {Path(item["path"]) for item in workspaces} == {workspace.resolve()}
             assert {item["id"] for item in client.tool("list_qoder_tasks")["tasks"]} == {SOURCE, BLOCKED}

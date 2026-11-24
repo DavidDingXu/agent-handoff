@@ -607,7 +607,11 @@ window.addEventListener("message", event => {
   const message = event.data;
   if (standalone || event.source !== window.parent || !message || message.jsonrpc !== "2.0") return;
   if (message.method === "ui/notifications/host-context-changed") applyContext(message.params ?? {});
-  if (message.method === "ui/notifications/tool-result") setWorkspace(message.params);
+  if (message.method === "ui/notifications/tool-result") {
+    setWorkspace(message.params);
+    const mode = message.params?.structuredContent?.mode;
+    if (mode === "import" || mode === "export") switchTab(mode);
+  }
   if (host === "qoder" && !importing && message.method === "qoder/files/notifications/selected" && message.params?.files?.[0]?.path) {
     switchTab("import");
     setNativeZIP(message.params.files[0].path);

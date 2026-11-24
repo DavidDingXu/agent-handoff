@@ -61,6 +61,8 @@ before adding another source or target agent.
   order, and result dialogs. Use a searchable task selector and an explicit
   destination workspace selector. Filtering or dismissing a selector preserves
   its selection. Changing the destination requires a new import preview.
+  Keep chat-invocable handoff skills available alongside the native DSH and
+  Qoder panels. Skills open the same preview and confirmation flow.
 - Keep export actions and import confirmation near their primary controls and
   reachable while scrolling. Long briefs, file lists and session metadata must
   not push the next action to the bottom; collapse secondary details by default.

@@ -5,5 +5,6 @@
   "description": "在 Qoder 中分享任务与导入交接包，支持 ZIP 和加密链接。Share Qoder tasks and import handoffs via ZIP or encrypted links.",
   "author": { "name": "Agent Handoff" },
   "license": "Apache-2.0",
+  "skills": "./skills/",
   "mcpServers": "./mcp.json"
 }

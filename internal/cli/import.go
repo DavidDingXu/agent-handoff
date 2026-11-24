@@ -82,7 +82,7 @@ func cmdImport(args []string) error {
 
 	if targetAgent == bundle.AgentQoder {
 		if *applyCode {
-			return fmt.Errorf("Qoder task import does not apply code changes")
+			return fmt.Errorf("cannot apply code changes when importing to Qoder")
 		}
 		workspacePath := *cwd
 		if workspacePath == "" {

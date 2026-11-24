@@ -1,10 +1,9 @@
 package cli
 
 import (
-	"path/filepath"
-
 	"flag"
 	"fmt"
+	"path/filepath"
 
 	"github.com/DavidDingXu/agent-handoff/internal/bundle"
 	"github.com/DavidDingXu/agent-handoff/internal/claude"
@@ -46,7 +45,7 @@ func cmdVerify(args []string) error {
 				return err
 			}
 			if filepath.Clean(task.CWD) != filepath.Clean(expected) {
-				return fmt.Errorf("Qoder task workspace mismatch")
+				return fmt.Errorf("the Qoder task workspace mismatch")
 			}
 		}
 		return printJSON(map[string]any{"status": "ok", "session_id": task.ID, "cwd": task.CWD, "history_entries": len(transcript.Entries)})

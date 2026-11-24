@@ -48,10 +48,10 @@ type RestoreResult struct {
 func Restore(t neutral.Transcript, title, cwd string, opts RestoreOptions) (RestoreResult, error) {
 	var result RestoreResult
 	if opts.DatabasePath == "" || opts.RuntimeHome == "" {
-		return result, errors.New("Qoder restore requires a desktop database path and runtime home")
+		return result, errors.New("restoring to Qoder requires a desktop database path and runtime home")
 	}
 	if strings.TrimSpace(cwd) == "" {
-		return result, errors.New("Qoder restore requires a target working directory")
+		return result, errors.New("restoring to Qoder requires a target working directory")
 	}
 	cwd, err := filepath.Abs(cwd)
 	if err != nil {
@@ -62,12 +62,12 @@ func Restore(t neutral.Transcript, title, cwd string, opts RestoreOptions) (Rest
 		return result, fmt.Errorf("resolve Qoder working directory: %w", err)
 	}
 	if info, err := os.Stat(cwd); err != nil || !info.IsDir() {
-		return result, fmt.Errorf("Qoder working directory is unavailable: %s", cwd)
+		return result, fmt.Errorf("the Qoder working directory is unavailable: %s", cwd)
 	}
 	entries := restoreConversation(t)
 	if len(opts.NativeSession) > 0 {
 		if t.SourceAgent != "qoder" || t.SourceID == "" {
-			return result, errors.New("Qoder native history requires a Qoder source identity")
+			return result, errors.New("the Qoder native history requires a Qoder source identity")
 		}
 		entries, err = restoreNativeConversation(t.SourceID, opts.NativeSession)
 		if err != nil {
@@ -75,7 +75,7 @@ func Restore(t neutral.Transcript, title, cwd string, opts RestoreOptions) (Rest
 		}
 	}
 	if len(entries) == 0 {
-		return result, errors.New("Qoder restore requires visible conversation history")
+		return result, errors.New("restoring to Qoder requires visible conversation history")
 	}
 	databasePath, err := filepath.Abs(opts.DatabasePath)
 	if err != nil {
@@ -90,7 +90,7 @@ func Restore(t neutral.Transcript, title, cwd string, opts RestoreOptions) (Rest
 	if err != nil {
 		return result, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 	if !opts.AllowDuplicate {
 		if existing, err := findRestoreDuplicate(ctx, db, result.DatabasePath, runtimeHome, opts.Fingerprint); err != nil || existing.Duplicate {
@@ -113,7 +113,7 @@ func Restore(t neutral.Transcript, title, cwd string, opts RestoreOptions) (Rest
 	if err != nil {
 		return result, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	if !opts.AllowDuplicate {
 		if existing, err := findRestoreDuplicate(ctx, tx, result.DatabasePath, runtimeHome, opts.Fingerprint); err != nil || existing.Duplicate {
 			return existing, err
@@ -241,7 +241,7 @@ func restoreWorkspace(ctx context.Context, tx *sql.Tx, cwd string, now time.Time
 	if err != nil {
 		return "", false, fmt.Errorf("query Qoder workspaces: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var id, rootsJSON string
 		if err := rows.Scan(&id, &rootsJSON); err != nil {
@@ -306,7 +306,7 @@ func insertRestoredSession(ctx context.Context, tx *sql.Tx, result RestoreResult
 	if err != nil {
 		return fmt.Errorf("prepare Qoder desktop message insert: %w", err)
 	}
-	defer stmt.Close()
+	defer func() { _ = stmt.Close() }()
 	for index, message := range messages {
 		if _, err := stmt.ExecContext(ctx, result.SessionID, message.ID, message.TurnID, index+1,
 			string(message.Payload), message.Timestamp.UnixMilli(), message.Timestamp.UnixMilli(),

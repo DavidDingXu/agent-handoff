@@ -20,7 +20,7 @@ func (s *server) serveBrowser(output io.Writer) error {
 	if err != nil {
 		return err
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	origin := "http://" + listener.Addr().String()
 	path := "/" + uuid.NewString() + "/"

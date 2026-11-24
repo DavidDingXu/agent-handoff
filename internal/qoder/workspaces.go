@@ -16,7 +16,7 @@ func ListWorkspaces(database string) ([]Workspace, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	rows, err := db.Query(`
 		SELECT COALESCE(name, ''), root_paths_json
 		FROM workspaces
@@ -26,7 +26,7 @@ func ListWorkspaces(database string) ([]Workspace, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read Qoder workspaces: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	result := []Workspace{}
 	for rows.Next() {
 		var name, raw string
