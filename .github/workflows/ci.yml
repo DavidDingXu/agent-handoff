@@ -109,6 +109,18 @@ jobs:
       - name: Verify bundled binaries are current
         run: git diff --exit-code -- bin
 
+      - name: Smoke test Codex and Qoder desktop packages
+        run: |
+          version=$(jq -r .version .codex-plugin/plugin.json)
+          test "$(jq -r .version plugins/codex-ui/.codex-plugin/plugin.json)" = "$version"
+          test "$(jq -r .version plugins/qoder/.qoder-plugin/plugin.json)" = "$version"
+          python3 plugins/codex-ui/package.py linux-amd64
+          python3 plugins/codex-ui/tests/package_smoke.py \
+            "dist/agent-handoff-codex-ui-v$version-linux-amd64.zip" \
+            "dist/agent-handoff-codex-preview-v$version-linux-amd64.zip"
+          python3 plugins/qoder/package.py linux-amd64
+          python3 plugins/qoder/tests/package_smoke.py "dist/agent-handoff-qoder-v$version-linux-amd64.zip"
+
       - name: Install current Codex and Claude Code CLIs
         run: npm install --global @openai/codex @anthropic-ai/claude-code
 

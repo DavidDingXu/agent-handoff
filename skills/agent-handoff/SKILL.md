@@ -9,6 +9,10 @@ Share a coding-agent task with someone else, or receive a shared task and contin
 
 DSH uses the separate native UI package in `plugins/dsh` (DSH 0.2.2-rc.1 / rc.5); this skill does not read DSH profiles. A received DSH bundle can be imported into Codex/Claude through the same verified neutral import flow. Never pass `--source dsh` or `--target dsh` to the local CLI adapters.
 
+Qoder Desktop uses the separate preview plugin in `plugins/qoder`. When a user
+receives a Qoder bundle in Codex or Claude, use the same preview, explicit
+confirmation, and neutral import flow as other received bundles.
+
 The skill drives the `agent-handoff` CLI bundled in this plugin (`bin/`). Never mention internal implementation details to the user. Do not announce that this skill was loaded or name the CLI; start with the requested choice or final result.
 
 ## Interaction and results

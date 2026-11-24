@@ -57,6 +57,7 @@ const (
 	AgentCodex  = "codex"
 	AgentClaude = "claude"
 	AgentDSH    = "dsh"
+	AgentQoder  = "qoder"
 )
 
 // Supported import targets.
@@ -96,7 +97,7 @@ func ImagesPrefix(agent string) string { return fmt.Sprintf(ImagesPrefixFmt, age
 
 // IsSupportedAgent reports whether the agent name is known.
 func IsSupportedAgent(agent string) bool {
-	return agent == AgentCodex || agent == AgentClaude || agent == AgentDSH
+	return agent == AgentCodex || agent == AgentClaude || agent == AgentDSH || agent == AgentQoder
 }
 
 // TargetSupported reports whether the manifest declares import support for

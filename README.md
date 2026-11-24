@@ -30,6 +30,10 @@ claude plugin install agent-handoff@agent-handoff
 
 Install or update to **0.6.1** on both sides, then restart the agent.
 
+### Codex Desktop panel preview
+
+Install the optional Agent Handoff UI plugin to choose a task or destination workspace visually. [Build and install the desktop plugin](plugins/codex-ui/README.md).
+
 ### DeepSeek Harness
 
 1. Open **Plugins → Add plugin** in DSH.
@@ -39,12 +43,19 @@ Install or update to **0.6.1** on both sides, then restart the agent.
 [npm package](https://www.npmjs.com/package/dsh-agent-handoff) ·
 [Offline install, Web profiles & source builds](plugins/dsh/README.md).
 
+### Qoder Desktop Preview
+
+Qoder Desktop (preview) can share a local task as a ZIP or encrypted link and restore supported handoffs as a new task. [Build and install the plugin](plugins/qoder/README.md).
+
 ## Use
 
 | Host | Share | Receive |
 | --- | --- | --- |
 | Codex / Claude Code | Say “share the current task” | Say “import <file/link>” |
 | DSH | **Task handoff → Export task** | **Task handoff → Import task** |
+| Qoder Desktop | Agent Handoff panel or Skill | Agent Handoff panel or Skill |
+
+In DSH and Qoder Desktop, the bundled Agent Handoff Skill opens the share or import view from chat.
 
 - **Export from DSH:** search for and select the task, choose ZIP or encrypted link, then **Create share**. Send the file or complete link to the receiver.
 - **Import into DSH:** choose a ZIP or paste a share link, select a local workspace, then **Preview handoff**. Review and confirm, then **Open task** to continue.

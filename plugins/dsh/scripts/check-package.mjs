@@ -9,7 +9,7 @@ const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
 const packed = spawnSync(npm, ['pack', '--dry-run', '--ignore-scripts', '--json'], { cwd: root, encoding: 'utf8', shell: process.platform === 'win32' })
 assert.equal(packed.status, 0, packed.stderr)
 const files = new Set(JSON.parse(packed.stdout)[0].files.map(file => file.path))
-for (const name of ['lib/index.js', 'lib/client.js', 'lib/types/index.d.ts', 'lib/build-receipt.json', 'lib/legal/LICENSE', 'cordis.patch.yml', 'icon.svg', 'README.md', 'README.zh-CN.md']) assert.ok(files.has(name), `Package missing ${name}`)
+for (const name of ['lib/index.js', 'lib/client.js', 'lib/types/index.d.ts', 'lib/build-receipt.json', 'lib/legal/LICENSE', 'skills/agent-handoff/SKILL.md', 'cordis.patch.yml', 'icon.svg', 'README.md', 'README.zh-CN.md']) assert.ok(files.has(name), `Package missing ${name}`)
 for (const target of ['darwin-amd64', 'darwin-arm64', 'linux-amd64', 'linux-arm64', 'windows-amd64']) {
   assert.ok(files.has(`bin/${target}/agent-handoff${target.startsWith('windows-') ? '.exe' : ''}`), `Package missing core for ${target}`)
 }

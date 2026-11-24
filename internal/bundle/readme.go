@@ -23,6 +23,9 @@ func agentReadme(m *Manifest) string {
 		sb.WriteString("3. Import to Codex: `agent-handoff import <file> --target codex --cwd <dir> --execute`\n")
 		sb.WriteString("   Import to Claude: `agent-handoff import <file> --target claude --cwd <dir> --execute`\n")
 	}
+	if m.TargetSupported(AgentQoder) {
+		sb.WriteString("   Import to Qoder Desktop with the Qoder plugin or `agent-handoff import <file> --target qoder --cwd <dir> --execute`.\n")
+	}
 	sb.WriteString("4. After import, read the result JSON. Continue Claude imports from target_cwd with `claude --resume <session_id>`, or execute fallback_command with fallback_shell. A fresh Codex home creates its database on first launch.\n")
 	sb.WriteString("5. `agent/restore.md` carries continuation context; `agent/neutral.json` is the cross-agent transcript.\n\n")
 	sb.WriteString("## Boundaries\n\n")

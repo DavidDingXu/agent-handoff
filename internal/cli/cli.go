@@ -28,6 +28,10 @@ func Run(args []string) error {
 		return cmdBridge(args[1:])
 	case "share":
 		return cmdShare(args[1:])
+	case "qoder":
+		return cmdQoder(args[1:])
+	case "workspaces":
+		return cmdWorkspaces(args[1:])
 	case "tasks":
 		return cmdTasks(args[1:])
 	case "switch":
@@ -42,7 +46,7 @@ func Run(args []string) error {
 		fmt.Printf("agent-handoff %s (%s/%s)\n", Version, runtime.GOOS, runtime.GOARCH)
 		return nil
 	default:
-		return fmt.Errorf("unknown command %q (expected share|switch|tasks|preview|import|verify)", args[0])
+		return fmt.Errorf("unknown command %q (expected share|switch|tasks|qoder|preview|import|verify)", args[0])
 	}
 }
 
@@ -50,22 +54,24 @@ func usage() {
 	fmt.Fprintln(os.Stderr, `agent-handoff: share a coding-agent task, import a shared task.
 
 Usage:
-  agent-handoff share [--source codex|claude] [--thread current] [--format zip|link]
+  agent-handoff share [--source codex|claude|qoder] [--thread current] [--format zip|link]
                     [--out FILE] [--endpoint URL] [--token TOKEN] [--ttl SECONDS]
                     [--config FILE] [--include-secrets]
                     [--brief-note TEXT] [--include-code] [--code-file PATH]
   agent-handoff switch --target codex|claude [--source codex|claude] [--thread ID]
                     [--home DIR] [--target-home DIR] [--cwd DIR] [--open]
                     [--include-code] [--code-file PATH] [--brief-note TEXT]
-  agent-handoff tasks [--source codex|claude] [--home DIR] [--cwd DIR]
+  agent-handoff workspaces --source codex|qoder [--home DIR] [--database FILE]
+  agent-handoff qoder list [--query TEXT] [--database FILE]
+  agent-handoff tasks [--source codex|claude|qoder] [--home DIR] [--cwd DIR]
   agent-handoff bridge share --input FILE|- [--format zip|link] [share transport flags]
   agent-handoff bridge read FILE.agent-handoff.zip|URL
   agent-handoff bridge brief --input FILE|-
   agent-handoff bridge code-inspect --cwd DIR
   agent-handoff preview FILE.agent-handoff.zip
-  agent-handoff import FILE.agent-handoff.zip|URL [--target codex|claude]
+  agent-handoff import FILE.agent-handoff.zip|URL [--target codex|claude|qoder]
                  [--cwd DIR] [--execute] [--allow-duplicate] [--apply-code] [--code-directory NEW_DIR]
-  agent-handoff verify --thread THREAD_ID [--source codex|claude] [--cwd DIR]`)
+  agent-handoff verify --thread THREAD_ID [--source codex|claude|qoder] [--cwd DIR]`)
 }
 
 func printJSON(v any) error {
@@ -78,19 +84,19 @@ func printJSON(v any) error {
 // ---- shared option parsing ----
 
 func sourceFlag(fs *flag.FlagSet) *string {
-	return fs.String("source", "", "source agent: codex or claude (defaults to auto-detect)")
+	return fs.String("source", "", "source agent: codex, claude, or qoder (defaults to auto-detect)")
 }
 
 func targetFlag(fs *flag.FlagSet) *string {
-	return fs.String("target", "", "import target agent: codex or claude (defaults to the current agent)")
+	return fs.String("target", "", "import target agent: codex, claude, or qoder (defaults to the current agent)")
 }
 
 // detectSource picks the default source agent: Claude when CLAUDE_CONFIG_DIR
 // is set or the cwd is inside a Claude session context, else Codex.
 func detectSource(explicit string) (string, error) {
 	if v := strings.TrimSpace(explicit); v != "" {
-		if v != bundle.AgentCodex && v != bundle.AgentClaude {
-			return "", fmt.Errorf("unsupported --source %q (expected codex|claude)", v)
+		if v != bundle.AgentCodex && v != bundle.AgentClaude && v != bundle.AgentQoder {
+			return "", fmt.Errorf("unsupported --source %q (expected codex|claude|qoder)", v)
 		}
 		return v, nil
 	}
@@ -113,8 +119,8 @@ func detectSource(explicit string) (string, error) {
 
 func resolveTarget(explicit string) (string, error) {
 	if v := strings.TrimSpace(explicit); v != "" {
-		if v != bundle.AgentCodex && v != bundle.AgentClaude {
-			return "", fmt.Errorf("unsupported --target %q (expected codex|claude)", v)
+		if v != bundle.AgentCodex && v != bundle.AgentClaude && v != bundle.AgentQoder {
+			return "", fmt.Errorf("unsupported --target %q (expected codex|claude|qoder)", v)
 		}
 		return v, nil
 	}

@@ -21,6 +21,8 @@ import (
 func cmdImport(args []string) error {
 	fs := flag.NewFlagSet("import", flag.ExitOnError)
 	target := targetFlag(fs)
+	database := fs.String("database", "", "Qoder desktop main.sqlite")
+	expectedFingerprint := fs.String("expected-fingerprint", "", "fingerprint from the reviewed preview")
 	home := fs.String("home", "", "target agent home")
 	cwd := fs.String("cwd", "", "target cwd for the imported task (defaults to current directory)")
 	execute := fs.Bool("execute", false, "write the imported task into local agent history")
@@ -39,11 +41,11 @@ func cmdImport(args []string) error {
 	}
 	if path == "" {
 		if fs.NArg() != 1 {
-			return fmt.Errorf("usage: agent-handoff import FILE.agent-handoff.zip|URL [--target codex|claude] [--cwd DIR] [--execute]")
+			return fmt.Errorf("usage: agent-handoff import FILE.agent-handoff.zip|URL [--target codex|claude|qoder] [--cwd DIR] [--execute]")
 		}
 		path = fs.Arg(0)
 	} else if fs.NArg() != 0 {
-		return fmt.Errorf("usage: agent-handoff import FILE.agent-handoff.zip|URL [--target codex|claude] [--cwd DIR] [--execute]")
+		return fmt.Errorf("usage: agent-handoff import FILE.agent-handoff.zip|URL [--target codex|claude|qoder] [--cwd DIR] [--execute]")
 	}
 
 	loaded, err := loadBundleArg(path)
@@ -59,6 +61,14 @@ func cmdImport(args []string) error {
 	if err := bundle.ValidateDSHBundle(b); err != nil {
 		return err
 	}
+	if *expectedFingerprint != "" && *expectedFingerprint != reviewFingerprint(b) {
+		return fmt.Errorf("handoff changed since preview")
+	}
+	if b.Manifest.SourceAgent == bundle.AgentQoder {
+		if err := validateQoderTranscript(b); err != nil {
+			return err
+		}
+	}
 	if *applyCode && b.Code == nil {
 		return fmt.Errorf("this handoff has no code changes; import without --apply-code")
 	}
@@ -68,6 +78,24 @@ func cmdImport(args []string) error {
 	targetAgent, err := resolveTarget(*target)
 	if err != nil {
 		return err
+	}
+
+	if targetAgent == bundle.AgentQoder {
+		if *applyCode {
+			return fmt.Errorf("cannot apply code changes when importing to Qoder")
+		}
+		workspacePath := *cwd
+		if workspacePath == "" {
+			workspacePath, err = os.Getwd()
+			if err != nil {
+				return err
+			}
+		}
+		workspacePath, err = filepath.Abs(workspacePath)
+		if err != nil {
+			return err
+		}
+		return importIntoQoder(b, *database, *home, workspacePath, handoffFingerprint(b), *execute, *allowDuplicate)
 	}
 
 	var targetHome string
