@@ -15,8 +15,8 @@ To upgrade, uninstall the old third-party plugin, then install and enable the ne
 version using the same steps. If a regional mirror cannot find a new release,
 select the official npm registry in the installer.
 
-For offline installation, download `dsh-agent-handoff-0.6.1.tgz` and
-`checksums.txt` from [GitHub Releases](https://github.com/DavidDingXu/agent-handoff/releases).
+For installation from the release, download `dsh-agent-handoff-0.7.0.tgz` and
+`checksums.txt` from [GitHub Release v0.7.0](https://github.com/DavidDingXu/agent-handoff/releases/tag/v0.7.0).
 Compare the file's SHA-256 with the published checksum, then enter the tarball's
 absolute path in the same installer.
 
@@ -42,7 +42,7 @@ npm run package
 npm run check:package
 ```
 
-Install the generated `dist/dsh-agent-handoff-0.6.1.tgz` as above. For development,
+Install the generated `dist/dsh-agent-handoff-0.7.0.tgz` as above. For development,
 run `npm run check` and `npm run check:compat` before packaging.
 
 ## Use

@@ -74,6 +74,10 @@ def package(target: str, destination: Path) -> tuple[Path, Path]:
                 output.writestr(prefix + "plugin.json", json.dumps(portable, ensure_ascii=False))
                 output.writestr(prefix + "mcp.json", json.dumps(mcp))
                 output.write(REPO / "LICENSE", prefix + "LICENSE")
+                output.write(REPO / "THIRD_PARTY_NOTICES.md", prefix + "THIRD_PARTY_NOTICES.md")
+                for license_path in sorted((REPO / "third_party_licenses").rglob("*")):
+                    if license_path.is_file():
+                        output.write(license_path, prefix + license_path.relative_to(REPO).as_posix())
                 info = ZipInfo(prefix + resource)
                 info.create_system = 3
                 info.external_attr = 0o100755 << 16

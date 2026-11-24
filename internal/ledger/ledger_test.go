@@ -37,7 +37,8 @@ func TestRecordAndFind(t *testing.T) {
 	}
 	rec := Find(home, fp)
 	if rec == nil {
-		t.Fatal("recorded fingerprint not found")
+		t.Error("recorded fingerprint not found")
+		return
 	}
 	if rec.ImportedThread != "imported-1" || rec.Title != "Title" || rec.SourceThread != "t1" || rec.SourceAgent != "codex" {
 		t.Errorf("record = %+v", rec)

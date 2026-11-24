@@ -76,6 +76,8 @@ def check_package(archive: Path, root: Path, architecture: str | None = None) ->
     plugin = root / "plugin"
     with ZipFile(archive) as zipped:
         assert zipped.testzip() is None
+        assert "THIRD_PARTY_NOTICES.md" in zipped.namelist()
+        assert any(path.startswith("third_party_licenses/") for path in zipped.namelist())
         manifest = json.loads(zipped.read(".qoder-plugin/plugin.json"))
         skill = manifest["skills"].removeprefix("./") + "agent-handoff/SKILL.md"
         assert b"name: agent-handoff" in zipped.read(skill)

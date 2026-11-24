@@ -13,8 +13,8 @@
 升级时先卸载旧版第三方插件，再按上述步骤安装并启用新版。若镜像源暂时找不到新版本，
 在安装窗口切换为 npm 官方源。
 
-离线安装可从 [GitHub Releases](https://github.com/DavidDingXu/agent-handoff/releases) 下载
-`dsh-agent-handoff-0.6.1.tgz` 和 `checksums.txt`，核对文件的 SHA-256 后，在同一安装入口
+安装本次发布可从 [GitHub Release v0.7.0](https://github.com/DavidDingXu/agent-handoff/releases/tag/v0.7.0) 下载
+`dsh-agent-handoff-0.7.0.tgz` 和 `checksums.txt`，核对文件的 SHA-256 后，在同一安装入口
 填写安装包的绝对路径。
 
 Web profile 使用以下命令（需要 pnpm）：
@@ -38,7 +38,7 @@ npm run package
 npm run check:package
 ```
 
-按上方步骤安装生成的 `dist/dsh-agent-handoff-0.6.1.tgz`。开发时在打包前运行
+按上方步骤安装生成的 `dist/dsh-agent-handoff-0.7.0.tgz`。开发时在打包前运行
 `npm run check` 和 `npm run check:compat`。
 
 ## 使用

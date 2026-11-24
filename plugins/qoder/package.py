@@ -82,6 +82,10 @@ def package(target: str, destination: Path, database: str | None = None, runtime
             output.writestr(".qoder-plugin/plugin.json", json.dumps(manifest, ensure_ascii=False))
             output.writestr("mcp.json", json.dumps({"mcpServers": {manifest["name"]: connector}}))
             output.write(REPO / "LICENSE", "LICENSE")
+            output.write(REPO / "THIRD_PARTY_NOTICES.md", "THIRD_PARTY_NOTICES.md")
+            for license_path in sorted((REPO / "third_party_licenses").rglob("*")):
+                if license_path.is_file():
+                    output.write(license_path, license_path.relative_to(REPO).as_posix())
             skill = "skills/agent-handoff/SKILL.md"
             output.write(PLUGIN / skill, skill)
             info = ZipInfo(resource)

@@ -10,8 +10,43 @@ permissions:
   packages: write
 
 jobs:
+  desktop-packages:
+    name: Build desktop plugin archives
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.7"
+          cache: true
+
+      - name: Build Codex and Qoder packages
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          test "$(jq -r .version plugins/codex-ui/.codex-plugin/plugin.json)" = "$version"
+          test "$(jq -r .version plugins/qoder/.qoder-plugin/plugin.json)" = "$version"
+          for target in darwin-amd64 darwin-arm64 linux-amd64 linux-arm64 windows-amd64; do
+            python3 plugins/codex-ui/package.py "$target" --out plugins/desktop/dist
+            python3 plugins/qoder/package.py "$target" --out plugins/desktop/dist
+          done
+          python3 plugins/qoder/package.py darwin-universal --out plugins/desktop/dist
+          macos_target="darwin-$(go env GOARCH)"
+          python3 plugins/codex-ui/tests/package_smoke.py \
+            "plugins/desktop/dist/agent-handoff-codex-ui-v$version-$macos_target.zip" \
+            "plugins/desktop/dist/agent-handoff-codex-preview-v$version-$macos_target.zip"
+          python3 plugins/qoder/tests/package_smoke.py \
+            "plugins/desktop/dist/agent-handoff-qoder-v$version-darwin-universal.zip"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: desktop-plugins
+          path: plugins/desktop/dist/*.zip
+          if-no-files-found: error
+          compression-level: 0
+
   release:
     name: goreleaser
+    needs: desktop-packages
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -63,6 +98,11 @@ jobs:
           mkdir -p dist
           npm pack --ignore-scripts --pack-destination dist
           npm run check:package
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: desktop-plugins
+          path: plugins/desktop/dist
 
       - uses: goreleaser/goreleaser-action@v7
         with:

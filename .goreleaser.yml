@@ -49,6 +49,7 @@ checksum:
   algorithm: sha256
   extra_files:
     - glob: ./plugins/dsh/dist/dsh-agent-handoff-*.tgz
+    - glob: ./plugins/desktop/dist/*.zip
 
 changelog:
   sort: asc
@@ -67,6 +68,7 @@ release:
   mode: append
   extra_files:
     - glob: ./plugins/dsh/dist/dsh-agent-handoff-*.tgz
+    - glob: ./plugins/desktop/dist/*.zip
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"

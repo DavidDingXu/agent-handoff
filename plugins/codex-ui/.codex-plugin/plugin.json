@@ -1,6 +1,6 @@
 {
   "name": "agent-handoff-ui",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "在 Codex 中打开任务交接面板，导入和分享任务。Open a task handoff panel in Codex to import and share tasks.",
   "author": {
     "name": "Agent Handoff"

@@ -37,7 +37,7 @@ Run these commands at the repository root:
 
 ```sh
 python3 plugins/qoder/package.py darwin-arm64
-python3 plugins/qoder/tests/package_smoke.py dist/agent-handoff-qoder-v0.6.1-darwin-arm64.zip
+python3 plugins/qoder/tests/package_smoke.py dist/agent-handoff-qoder-v0.7.0-darwin-arm64.zip
 go test ./plugins/qoder -race -count=1
 ```
 
