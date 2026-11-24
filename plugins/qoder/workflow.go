@@ -24,12 +24,13 @@ const (
 type cliRunner func(context.Context, ...string) (map[string]any, error)
 
 type server struct {
-	host    string
-	run     cliRunner
-	temp    string
-	tickets map[string]previewTicket
-	exports map[string]string
-	uploads map[string]*fileUpload
+	host        string
+	browserOnly bool
+	run         cliRunner
+	temp        string
+	tickets     map[string]previewTicket
+	exports     map[string]string
+	uploads     map[string]*fileUpload
 }
 
 type previewTicket struct {
@@ -162,11 +163,11 @@ func (s *server) preview(ctx context.Context, source, cwd string) (map[string]an
 		}
 		data, err = readZIP(path, maxZIPBytes)
 	} else if strings.HasPrefix(source, "https://") || strings.HasPrefix(source, "http://") {
-		data, _, err = link.DownloadURL(source, nil)
-	} else if filepath.IsAbs(source) && strings.HasSuffix(strings.ToLower(source), ".zip") {
+		data, _, err = link.DownloadPublicURL(source)
+	} else if !s.browserOnly && filepath.IsAbs(source) && strings.HasSuffix(strings.ToLower(source), ".zip") {
 		data, err = readZIP(source, maxZIPBytes)
 	} else {
-		return nil, fmt.Errorf("enter an absolute ZIP path or an encrypted handoff link")
+		return nil, fmt.Errorf("choose a ZIP file or enter an encrypted handoff link")
 	}
 	// Provider errors may contain signed URLs. Keep the supplied link out of the response.
 	if err != nil {

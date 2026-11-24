@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -48,5 +50,24 @@ func TestBrowserPanelLimitsRPCToItsPrivateOrigin(t *testing.T) {
 	}
 	if calls != 1 {
 		t.Fatalf("processed %d catalog operations, want 1", calls)
+	}
+}
+
+func TestBrowserPanelRequiresUploadedZIP(t *testing.T) {
+	workspace, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(workspace, "local.zip")
+	if err := os.WriteFile(path, []byte("synthetic ZIP"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	app := newServer(t.TempDir(), func(context.Context, ...string) (map[string]any, error) {
+		t.Fatal("browser preview must not read an arbitrary local file")
+		return nil, nil
+	})
+	app.browserHandler("/test/", "http://127.0.0.1:1234")
+	if _, err := app.preview(context.Background(), path, workspace); err == nil {
+		t.Fatal("browser preview accepted a direct local path")
 	}
 }

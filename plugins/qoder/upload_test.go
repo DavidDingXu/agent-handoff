@@ -20,6 +20,7 @@ func TestPanelUploadPreviewsOnlyTheCompleteLocalZIP(t *testing.T) {
 		}
 		return map[string]any{"checksum_status": "ok", "fingerprint": "reviewed"}, nil
 	})
+	app.browserHandler("/test/", "http://127.0.0.1:1234")
 	workspace, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)

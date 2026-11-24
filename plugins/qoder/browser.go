@@ -37,6 +37,7 @@ func (s *server) serveBrowser(output io.Writer) error {
 }
 
 func (s *server) browserHandler(path, origin string) http.Handler {
+	s.browserOnly = true
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+path+"{$}", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
