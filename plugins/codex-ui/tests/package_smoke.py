@@ -26,7 +26,10 @@ def check_package(archive: Path, marketplace_archive: Path) -> None:
             assert mcp["command"] in ("./bin/agent-handoff-ui", "./bin/agent-handoff-ui.exe")
             assert mcp["cwd"] == "${PLUGIN_ROOT}" and mcp["args"] == ["--host", "codex"]
             executable = mcp["command"].removeprefix("./")
-            assert sorted(package.namelist()) == sorted(["plugin.json", "mcp.json", "LICENSE", executable])
+            entries = set(package.namelist())
+            licenses = {path for path in entries if path.startswith("third_party_licenses/")}
+            assert licenses
+            assert entries - licenses == {"plugin.json", "mcp.json", "LICENSE", "THIRD_PARTY_NOTICES.md", executable}
             assert stat.S_IMODE(package.getinfo(executable).external_attr >> 16) == 0o755
 
             marketplace_path, = [path for path in marketplace_package.namelist()

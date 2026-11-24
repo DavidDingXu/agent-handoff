@@ -37,7 +37,7 @@ Qoder 桌面端支持从本地安装该 ZIP。使用本地 stdio 连接器的插
 
 ```sh
 python3 plugins/qoder/package.py darwin-arm64
-python3 plugins/qoder/tests/package_smoke.py dist/agent-handoff-qoder-v0.6.1-darwin-arm64.zip
+python3 plugins/qoder/tests/package_smoke.py dist/agent-handoff-qoder-v0.7.0-darwin-arm64.zip
 go test ./plugins/qoder -race -count=1
 ```
 

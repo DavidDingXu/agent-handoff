@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-24
+
 ### Added
 
 - Preview task handoff support for Qoder Desktop and an optional visual panel
@@ -13,6 +15,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Build a single-plugin ZIP for Codex Desktop's Create plugin dialog and retain
   a separate archive for local marketplace installation.
 - Bundle a chat-invocable Agent Handoff Skill with the DSH and Qoder plugins.
+
+### Changed
+
+- Publish Codex and Qoder desktop ZIPs alongside the CLI and DSH package, with
+  a SHA-256 checksum for each archive.
+- Update Wrangler to 4.166.0 and the Go compression dependency to 1.20.5.
 
 ## [0.6.1] - 2026-11-20
 

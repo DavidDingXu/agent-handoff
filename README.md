@@ -1,6 +1,6 @@
 <h1 align="center">Agent Handoff</h1>
 <p align="center"><strong>Share a task. Continue it in your coding agent.</strong></p>
-<p align="center">Codex · Claude Code · DeepSeek Harness</p>
+<p align="center">Codex · Claude Code · DeepSeek Harness · Qoder Desktop</p>
 <p align="center">
   <a href="#install">Install</a> · <a href="#use">Use</a> · <a href="docs/usage.md">Documentation</a> · <a href="README.zh-CN.md">简体中文</a>
 </p>
@@ -28,24 +28,34 @@ claude plugin marketplace add https://github.com/DavidDingXu/agent-handoff
 claude plugin install agent-handoff@agent-handoff
 ```
 
-Install or update to **0.6.1** on both sides, then restart the agent.
+Install or update to **0.7.0** on both sides, then restart the agent.
 
 ### Codex Desktop panel preview
 
-Install the optional Agent Handoff UI plugin to choose a task or destination workspace visually. [Build and install the desktop plugin](plugins/codex-ui/README.md).
+1. Download `agent-handoff-codex-ui-v0.7.0-<platform>.zip` for your system.
+2. Open **Customize → Plugins → Add → Create plugin** and select the ZIP.
+3. In a local chat, mention **Agent Handoff UI** to open the panel. In **Import task**, choose a ZIP or encrypted link, select the destination workspace, and review the preview.
+
+[Release downloads](https://github.com/DavidDingXu/agent-handoff/releases/tag/v0.7.0) ·
+[Local marketplace and source builds](plugins/codex-ui/README.md)
 
 ### DeepSeek Harness
 
-1. Open **Plugins → Add plugin** in DSH.
-2. Enter `dsh-agent-handoff`, select the **official npm registry**, then **Install** and enable it.
-3. Open **Task handoff** in the sidebar. Restart DSH if the entry does not appear.
+1. Download `dsh-agent-handoff-0.7.0.tgz`.
+2. Open **Plugins → Add plugin**, enter the absolute path to the package, install it, and enable it.
+3. Open **Task handoff** in the sidebar or invoke `/agent-handoff` in chat.
 
-[npm package](https://www.npmjs.com/package/dsh-agent-handoff) ·
-[Offline install, Web profiles & source builds](plugins/dsh/README.md).
+[Download the DSH package](https://github.com/DavidDingXu/agent-handoff/releases/download/v0.7.0/dsh-agent-handoff-0.7.0.tgz) ·
+[Web profiles and source builds](plugins/dsh/README.md)
 
-### Qoder Desktop Preview
+### Qoder Desktop preview
 
-Qoder Desktop (preview) can share a local task as a ZIP or encrypted link and restore supported handoffs as a new task. [Build and install the plugin](plugins/qoder/README.md).
+1. Download `agent-handoff-qoder-v0.7.0-<platform>.zip`. Choose `darwin-universal` for either Apple Silicon or Intel Macs.
+2. Open **Extensions → Plugins → Add plugin → Import plugin**, select the ZIP, and enable **Agent Handoff**.
+3. Open the Agent Handoff panel or select its Skill from the `/` menu in chat.
+
+[Release downloads](https://github.com/DavidDingXu/agent-handoff/releases/tag/v0.7.0) ·
+[Qoder installation and compatibility](plugins/qoder/README.md)
 
 ## Use
 
@@ -70,8 +80,8 @@ Imports create a new task. Repeated imports return the previously imported task.
 
 ## What travels
 
-- **Conversation and tool evidence:** all nine transfer directions among the
-  three hosts are tested. Same-host native history is preserved where supported.
+- **Conversation and tool evidence:** all nine transfer directions among Codex,
+  Claude Code and DSH are tested. Qoder Desktop support is in preview. Same-host native history is preserved where supported.
 - **Privacy:** links use local AES-256-GCM encryption; secret findings require
   explicit consent. ZIP files contain plaintext and should be kept private.
 - **DSH boundary:** reviewed passive history can restore natively; ordinary logs

@@ -1,6 +1,6 @@
 <h1 align="center">Agent Handoff</h1>
 <p align="center"><strong>把编码任务交给对方，换台机器、换个智能体接着做。</strong></p>
-<p align="center">Codex · Claude Code · DeepSeek Harness</p>
+<p align="center">Codex · Claude Code · DeepSeek Harness · Qoder 桌面端</p>
 <p align="center">
   <a href="#安装">安装</a> · <a href="#使用">使用</a> · <a href="docs/usage.zh-CN.md">详细文档</a> · <a href="README.md">English</a>
 </p>
@@ -27,24 +27,34 @@ claude plugin marketplace add https://github.com/DavidDingXu/agent-handoff
 claude plugin install agent-handoff@agent-handoff
 ```
 
-发送方和接收方均安装或更新至 **0.6.1**，然后重启智能体。
+发送方和接收方均安装或更新至 **0.7.0**，然后重启智能体。
 
 ### Codex 桌面面板预览版
 
-可选装 Agent Handoff UI，在面板中选择来源任务和目标工作区。[构建与安装桌面插件](plugins/codex-ui/README.zh-CN.md)。
+1. 下载适合当前系统的 `agent-handoff-codex-ui-v0.7.0-<平台>.zip`。
+2. 打开 **自定义 → 插件 → 添加 → 创建插件**，选择该 ZIP。
+3. 在本地对话中引用 **Agent Handoff UI** 打开面板。在**导入任务**中选择 ZIP 或加密链接、选定目标工作区，再核对预览。
+
+[Release 下载](https://github.com/DavidDingXu/agent-handoff/releases/tag/v0.7.0) ·
+[本地插件市场安装与源码构建](plugins/codex-ui/README.zh-CN.md)
 
 ### DeepSeek Harness
 
-1. 在 DSH 打开**插件 → 添加插件**。
-2. 填写 `dsh-agent-handoff`，选择 **npm 官方源**，点击**安装**后启用。
-3. 在侧栏打开**任务交接**。若入口未出现，重启 DSH。
+1. 下载 `dsh-agent-handoff-0.7.0.tgz`。
+2. 打开 **插件 → 添加插件**，填写安装包的绝对路径，安装并启用。
+3. 从侧栏打开 **任务交接**，或在对话中输入 `/agent-handoff`。
 
-[npm 包](https://www.npmjs.com/package/dsh-agent-handoff) ·
-[离线安装、Web profile 与源码构建](plugins/dsh/README.zh-CN.md)。
+[下载 DSH 安装包](https://github.com/DavidDingXu/agent-handoff/releases/download/v0.7.0/dsh-agent-handoff-0.7.0.tgz) ·
+[Web profile 与源码构建](plugins/dsh/README.zh-CN.md)
 
-### Qoder Desktop 预览版
+### Qoder 桌面端预览版
 
-Qoder 桌面端预览版可将本机任务分享成 ZIP 或加密链接，并将收到的交接恢复成新任务。 [构建与本地安装](plugins/qoder/README.zh-CN.md)。
+1. 下载适合当前系统的 `agent-handoff-qoder-v0.7.0-<平台>.zip`。Apple 芯片和 Intel Mac 均选 `darwin-universal`。
+2. 打开 **扩展 → 插件 → 添加插件 → 导入插件**，选择 ZIP 并启用 **Agent Handoff**。
+3. 打开 Agent Handoff 面板，也可以在对话中输入 `/` 并选择 `agent-handoff` Skill。
+
+[Release 下载](https://github.com/DavidDingXu/agent-handoff/releases/tag/v0.7.0) ·
+[Qoder 安装与兼容范围](plugins/qoder/README.zh-CN.md)
 
 ## 使用
 
@@ -69,7 +79,7 @@ DSH 和 Qoder 桌面版随插件提供 Agent Handoff Skill，可在对话中打�
 
 ## 能迁移什么
 
-- **对话与工具记录：** 三个宿主之间的九条交接方向均有测试，支持的同宿主历史原生恢复。
+- **对话与工具记录：** Codex、Claude Code 和 DSH 之间的九条交接方向均有测试。Qoder 桌面端适配目前为预览版。支持的同宿主历史可原生恢复。
 - **隐私：** 链接在本机以 AES-256-GCM 加密，检测到密钥需显式确认；ZIP 含明文，请妥善保管。
 - **DSH 边界：** 已审查的被动历史可原生恢复；含运行状态的普通日志需显式选择对话导入。
   不迁移凭据、权限、待执行工作，也不保证完整媒体恢复。
