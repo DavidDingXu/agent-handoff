@@ -7,9 +7,9 @@ and importing received DSH, Codex, or Claude Code tasks into a new DSH session.
 
 ## Install
 
-For Desktop, open **Plugins → Add plugin**, enter
-`dsh-agent-handoff`, install and enable it. Restart DSH if the new entry does not
-appear. Package: [dsh-agent-handoff on npm](https://www.npmjs.com/package/dsh-agent-handoff).
+For Desktop, open **Plugins → Add plugin**, select the **official npm registry**,
+enter `dsh-agent-handoff`, then install and enable it. This installs the version
+published on npm. Restart DSH if the new entry does not appear. [dsh-agent-handoff on npm](https://www.npmjs.com/package/dsh-agent-handoff).
 
 To upgrade, uninstall the old third-party plugin, then install and enable the new
 version using the same steps. If a regional mirror cannot find a new release,

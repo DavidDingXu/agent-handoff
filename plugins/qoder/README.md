@@ -6,6 +6,8 @@ Share a local Qoder task as a ZIP or an end-to-end encrypted link. Import a hand
 
 ## Install and use
 
+Qoder can install published marketplace plugins and eligible shared plugins by link. For Agent Handoff, download the platform ZIP from GitHub Releases and import it locally. [Qoder online installation](https://docs.qoder.com/qoder/plugins) · [Release downloads](https://github.com/DavidDingXu/agent-handoff/releases/tag/v0.7.0)
+
 In Qoder chat, type `/` and choose the Agent Handoff skill, or ask to share the current task or import a handoff. The skill opens the matching tab in the panel.
 
 1. In Qoder Desktop, open **Extensions → Plugins → Add Plugins → Import plugin** and select the Agent Handoff ZIP for your operating system and CPU.

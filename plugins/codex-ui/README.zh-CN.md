@@ -10,7 +10,7 @@ python3 plugins/codex-ui/package.py darwin-arm64
 
 在 Codex 桌面端打开 **自定义 → 插件 → 添加 → 创建插件**，直接选择 `agent-handoff-codex-ui-v<version>-<platform>.zip`，然后点击 **添加插件**。新开一个本地聊天，引用 **Agent Handoff UI** 后输入「打开 Agent Handoff 任务交接面板」。
 
-交接面板是独立插件。原有 `agent-handoff@agent-handoff` Skill 仍可用「分享当前任务」和「导入 <文件/链接>」调用。
+对话 Skill 可按主 README 的命令从 GitHub 在线安装，用「分享当前任务」和「导入 <文件/链接>」调用。可视化面板使用对应平台的 Release ZIP，也可通过下文的本地插件市场安装。[安装对话 Skill](../../README.zh-CN.md#codex--claude-code) · [Release 下载](https://github.com/DavidDingXu/agent-handoff/releases/tag/v0.7.0)
 
 导入任务时，可以选择或拖入 256 MiB 以内的交接 ZIP，或粘贴加密分享链接。从工作区列表选择目标。如果目录还没出现在列表中，点「添加工作区」并输入现有目录的路径。
 

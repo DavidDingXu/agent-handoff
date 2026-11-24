@@ -17,6 +17,8 @@
 
 ### Codex / Claude Code
 
+用下面的命令从 GitHub 在线安装对话 Skill。
+
 ```sh
 # Codex
 codex plugin marketplace add https://github.com/DavidDingXu/agent-handoff
@@ -31,6 +33,8 @@ claude plugin install agent-handoff@agent-handoff
 
 ### Codex 桌面面板预览版
 
+**Agent Handoff UI** 面板通过 GitHub Release 提供对应平台的 ZIP。
+
 1. 下载适合当前系统的 `agent-handoff-codex-ui-v0.7.0-<平台>.zip`。
 2. 打开 **自定义 → 插件 → 添加 → 创建插件**，选择该 ZIP。
 3. 在本地对话中引用 **Agent Handoff UI** 打开面板。在**导入任务**中选择 ZIP 或加密链接、选定目标工作区，再核对预览。
@@ -40,14 +44,15 @@ claude plugin install agent-handoff@agent-handoff
 
 ### DeepSeek Harness
 
-1. 下载 `dsh-agent-handoff-0.7.0.tgz`。
-2. 打开 **插件 → 添加插件**，填写安装包的绝对路径，安装并启用。
-3. 从侧栏打开 **任务交接**，或在对话中输入 `/agent-handoff`。
+- **按 npm 包名在线安装。** 打开 **插件 → 添加插件**，选择 **npm 官方源**，输入 `dsh-agent-handoff`，安装并启用。安装版本以 [npm 发布页](https://www.npmjs.com/package/dsh-agent-handoff)为准。
+- **从 GitHub 安装 v0.7.0。** 下载 `dsh-agent-handoff-0.7.0.tgz`，在同一入口填写它的绝对路径。安装后可从侧栏打开 **任务交接**，或在对话中输入 `/agent-handoff`。
 
 [下载 DSH 安装包](https://github.com/DavidDingXu/agent-handoff/releases/download/v0.7.0/dsh-agent-handoff-0.7.0.tgz) ·
 [Web profile 与源码构建](plugins/dsh/README.zh-CN.md)
 
 ### Qoder 桌面端预览版
+
+Qoder 支持从扩展市场和符合条件的分享链接在线安装。Agent Handoff 预览版可从 GitHub 下载 ZIP 安装。[Qoder 插件安装说明](https://docs.qoder.com/qoder/plugins)
 
 1. 下载适合当前系统的 `agent-handoff-qoder-v0.7.0-<平台>.zip`。Apple 芯片和 Intel Mac 均选 `darwin-universal`。
 2. 打开 **扩展 → 插件 → 添加插件 → 导入插件**，选择 ZIP 并启用 **Agent Handoff**。
