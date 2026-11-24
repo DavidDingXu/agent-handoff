@@ -30,6 +30,10 @@ claude plugin install agent-handoff@agent-handoff
 
 Install or update to **0.6.1** on both sides, then restart the agent.
 
+### Codex Desktop panel preview
+
+Install the optional Agent Handoff UI plugin to choose a task or destination workspace visually. [Build and install the desktop plugin](plugins/codex-ui/README.md).
+
 ### DeepSeek Harness
 
 1. Open **Plugins → Add plugin** in DSH.
@@ -38,6 +42,10 @@ Install or update to **0.6.1** on both sides, then restart the agent.
 
 [npm package](https://www.npmjs.com/package/dsh-agent-handoff) ·
 [Offline install, Web profiles & source builds](plugins/dsh/README.md).
+
+### Qoder Desktop Preview
+
+Qoder Desktop (preview) can share a local task as a ZIP or encrypted link and restore supported handoffs as a new task. [Build and install the plugin](plugins/qoder/README.md).
 
 ## Use
 

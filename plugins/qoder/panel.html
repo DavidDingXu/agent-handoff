@@ -1,0 +1,1290 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Handoff</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --page: var(--color-background-primary, light-dark(#f5f7fb, #171b23));
+    --surface: var(--color-background-secondary, light-dark(#fff, #202630));
+    --ink: var(--color-text-primary, light-dark(#20283a, #ecf1fa));
+    --quiet: var(--color-text-secondary, light-dark(#525d73, #b1bdd0));
+    --line: var(--color-border-primary, light-dark(#d8dfec, #3b465a));
+    --accent: light-dark(#344fba, #adbdff);
+    --tint: color-mix(in srgb, var(--accent) 8%, var(--surface));
+    --on-accent: light-dark(#fff, #182240);
+    --danger: light-dark(#a7253a, #ffb1bc);
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+    background: var(--page);
+    color: var(--ink);
+    font: 14px/1.45 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box }
+  body { margin: 0 }
+  [hidden] { display: none !important }
+  main { width: min(100%, 960px); margin-inline: auto; padding: 28px 28px 40px }
+  .heading { margin-bottom: 22px }
+  h1, h2, p { margin: 0 }
+  h1 { font-size: 23px; font-weight: 620; letter-spacing: -.35px; line-height: 1.3; margin-bottom: 7px }
+  h2 { font-size: 17px; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere }
+  .heading p { max-width: 620px; color: var(--quiet); font-size: 13px }
+  .tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    width: min(100%, 320px);
+    background: var(--tint);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 3px;
+    margin-bottom: 22px;
+  }
+  .tabs button { background: transparent; border-color: transparent; color: var(--quiet); min-height: 31px; padding: 3px 10px }
+  .tabs button[aria-selected="true"] { background: var(--surface); border-color: var(--line); color: var(--ink) }
+  section { display: grid; gap: 12px }
+  .columns { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(250px, .85fr); gap: 20px; align-items: start }
+  .column-card { display: grid; gap: 16px; padding: 20px }
+  .column-card > h2, .column-card header h2 { font-size: 15px; font-weight: 620 }
+  .column-card header p { margin-top: 5px }
+  .context-card { background: var(--tint) }
+  .context-card h3 { font-size: 15px; font-weight: 620; margin: 0 }
+  .import-fields { display: grid; grid-template-columns: minmax(100px, .7fr) minmax(0, 1fr); align-items: start; gap: 12px }
+  .import-fields .field > label, .workspace-label { color: var(--quiet); font-size: 12px; font-weight: 520 }
+  .workspace-menu .actions { border-top: 1px solid var(--line); padding-top: 4px }
+  .upload {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 9px;
+    padding: 25px 16px 20px;
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    background: var(--tint);
+  }
+  .upload[data-dragging="true"] { border-color: var(--accent) }
+  .upload-symbol { display: grid; place-items: center; width: 25px; height: 25px; color: var(--quiet); font-size: 22px; line-height: 1 }
+  .upload-file { font-size: 13px; font-weight: 520; overflow-wrap: anywhere; max-width: 100% }
+  .zip-path { width: 100%; margin-top: 3px }
+  .zip-path summary { margin-inline: auto }
+  .zip-path label { text-align: start; margin-top: 8px }
+  .steps { list-style: none; display: grid; gap: 16px; margin: 0; padding: 0 }
+  .steps li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px }
+  .step-number { display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid var(--line); color: var(--quiet); border-radius: 50%; font-size: 11px }
+  .steps strong { display: block; font-size: 12px; font-weight: 520; margin-bottom: 2px }
+  .column-card .status { padding: 0 }
+  .column-card .preview-details { padding: 10px 0 0 }
+  .preview-body { display: grid; gap: 14px }
+  .preview-confirm { padding: 3px 0 12px; border-bottom: 1px solid var(--line) }
+  #share-form { margin-bottom: 4px }
+  .share-options { max-width: 250px }
+  .card { min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px }
+  .card-body { display: grid; gap: 16px; padding: 18px }
+  .card-footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 9px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--line);
+  }
+  .card-footer > .actions:last-child { margin-inline-start: auto }
+  .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px }
+  .field { display: grid; gap: 6px; min-width: 0 }
+  label, .workspace-label { display: block; font-weight: 630; font-size: 13px }
+  input, button, select { font: inherit; border: 1px solid var(--line); border-radius: 8px }
+  input, select {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 38px;
+    padding: 7px 10px;
+    color: var(--ink);
+    background: var(--page);
+  }
+  input::placeholder { color: var(--quiet); opacity: .82 }
+  button {
+    min-height: 35px;
+    padding: 6px 11px;
+    color: var(--ink);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 620;
+    line-height: 1.35;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent) }
+  button:disabled { opacity: .55; cursor: default }
+  .primary { color: var(--on-accent); background: var(--accent); border-color: var(--accent) }
+  .primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--surface)) }
+  .link-button { background: transparent; border-color: transparent; color: var(--accent); padding-inline: 8px }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+  .field-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px }
+  .field-row:not(:has(button:not([hidden]))) { grid-template-columns: minmax(0, 1fr) }
+  .note { color: var(--quiet); font-size: 12px; overflow-wrap: anywhere }
+  .status { padding: 0 18px 12px; color: var(--quiet); font-size: 13px; overflow-wrap: anywhere }
+  .status:empty { display: none }
+  .error { color: var(--danger) }
+  .picker { position: relative }
+  .task-list {
+    list-style: none;
+    padding: 4px;
+    margin: 0;
+    max-height: 215px;
+    overflow: auto;
+    overscroll-behavior: contain;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: var(--surface);
+  }
+  .task-option {
+    display: grid;
+    gap: 2px;
+    padding: 7px 9px;
+    border-radius: 5px;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+  }
+  .task-option:hover, .task-option[data-active="true"] { background: var(--tint) }
+  .task-option[aria-selected="true"] { color: var(--accent) }
+  .task-option strong { font-size: 13px; font-weight: 600 }
+  .task-list .note { padding: 6px 9px }
+  .workspace-trigger {
+    display: flex;
+    min-width: 0;
+    min-height: 38px;
+    justify-content: space-between;
+    align-items: center;
+    gap: 9px;
+    text-align: start;
+    background: var(--page);
+  }
+  .workspace-trigger::after {
+    content: "";
+    width: 7px;
+    height: 7px;
+    margin: -3px 2px 0 0;
+    border-right: 1px solid var(--quiet);
+    border-bottom: 1px solid var(--quiet);
+    transform: rotate(45deg);
+    flex: none;
+  }
+  .workspace-trigger[aria-expanded="true"]::after { margin-top: 3px; transform: rotate(225deg) }
+  .workspace-trigger span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+  .workspace-menu, .manual-workspace {
+    display: grid;
+    gap: 7px;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: var(--tint);
+  }
+  #workspace-picker { position: relative }
+  .workspace-menu {
+    position: absolute;
+    inset-inline: 0;
+    top: calc(100% + 5px);
+    z-index: 10;
+    background: var(--surface);
+    box-shadow: 0 9px 26px rgb(0 0 0 / 13%);
+  }
+  .workspace-menu .task-list { max-height: min(190px, 32vh) }
+  .workspace-menu .note, .manual-workspace .note { padding-inline: 3px }
+  .manual-workspace .actions { justify-content: flex-end }
+  .path { font: 11px/1.5 var(--mono); color: var(--quiet); overflow-wrap: anywhere }
+  .task-context { display: grid; grid-template-columns: 26px minmax(0, 1fr); align-items: start; gap: 9px; padding: 10px 11px; background: var(--tint); border-radius: 8px }
+  .folder-icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    height: 25px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--accent);
+  }
+  .folder-icon::before { content: ""; width: 13px; height: 9px; border: 1px solid currentColor; border-radius: 2px; margin-top: 2px }
+  .folder-icon::after { content: ""; position: absolute; width: 6px; height: 3px; border: 1px solid currentColor; border-bottom: 0; border-radius: 2px 2px 0 0; top: 6px; left: 6px }
+  .selected-title { font-size: 13px; font-weight: 620; overflow-wrap: anywhere }
+  .selected-title + .path { margin-top: 2px }
+  .preview-header { display: grid; gap: 4px }
+  .preview-details { border-top: 1px solid var(--line); padding: 10px 18px 14px }
+  summary { width: fit-content; cursor: pointer; color: var(--quiet); font-size: 13px }
+  .excerpt { margin-top: 9px }
+  .excerpt h3 { font-size: 12px; color: var(--quiet); margin: 0 0 4px; font-weight: 630 }
+  .text-block { font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 150px; overflow: auto }
+  dialog {
+    color: var(--ink);
+    width: min(470px, calc(100vw - 22px));
+    max-height: calc(100% - 18px);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 0;
+    box-shadow: 0 16px 44px #111a2940;
+  }
+  dialog::backdrop { background: #131b3060 }
+  dialog .card-body { gap: 9px }
+  dialog .status { padding: 0 18px 8px }
+  dialog input { font: 12px/1.5 var(--mono) }
+  @media (max-width: 760px) {
+    main { padding: 20px 16px 30px }
+    .columns { grid-template-columns: 1fr }
+    .column-card { padding: 17px }
+    .heading h1 { font-size: 21px }
+  }
+  @media (max-width: 410px) {
+    main { padding: 14px 12px 22px }
+    .heading { margin-bottom: 16px }
+    .tabs { margin-bottom: 16px }
+    .card-body { gap: 13px; padding: 13px }
+    .card-footer { padding: 10px 13px }
+    .preview-details { padding-inline: 13px }
+    .status, dialog .status { padding-inline: 13px }
+  }
+</style>
+<main>
+  <header class="heading">
+    <h1 id="app-title" data-i="appTitle">Task handoff</h1>
+    <p data-i="appDescription">Take a task to another agent, or bring a received handoff into Qoder.</p>
+  </header>
+  <div class="tabs" role="tablist" aria-labelledby="app-title">
+    <button id="share-tab" role="tab" aria-controls="share-panel" aria-selected="true" data-i="shareTab">Export task</button>
+    <button id="import-tab" role="tab" aria-controls="import-panel" aria-selected="false" tabindex="-1" data-i="importTab">Import task</button>
+  </div>
+
+  <section id="share-panel" role="tabpanel" aria-labelledby="share-tab">
+    <form id="share-form">
+      <div class="picker field">
+        <label for="task-search" data-i="taskLabel">Task to export</label>
+        <div class="field-row">
+          <input id="task-search" type="search" role="combobox" autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="task-list" data-p="taskPlaceholder" placeholder="Search by title or workspace" disabled>
+          <button type="button" id="refresh" data-i="refresh" disabled>Refresh task list</button>
+        </div>
+        <ul id="task-list" class="task-list" role="listbox" aria-label="Tasks" data-a="taskList" hidden></ul>
+        <p id="task-list-note" class="note" role="status" hidden></p>
+      </div>
+      <div class="columns" style="margin-top:18px">
+        <div class="card column-card">
+          <header>
+            <h2 data-i="exportSettings">Export settings</h2>
+            <p class="note" data-i="exportHelp">Choose a file for direct transfer, or a private link to send.</p>
+          </header>
+          <p id="share-unselected" class="note" data-i="chooseTask">Choose a task</p>
+          <div id="share-options" class="field share-options" hidden>
+            <label for="share-format" data-i="exportFormat">Share format</label>
+            <select id="share-format">
+              <option value="zip" data-i="exportZIP">ZIP file</option>
+              <option value="link" data-i="exportLink">Encrypted link</option>
+            </select>
+          </div>
+          <div id="share-actions" class="actions" hidden>
+            <button type="submit" class="primary" id="share-submit" data-i="createShare" disabled>Create handoff</button>
+            <button type="button" class="link-button" id="share-result" data-i="showResult" hidden>View result</button>
+          </div>
+          <p id="share-status" class="status" role="status"></p>
+        </div>
+        <aside class="card context-card column-card" aria-live="polite" aria-atomic="true">
+          <h2 data-i="taskOverview">Task overview</h2>
+          <p id="chosen-label" class="note" data-i="chooseTask">Choose a task</p>
+          <div id="chosen-context" hidden>
+            <h3 id="chosen"></h3>
+            <p id="chosen-workspace" class="path" hidden></p>
+          </div>
+        </aside>
+      </div>
+    </form>
+  </section>
+
+  <section id="import-panel" class="columns" role="tabpanel" aria-labelledby="import-tab" hidden>
+    <form id="import-form" class="card column-card">
+      <header>
+        <h2 data-i="importSource">Handoff source</h2>
+        <p class="note" data-i="importHelp">Choose a ZIP or paste a link, then select the local workspace.</p>
+      </header>
+      <div class="import-fields">
+        <div class="field">
+          <label for="source-kind" data-i="sourceKind">Source</label>
+          <select id="source-kind">
+            <option value="zip" data-i="sourceZIP">ZIP file</option>
+            <option value="link" data-i="sourceLink">Share link</option>
+          </select>
+        </div>
+        <div class="field" id="workspace-picker">
+          <span id="workspace-label" class="workspace-label" data-i="workspaceLabel">Destination workspace</span>
+          <button type="button" id="workspace-trigger" class="workspace-trigger" aria-labelledby="workspace-label workspace-choice" aria-controls="workspace-menu" aria-expanded="false" disabled>
+              <span id="workspace-choice">Choose workspace</span>
+          </button>
+          <p id="workspace-path" class="path" hidden></p>
+          <div id="workspace-menu" class="workspace-menu" hidden>
+            <input id="workspace-search" type="search" role="combobox" autocomplete="off" spellcheck="false" aria-autocomplete="list" aria-expanded="false" aria-controls="workspace-list" aria-label="Search workspaces" data-a="workspaceSearch" data-p="workspaceSearch" placeholder="Search workspaces">
+            <ul id="workspace-list" class="task-list" role="listbox" aria-labelledby="workspace-label" hidden></ul>
+            <p id="workspace-status" class="note" role="status" hidden></p>
+            <div class="actions">
+              <button type="button" id="workspace-add" class="link-button" data-i="workspaceAdd" disabled>Add workspace</button>
+            </div>
+          </div>
+          <div id="workspace-manual" class="manual-workspace" hidden>
+            <label for="workspace" data-i="workspacePathLabel">Workspace directory</label>
+            <input id="workspace" autocomplete="off" spellcheck="false" data-p="workspacePlaceholder" placeholder="Absolute path to an existing directory" aria-describedby="workspace-manual-error">
+            <p id="workspace-manual-error" class="note error" role="status" hidden></p>
+            <div class="actions">
+              <button type="button" id="workspace-cancel" class="link-button" data-i="cancel">Cancel</button>
+              <button type="button" id="workspace-use" data-i="workspaceUse">Use this folder</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="zip-panel" class="upload">
+        <span class="upload-symbol" aria-hidden="true">⇧</span>
+        <p id="zip-file-name" class="upload-file" data-i="uploadHint">Drop a handoff ZIP here, or choose a file.</p>
+        <p class="note" data-i="uploadLimit">ZIP files up to 256 MiB</p>
+        <button type="button" id="choose-file" data-i="chooseZIP">Choose ZIP file</button>
+        <input type="file" id="zip-file" accept=".zip,application/zip,application/x-zip-compressed" hidden>
+        <details class="zip-path">
+          <summary data-i="enterZIPPath">Use a ZIP path</summary>
+          <label class="field" data-i="zipPath" for="zip-path">ZIP file path</label>
+          <input id="zip-path" autocomplete="off" spellcheck="false" data-p="zipPathPlaceholder" placeholder="Absolute path to a ZIP file">
+        </details>
+      </div>
+      <div id="link-panel" class="field" hidden>
+        <label for="source" data-i="sourceLink">Share link</label>
+        <input id="source" autocomplete="off" spellcheck="false" placeholder="https://…#…">
+      </div>
+      <div class="actions">
+        <button type="submit" id="preview-button" class="primary" data-i="preview" disabled>Preview handoff</button>
+        <button type="button" class="link-button" id="import-result" data-i="showResult" hidden>View result</button>
+      </div>
+      <p id="import-status" class="status" role="status"></p>
+    </form>
+
+    <aside class="card context-card column-card">
+      <h2 id="import-context-title" data-i="previewContext">Review before creating a task</h2>
+      <ol id="import-steps" class="steps">
+        <li><span class="step-number" aria-hidden="true">1</span><div><strong data-i="stepSource">Choose the source</strong><p class="note" data-i="stepSourceHelp">Use a ZIP file or the complete private link.</p></div></li>
+        <li><span class="step-number" aria-hidden="true">2</span><div><strong data-i="stepPreview">Review the handoff</strong><p class="note" data-i="stepPreviewHelp">Check the source and task history.</p></div></li>
+        <li><span class="step-number" aria-hidden="true">3</span><div><strong data-i="stepConfirm">Create a new task</strong><p class="note" data-i="stepConfirmHelp">Existing tasks and workspace files are preserved.</p></div></li>
+      </ol>
+      <div id="preview-card" class="preview-body" hidden>
+        <div class="preview-header">
+          <h3 id="preview-title" tabindex="-1"></h3>
+          <p class="note" id="preview-meta"></p>
+          <p class="path" id="preview-workspace"></p>
+        </div>
+        <div class="actions preview-confirm"><button type="button" id="confirm-import" class="primary" data-i="createTask">Import as a new task</button></div>
+        <details id="preview-details" class="preview-details">
+          <summary data-i="previewDetails">Conversation details</summary>
+          <div class="excerpt" id="preview-first">
+            <h3 data-i="first">First user message</h3>
+            <p class="text-block"></p>
+          </div>
+          <div class="excerpt" id="preview-last">
+            <h3 data-i="last">Last message</h3>
+            <p class="text-block"></p>
+          </div>
+        </details>
+      </div>
+    </aside>
+  </section>
+</main>
+
+<dialog id="result" aria-labelledby="result-title" aria-describedby="result-description">
+  <div class="card-body">
+    <h2 id="result-title"></h2>
+    <p id="result-description" class="note"></p>
+    <p id="result-workspace" class="path"></p>
+    <div class="field" id="result-field">
+      <label for="result-value" id="result-label"></label>
+      <input id="result-value" readonly>
+    </div>
+  </div>
+  <p id="result-status" class="status" role="status"></p>
+  <div class="card-footer">
+    <button type="button" class="link-button" id="result-close" data-i="close">Done</button>
+    <div class="actions">
+      <button type="button" id="result-copy" data-i="copy">Copy</button>
+      <button type="button" id="result-save" class="primary" data-i="saveZIP" hidden>Save ZIP copy</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+const host = "__HANDOFF_HOST__" === "codex" ? "codex" : "qoder";
+const hostName = host === "codex" ? "Codex" : "Qoder";
+const standalone = "__HANDOFF_TRANSPORT__" === "browser";
+const copy = {
+  en: {
+    appTitle:"Task handoff", appDescription:"Take a task to another agent, or bring a received handoff into {host}.",
+    shareTab:"Export task", importTab:"Import task", taskLabel:"Task to export", taskPlaceholder:"Search by title or workspace", changeTask:"Search for another task",
+    taskList:"Matching tasks", refresh:"Refresh task list", exportZIP:"ZIP file", exportLink:"Encrypted link", showResult:"View result",
+    exportSettings:"Export settings", exportHelp:"Choose a file for direct transfer, or a private link to send.",
+    taskOverview:"Task overview", chooseTask:"Choose a task", exportFormat:"Share format", createShare:"Create handoff",
+    importSource:"Handoff source", importHelp:"Choose a ZIP or paste a link, then select the local workspace.",
+    sourceKind:"Source", sourceZIP:"ZIP file", sourceLink:"Share link", chooseZIP:"Choose ZIP file",
+    uploadHint:"Drop a handoff ZIP here, or choose a file.", uploadLimit:"ZIP files up to 256 MiB",
+    enterZIPPath:"Use a ZIP path", zipPathPlaceholder:"Absolute path to a ZIP file",
+    invalidZIP:"Choose a non-empty ZIP file up to 256 MiB.", uploading:"Reading the ZIP file…",
+    uploadFailed:"Could not load the ZIP file. Choose the file again and retry.",
+    previewContext:"Review before creating a task", reviewTitle:"Review before importing",
+    stepSource:"Choose the source", stepSourceHelp:"Use a ZIP file or the complete private link.",
+    stepPreview:"Review the handoff", stepPreviewHelp:"Check the source, task history and import limits.",
+    stepConfirm:"Create a new task", stepConfirmHelp:"Existing tasks and workspace files are preserved.",
+    workspaceLabel:"Destination workspace", workspacePlaceholder:"Absolute path to an existing directory",
+    workspaceChoose:"Choose workspace", workspaceAdd:"Add workspace", workspaceSearch:"Search workspaces",
+    workspacePathLabel:"Workspace directory", workspaceUse:"Use this folder", cancel:"Cancel",
+    workspaceLoading:"Loading workspaces…", workspaceEmpty:"No matching workspaces.",
+    workspaceUnavailable:"Could not load workspaces. Reopen the list to retry or add a folder by path.",
+    workspaceAbsolute:"Enter an absolute directory path.",
+    preview:"Preview handoff", createTask:"Import as a new task", previewDetails:"Conversation details",
+    copy:"Copy", copyLink:"Copy link", copyPath:"Copy path", copyCommand:"Copy command", copyID:"Copy task ID",
+    shareURL:"Share link", zipPath:"ZIP file path", resumeCommand:"Resume command", taskID:"Task ID",
+    saveZIP:"Save ZIP copy", close:"Done",
+    loading:"Loading tasks…", checking:"Checking the handoff…", creating:"Creating the {host} task…",
+    sharing:"Preparing the handoff…", empty:"No matching tasks.", selected:"Selected task", noSelection:"No task selected",
+    noTitle:"Untitled task", notReady:"The {host} app connection is unavailable. Reopen the panel and try again.",
+    blocked:"Export stopped because the secret scan found sensitive content in this task.",
+    linkReady:"Encrypted link created", zipReady:"ZIP exported", fallback:"The link service was unavailable. The handoff was saved as a ZIP.",
+    plainZIP:"The ZIP contains plaintext conversation data.", taskReady:"{host} task created",
+    taskExists:"This handoff was already imported", restart:"Open this task from Qoder history. If it does not appear, quit and reopen Qoder.",
+    resume:"Run this command to continue the task in Codex.", codexHistory:"Use the task ID to find the conversation in Codex.",
+    copied:"Copied", copyFailed:"Select and copy this value.", saved:"ZIP saved", noSave:"The original ZIP is still available at the path shown.",
+    messages:"messages", connectionLost:"The app connection timed out.",
+    first:"First user message", last:"Last message", narrowSearch:"Enter a more specific search to see more matches.",
+  },
+  zh: {
+    appTitle:"任务交接", appDescription:"把当前任务带到另一个 Agent，或将收到的交接内容导入 {host}。",
+    shareTab:"导出任务", importTab:"导入任务", taskLabel:"导出的任务", taskPlaceholder:"按标题或工作区搜索", changeTask:"搜索其他任务",
+    taskList:"匹配的任务", refresh:"刷新任务列表", exportZIP:"ZIP 文件", exportLink:"加密链接", showResult:"查看结果",
+    exportSettings:"导出设置", exportHelp:"用文件直接传递，或生成便于发送的私有链接。",
+    taskOverview:"任务概览", chooseTask:"选择任务", exportFormat:"分享格式", createShare:"生成交接内容",
+    importSource:"交接来源", importHelp:"选择 ZIP 或粘贴链接，再选定本地工作区。",
+    sourceKind:"来源", sourceZIP:"ZIP 文件", sourceLink:"分享链接", chooseZIP:"选择 ZIP 文件",
+    uploadHint:"将交接 ZIP 拖到这里，或选择文件。", uploadLimit:"支持 256 MiB 以内的 ZIP",
+    enterZIPPath:"使用 ZIP 路径", zipPathPlaceholder:"ZIP 文件的绝对路径",
+    invalidZIP:"请选择 256 MiB 以内的有效 ZIP 文件。", uploading:"正在读取 ZIP 文件…",
+    uploadFailed:"读取 ZIP 文件失败，请重新选择文件后再试。",
+    previewContext:"确认后再创建任务", reviewTitle:"导入前核对",
+    stepSource:"选择交接来源", stepSourceHelp:"使用 ZIP 文件或完整的私有分享链接。",
+    stepPreview:"核对交接内容", stepPreviewHelp:"查看来源、任务历史及导入限制。",
+    stepConfirm:"确认创建新任务", stepConfirmHelp:"保留已有任务和工作区文件。",
+    workspaceLabel:"目标工作区", workspacePlaceholder:"输入现有目录的绝对路径",
+    workspaceChoose:"选择工作区", workspaceAdd:"添加工作区", workspaceSearch:"搜索工作区",
+    workspacePathLabel:"工作区目录", workspaceUse:"使用此目录", cancel:"取消",
+    workspaceLoading:"正在加载工作区…", workspaceEmpty:"没有匹配的工作区。",
+    workspaceUnavailable:"工作区加载失败。可重新打开列表，或按路径添加目录。",
+    workspaceAbsolute:"请输入目录的绝对路径。",
+    preview:"预览交接内容", createTask:"确认为新任务导入", previewDetails:"对话详情",
+    copy:"复制", copyLink:"复制链接", copyPath:"复制路径", copyCommand:"复制命令", copyID:"复制任务 ID",
+    shareURL:"分享链接", zipPath:"ZIP 文件路径", resumeCommand:"继续任务的命令", taskID:"任务 ID",
+    saveZIP:"另存 ZIP", close:"完成",
+    loading:"正在加载任务…", checking:"正在检查交接包…", creating:"正在创建 {host} 任务…",
+    sharing:"正在准备交接包…", empty:"没有匹配的任务。", selected:"已选任务", noSelection:"尚未选择任务",
+    noTitle:"未命名任务", notReady:"连接 {host} 失败。请重新打开面板后再试。",
+    blocked:"密钥扫描发现敏感内容，已停止导出当前任务。",
+    linkReady:"已生成加密链接", zipReady:"已导出 ZIP", fallback:"链接服务不可用，交接包已保存为 ZIP。",
+    plainZIP:"ZIP 内的对话内容为明文。", taskReady:"已创建 {host} 任务",
+    taskExists:"此交接包已导入", restart:"可从 Qoder 历史打开任务。若暂未显示，请退出并重新打开 Qoder。",
+    resume:"运行此命令可在 Codex 中继续任务。", codexHistory:"可凭任务 ID 在 Codex 中查找该对话。",
+    copied:"已复制", copyFailed:"请选择文本并复制。", saved:"已保存 ZIP", noSave:"原始 ZIP 仍在上方路径。",
+    messages:"条消息", connectionLost:"应用连接超时。",
+    first:"首条用户消息", last:"最后一条消息", narrowSearch:"输入更具体的关键词，查看其余匹配项。",
+  },
+};
+const $ = id => document.getElementById(id);
+let language = "en";
+const tr = key => copy[language][key].replace("{host}", hostName);
+const toolName = (action, object) => action + "_" + host + "_" + object;
+const main = document.querySelector("main");
+let hostCapabilities = {};
+let pendingId = 0;
+const pending = new Map();
+let connected = false;
+
+const taskSearch = $("task-search");
+const taskList = $("task-list");
+const source = $("source");
+const sourceKind = $("source-kind");
+const zipPath = $("zip-path");
+const zipInput = $("zip-file");
+const zipPanel = $("zip-panel");
+const maxZIP = 256 * 1024 * 1024;
+const uploadChunkSize = 96 * 1024;
+let selectedZIP;
+let uploadedZIPSource;
+let nativeZIPPicker = false;
+const workspacePath = $("workspace");
+const workspacePicker = $("workspace-picker");
+const workspaceTrigger = $("workspace-trigger");
+const workspaceMenu = $("workspace-menu");
+const workspaceSearch = $("workspace-search");
+const workspaceList = $("workspace-list");
+const workspaceManual = $("workspace-manual");
+let selectedWorkspace;
+let localWorkspaces = [];
+let visibleWorkspaces = [];
+let manualWorkspace;
+let workspaceLoading = false;
+let workspaceLoadError = false;
+let activeWorkspaceIndex = -1;
+let workspaceChosenByUser = false;
+const dialog = $("result");
+let tasks = undefined;
+let loadedQuery = undefined;
+let truncatedTasks = false;
+let taskSearchTimer;
+let selectedTask = undefined;
+let selectionOpen = false;
+let activeOption = -1;
+let loadingTasks = false;
+let sharing = false;
+let importing = false;
+let lastShare = undefined;
+let lastImport = undefined;
+let reviewed = undefined;
+let dialogResult = undefined;
+
+function applyContext(context) {
+  if (context.theme === "light" || context.theme === "dark") {
+    document.documentElement.style.colorScheme = context.theme;
+  }
+  if (typeof context.locale === "string") language = context.locale.toLowerCase().startsWith("zh") ? "zh" : "en";
+  document.documentElement.lang = language;
+  document.querySelectorAll("[data-i]").forEach(el => { el.textContent = tr(el.dataset.i) });
+  document.querySelectorAll("[data-p]").forEach(el => { el.placeholder = tr(el.dataset.p) });
+  document.querySelectorAll("[data-a]").forEach(el => { el.setAttribute("aria-label", tr(el.dataset.a)) });
+  renderSelectedTask();
+  renderZIPName();
+  if (!workspaceChosenByUser && context.workspace?.path) {
+    chooseWorkspace(context.workspace);
+  }
+  renderSelectedWorkspace();
+  if (!workspaceMenu.hidden) renderWorkspaces();
+  if (context.styles?.variables) {
+    for (const [key, value] of Object.entries(context.styles.variables)) {
+      if (key.startsWith("--color-") && typeof value === "string") document.documentElement.style.setProperty(key, value);
+    }
+  }
+}
+
+function notify(method, params = {}) {
+  if (!standalone) window.parent.postMessage({jsonrpc:"2.0", method, params}, "*");
+}
+
+function request(method, params = {}, timeout = 100000) {
+  const id = ++pendingId;
+  if (standalone) {
+    return fetch("rpc", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({jsonrpc:"2.0", id, method, params}),
+      signal:AbortSignal.timeout(timeout),
+    }).then(async response => {
+      if (!response.ok) throw new Error(tr("notReady"));
+      const message = await response.json();
+      if (message.error) throw new Error(message.error.message);
+      return message.result;
+    });
+  }
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      pending.delete(id);
+      reject(new Error(tr("connectionLost")));
+    }, timeout);
+    pending.set(id, {resolve, reject, timer});
+    window.parent.postMessage({jsonrpc:"2.0", id, method, params}, "*");
+  });
+}
+
+function setWorkspace(result) {
+  const explicit = result?.structuredContent?.workspace;
+  if (!workspaceChosenByUser && explicit?.path) chooseWorkspace(explicit);
+}
+
+window.addEventListener("message", event => {
+  const message = event.data;
+  if (standalone || event.source !== window.parent || !message || message.jsonrpc !== "2.0") return;
+  if (message.method === "ui/notifications/host-context-changed") applyContext(message.params ?? {});
+  if (message.method === "ui/notifications/tool-result") setWorkspace(message.params);
+  if (host === "qoder" && !importing && message.method === "qoder/files/notifications/selected" && message.params?.files?.[0]?.path) {
+    switchTab("import");
+    setNativeZIP(message.params.files[0].path);
+  }
+  if (message.method === "ui/resource-teardown" && message.id !== undefined) {
+    window.parent.postMessage({jsonrpc:"2.0", id:message.id, result:{}}, "*");
+  }
+  const call = pending.get(message.id);
+  if (!call || message.method) return;
+  pending.delete(message.id);
+  clearTimeout(call.timer);
+  if (message.error) call.reject(new Error(message.error.message));
+  else call.resolve(message.result);
+});
+
+async function callTool(name, argumentsValue = {}) {
+  if (!connected) throw new Error(tr("notReady"));
+  const result = await request("tools/call", {name, arguments:argumentsValue});
+  if (result?.isError) throw new Error(result.content?.find(item => item.type === "text")?.text ?? tr("notReady"));
+  return result?.structuredContent ?? {};
+}
+
+async function connect() {
+  applyContext({locale:navigator.language});
+  try {
+    const response = await request("ui/initialize", {
+      appInfo:{name:"Agent Handoff", version:"__HANDOFF_VERSION__"},
+      appCapabilities:{availableDisplayModes:["inline", "fullscreen"]},
+      protocolVersion:"2026-01-26",
+    }, 18000);
+    hostCapabilities = response?.hostCapabilities ?? {};
+    applyContext(response?.hostContext ?? {});
+    connected = true;
+    notify("ui/notifications/initialized");
+    shareControls();
+    importControls(false);
+    setWorkspace(response);
+    const selection = host === "qoder" && !standalone ? hostCapabilities.experimental?.["qoder/files"] : undefined;
+    nativeZIPPicker = Boolean(selection?.pick);
+    if (selection?.drop) request("qoder/files/subscribe-drop", {extensions:["zip"]}).catch(() => {});
+    if (!standalone) {
+      new ResizeObserver(() => {
+        const height = Math.ceil(main.getBoundingClientRect().height);
+        notify("ui/notifications/size-changed", {height});
+      }).observe(main);
+    }
+  } catch (error) {
+    showStatus("share-status", tr("notReady"), true);
+    showStatus("import-status", tr("notReady"), true);
+  }
+}
+
+function switchTab(mode) {
+  for (const name of ["share", "import"]) {
+    const button = $(name + "-tab");
+    const selected = name === mode;
+    button.tabIndex = selected ? 0 : -1;
+    button.setAttribute("aria-selected", String(selected));
+    $(name + "-panel").hidden = !selected;
+  }
+  closePicker();
+  if (mode !== "import") closeWorkspaces();
+}
+
+for (const name of ["share", "import"]) {
+  const button = $(name + "-tab");
+  button.addEventListener("click", () => switchTab(name));
+  button.addEventListener("keydown", event => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const next = name === "share" ? "import" : "share";
+    switchTab(next);
+    $(next + "-tab").focus();
+  });
+}
+
+function showStatus(element, text = "", failed = false) {
+  const status = $(element);
+  status.textContent = text;
+  status.classList.toggle("error", failed);
+}
+
+function shareControls() {
+  taskSearch.disabled = !connected || sharing;
+  $("share-submit").disabled = !connected || sharing || !selectedTask;
+  $("share-format").disabled = sharing;
+  $("refresh").disabled = !connected || loadingTasks || sharing;
+}
+
+function renderSelectedTask() {
+  taskSearch.placeholder = tr(selectedTask ? "changeTask" : "taskPlaceholder");
+  $("chosen-label").hidden = !!selectedTask;
+  $("share-unselected").hidden = !!selectedTask;
+  $("share-options").hidden = !selectedTask;
+  $("share-actions").hidden = !selectedTask;
+  $("chosen-context").hidden = !selectedTask;
+  $("chosen").textContent = selectedTask?.title || tr("noTitle");
+  const path = selectedTask?.cwd || "";
+  $("chosen-workspace").textContent = path;
+  $("chosen-workspace").hidden = !path;
+}
+
+function setActiveOption(index) {
+  activeOption = index;
+  const options = [...taskList.children];
+  options.forEach((option, i) => { option.dataset.active = String(i === index) });
+  const option = options[index];
+  if (option) {
+    taskSearch.setAttribute("aria-activedescendant", option.id);
+    option.scrollIntoView({block:"nearest"});
+  } else {
+    taskSearch.removeAttribute("aria-activedescendant");
+  }
+}
+
+function closePicker() {
+  clearTimeout(taskSearchTimer);
+  selectionOpen = false;
+  taskList.hidden = true;
+  $("task-list-note").hidden = true;
+  taskSearch.setAttribute("aria-expanded", "false");
+  setActiveOption(-1);
+}
+
+function selectTask(task) {
+  selectedTask = task;
+  closePicker();
+  taskSearch.value = "";
+  renderSelectedTask();
+  shareControls();
+}
+
+function renderPicker() {
+  if (!selectionOpen || !tasks || taskSearch.value.trim() !== loadedQuery) return;
+  taskList.replaceChildren();
+  for (const [index, task] of tasks.entries()) {
+    const option = document.createElement("li");
+    const title = document.createElement("strong");
+    const path = document.createElement("span");
+    option.id = "task-option-" + index;
+    option.className = "task-option";
+    option.setAttribute("role", "option");
+    option.setAttribute("aria-selected", String(task.id === selectedTask?.id));
+    title.textContent = task.title || tr("noTitle");
+    path.className = "path";
+    path.textContent = task.cwd || task.id;
+    option.append(title, path);
+    option.addEventListener("pointerdown", event => event.preventDefault());
+    option.addEventListener("click", () => selectTask(task));
+    taskList.append(option);
+  }
+  setActiveOption(-1);
+  const note = $("task-list-note");
+  note.hidden = tasks.length > 0 && !truncatedTasks;
+  note.textContent = tr(truncatedTasks ? "narrowSearch" : "empty");
+  taskList.hidden = tasks.length === 0;
+  taskSearch.setAttribute("aria-expanded", String(!taskList.hidden));
+}
+
+async function loadTasks(force = false) {
+  if (!connected || sharing) return;
+  selectionOpen = true;
+  const query = taskSearch.value.trim();
+  if (loadingTasks) return;
+  if (loadedQuery === query && !force) return renderPicker();
+  taskList.hidden = true;
+  $("task-list-note").hidden = true;
+  taskSearch.setAttribute("aria-expanded", "false");
+  setActiveOption(-1);
+  loadingTasks = true;
+  shareControls();
+  showStatus("share-status", tr("loading"));
+  try {
+    const result = await callTool(toolName("list", "tasks"), {query});
+    tasks = result.tasks ?? [];
+    loadedQuery = query;
+    truncatedTasks = result.truncated === true;
+    showStatus("share-status");
+    renderPicker();
+  } catch (error) {
+    showStatus("share-status", error.message, true);
+  } finally {
+    loadingTasks = false;
+    shareControls();
+    if (selectionOpen && query !== taskSearch.value.trim()) loadTasks();
+  }
+}
+
+taskSearch.addEventListener("focus", () => loadTasks());
+taskSearch.addEventListener("click", () => {
+  if (!selectionOpen) loadTasks();
+});
+taskSearch.addEventListener("input", () => {
+  closePicker();
+  taskSearchTimer = setTimeout(() => {
+    if (document.activeElement === taskSearch) loadTasks();
+  }, 160);
+});
+taskSearch.addEventListener("keydown", event => {
+  if (event.key === "Escape") {
+    if (selectionOpen) event.preventDefault();
+    closePicker();
+    return;
+  }
+  if (event.key === "Enter") {
+    event.preventDefault();
+    if (activeOption >= 0 && !taskList.hidden) selectTask(tasks[activeOption]);
+    return;
+  }
+  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+  event.preventDefault();
+  if (taskList.hidden) {
+    loadTasks();
+    return;
+  }
+  const next = event.key === "ArrowDown" ? activeOption + 1 : activeOption - 1;
+  setActiveOption(next < 0 ? tasks.length - 1 : next % tasks.length);
+});
+document.querySelector(".picker").addEventListener("focusout", event => {
+  if (!event.currentTarget.contains(event.relatedTarget)) closePicker();
+});
+document.addEventListener("pointerdown", event => {
+  if (!event.target.closest(".picker")) closePicker();
+});
+$("refresh").addEventListener("click", () => {
+  taskSearch.focus();
+  loadTasks(true);
+});
+
+$("share-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  if (!selectedTask || sharing) return;
+  const format = $("share-format").value;
+  if (format !== "zip" && format !== "link") return;
+  closePicker();
+  sharing = true;
+  shareControls();
+  showStatus("share-status", tr("sharing"));
+  try {
+    const result = await callTool(toolName("share", "task"), {task_id:selectedTask.id, format});
+    if (result.status === "blocked") {
+      showStatus("share-status", tr("blocked"), true);
+      return;
+    }
+    const hasLink = Boolean(result.share_url);
+    lastShare = {
+      title:tr(hasLink ? "linkReady" : "zipReady"),
+      description:hasLink ? (result.expires_at || "") : tr(format === "link" ? "fallback" : "plainZIP"),
+      value:result.share_url || result.path,
+      label:hasLink ? "shareURL" : "zipPath",
+      copyLabel:hasLink ? "copyLink" : "copyPath",
+      download:result.download_uri,
+    };
+    $("share-result").hidden = false;
+    showStatus("share-status");
+    openResult(lastShare);
+  } catch (error) {
+    showStatus("share-status", error.message, true);
+  } finally {
+    sharing = false;
+    shareControls();
+  }
+});
+
+function invalidatePreview() {
+  reviewed = undefined;
+  $("preview-card").hidden = true;
+  $("import-steps").hidden = false;
+  $("import-context-title").dataset.i = "previewContext";
+  $("import-context-title").textContent = tr("previewContext");
+  $("preview-button").classList.add("primary");
+}
+function renderZIPName() {
+  const path = zipPath.value.trim();
+  const name = selectedZIP?.name || path.split(/[\\/]/).filter(Boolean).at(-1);
+  $("zip-file-name").textContent = name || tr("uploadHint");
+}
+
+function updateSource() {
+  $("zip-panel").hidden = sourceKind.value !== "zip";
+  $("link-panel").hidden = sourceKind.value !== "link";
+  renderZIPName();
+  invalidatePreview();
+  importControls(importing);
+}
+
+function setNativeZIP(path) {
+  selectedZIP = undefined;
+  uploadedZIPSource = undefined;
+  zipPath.value = path;
+  sourceKind.value = "zip";
+  updateSource();
+  showStatus("import-status");
+}
+
+function selectZIP(file) {
+  if (!file || importing) return;
+  invalidatePreview();
+  selectedZIP = undefined;
+  uploadedZIPSource = undefined;
+  zipPath.value = "";
+  if (!/\.zip$/i.test(file.name) || file.size <= 0 || file.size > maxZIP) {
+    renderZIPName();
+    importControls(false);
+    showStatus("import-status", tr("invalidZIP"), true);
+    return;
+  }
+  selectedZIP = file;
+  sourceKind.value = "zip";
+  updateSource();
+  showStatus("import-status");
+}
+
+async function uploadZIP(file) {
+  const start = await callTool("upload_handoff_zip", {size:String(file.size)});
+  if (!start.upload_id) throw new Error(tr("uploadFailed"));
+  let response;
+  for (let offset = 0; offset < file.size; offset += uploadChunkSize) {
+    const chunk = new Uint8Array(await file.slice(offset, offset + uploadChunkSize).arrayBuffer());
+    let binary = "";
+    for (let index = 0; index < chunk.length; index += 16384) {
+      binary += String.fromCharCode(...chunk.subarray(index, index + 16384));
+    }
+    response = await callTool("upload_handoff_zip", {upload_id:start.upload_id, data:btoa(binary)});
+  }
+  if (typeof response?.source !== "string") throw new Error(tr("uploadFailed"));
+  return response.source;
+}
+
+sourceKind.addEventListener("change", updateSource);
+source.addEventListener("input", updateSource);
+zipPath.addEventListener("input", () => {
+  selectedZIP = undefined;
+  uploadedZIPSource = undefined;
+  updateSource();
+});
+zipInput.addEventListener("change", () => {
+  selectZIP(zipInput.files?.[0]);
+  zipInput.value = "";
+});
+zipPanel.addEventListener("dragover", event => {
+  event.preventDefault();
+  if (!importing) zipPanel.dataset.dragging = "true";
+});
+zipPanel.addEventListener("dragleave", event => {
+  if (!zipPanel.contains(event.relatedTarget)) delete zipPanel.dataset.dragging;
+});
+zipPanel.addEventListener("drop", event => {
+  event.preventDefault();
+  delete zipPanel.dataset.dragging;
+  selectZIP(event.dataTransfer.files?.[0]);
+});
+
+function renderSelectedWorkspace() {
+  $("workspace-choice").textContent = selectedWorkspace?.name || tr("workspaceChoose");
+  $("workspace-path").textContent = selectedWorkspace?.path || "";
+  $("workspace-path").hidden = !selectedWorkspace;
+}
+
+function chooseWorkspace(workspace, userChoice = false) {
+  const changed = selectedWorkspace?.path !== workspace.path;
+  const name = workspace.name || workspace.path.split(/[\\/]/).filter(Boolean).at(-1) || workspace.path;
+  selectedWorkspace = {path:workspace.path, name};
+  workspaceChosenByUser ||= userChoice;
+  if (changed) invalidatePreview();
+  renderSelectedWorkspace();
+  closeWorkspaces();
+  closeManualWorkspace();
+  importControls(importing);
+}
+
+function closeWorkspaces() {
+  workspaceMenu.hidden = true;
+  workspaceTrigger.setAttribute("aria-expanded", "false");
+  workspaceSearch.setAttribute("aria-expanded", "false");
+  workspaceSearch.removeAttribute("aria-activedescendant");
+}
+
+function setActiveWorkspace(index) {
+  activeWorkspaceIndex = index;
+  const options = [...workspaceList.children];
+  options.forEach((option, i) => { option.dataset.active = String(i === index) });
+  const selected = options[index];
+  if (selected) {
+    workspaceSearch.setAttribute("aria-activedescendant", selected.id);
+    selected.scrollIntoView({block:"nearest"});
+  } else {
+    workspaceSearch.removeAttribute("aria-activedescendant");
+  }
+}
+
+function renderWorkspaces() {
+  if (workspaceMenu.hidden) return;
+  const query = workspaceSearch.value.trim().toLowerCase();
+  const catalog = manualWorkspace && !localWorkspaces.some(item => item.path === manualWorkspace.path) ? [...localWorkspaces, manualWorkspace] : localWorkspaces;
+  visibleWorkspaces = catalog.filter(workspace => {
+    return workspace.name.toLowerCase().includes(query) || workspace.path.toLowerCase().includes(query);
+  });
+  workspaceList.replaceChildren();
+  for (const [index, item] of visibleWorkspaces.entries()) {
+    const option = document.createElement("li");
+    const title = document.createElement("strong");
+    const path = document.createElement("span");
+    option.id = "workspace-option-" + index;
+    option.className = "task-option";
+    option.setAttribute("role", "option");
+    option.setAttribute("aria-selected", String(item.path === selectedWorkspace?.path));
+    title.textContent = item.name;
+    path.className = "path";
+    path.textContent = item.path;
+    option.append(title, path);
+    option.addEventListener("pointerdown", event => event.preventDefault());
+    option.addEventListener("click", () => {
+      chooseWorkspace(item, true);
+      workspaceTrigger.focus();
+    });
+    workspaceList.append(option);
+  }
+  setActiveWorkspace(-1);
+  workspaceList.hidden = visibleWorkspaces.length === 0;
+  workspaceSearch.setAttribute("aria-expanded", String(!workspaceList.hidden));
+  const status = $("workspace-status");
+  status.hidden = !workspaceLoading && !workspaceLoadError && !workspaceList.hidden;
+  status.textContent = tr(workspaceLoading ? "workspaceLoading" : workspaceLoadError ? "workspaceUnavailable" : "workspaceEmpty");
+}
+
+async function openWorkspaces() {
+  closeManualWorkspace();
+  importControls(importing);
+  workspaceMenu.hidden = false;
+  workspaceTrigger.setAttribute("aria-expanded", "true");
+  workspaceSearch.value = "";
+  workspaceSearch.focus();
+  if (workspaceLoading) return renderWorkspaces();
+  workspaceLoading = true;
+  workspaceLoadError = false;
+  renderWorkspaces();
+  try {
+    const result = await callTool("list_workspaces");
+    localWorkspaces = Array.isArray(result.workspaces) ? result.workspaces.filter(item => {
+      return typeof item?.name === "string" && typeof item?.path === "string";
+    }) : [];
+    const canonical = localWorkspaces.find(item => item.path === selectedWorkspace?.path);
+    if (canonical) {
+      selectedWorkspace = canonical;
+      renderSelectedWorkspace();
+    }
+  } catch (_) {
+    workspaceLoadError = true;
+  } finally {
+    workspaceLoading = false;
+    renderWorkspaces();
+  }
+}
+
+function closeManualWorkspace() {
+  workspaceManual.hidden = true;
+  workspacePath.value = "";
+  $("workspace-manual-error").hidden = true;
+}
+
+function useManualWorkspace() {
+  const path = workspacePath.value.trim();
+  if (!path.startsWith("/") && !/^(?:[A-Za-z]:[\\/]|\\\\)/.test(path)) {
+    const error = $("workspace-manual-error");
+    error.textContent = tr("workspaceAbsolute");
+    error.hidden = false;
+    workspacePath.focus();
+    return;
+  }
+  const existing = localWorkspaces.find(item => item.path === path);
+  const name = path.split(/[\\/]/).filter(Boolean).at(-1) || path;
+  manualWorkspace = existing || {path, name};
+  chooseWorkspace(manualWorkspace, true);
+  workspaceTrigger.focus();
+}
+
+workspaceTrigger.addEventListener("click", () => {
+  if (workspaceMenu.hidden) openWorkspaces();
+  else closeWorkspaces();
+});
+workspaceSearch.addEventListener("input", renderWorkspaces);
+workspaceSearch.addEventListener("keydown", event => {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeWorkspaces();
+    workspaceTrigger.focus();
+    return;
+  }
+  if (event.key === "Enter") {
+    event.preventDefault();
+    if (activeWorkspaceIndex >= 0 && visibleWorkspaces[activeWorkspaceIndex]) {
+      chooseWorkspace(visibleWorkspaces[activeWorkspaceIndex], true);
+      workspaceTrigger.focus();
+    }
+    return;
+  }
+  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+  event.preventDefault();
+  if (!visibleWorkspaces.length) return;
+  const next = activeWorkspaceIndex + (event.key === "ArrowDown" ? 1 : -1);
+  setActiveWorkspace(next < 0 ? visibleWorkspaces.length - 1 : next % visibleWorkspaces.length);
+});
+workspacePicker.addEventListener("focusout", event => {
+  if (!workspacePicker.contains(event.relatedTarget)) closeWorkspaces();
+});
+document.addEventListener("pointerdown", event => {
+  if (!workspacePicker.contains(event.target)) closeWorkspaces();
+});
+$("workspace-add").addEventListener("click", () => {
+  closeWorkspaces();
+  workspaceManual.hidden = false;
+  importControls(importing);
+  workspacePath.focus();
+});
+$("workspace-cancel").addEventListener("click", () => {
+  closeManualWorkspace();
+  importControls(importing);
+  workspaceTrigger.focus();
+});
+$("workspace-use").addEventListener("click", useManualWorkspace);
+workspacePath.addEventListener("input", () => {
+  $("workspace-manual-error").hidden = true;
+  invalidatePreview();
+});
+workspacePath.addEventListener("keydown", event => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    useManualWorkspace();
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    $("workspace-cancel").click();
+  }
+});
+
+$("choose-file").addEventListener("click", async () => {
+  if (!nativeZIPPicker) {
+    zipInput.click();
+    return;
+  }
+  try {
+    const result = await request("qoder/files/pick", {extensions:["zip"]});
+    if (result.files?.[0]?.path && !importing) setNativeZIP(result.files[0].path);
+  } catch (_) {
+    zipInput.click();
+  }
+});
+
+function importControls(busy) {
+  importing = busy;
+  for (const id of ["source", "source-kind", "zip-path", "zip-file", "workspace", "workspace-trigger", "workspace-search", "workspace-add", "choose-file"]) {
+    $(id).disabled = busy || !connected;
+  }
+  const sourceReady = sourceKind.value === "link" ? source.value.trim() : selectedZIP || zipPath.value.trim();
+  $("preview-button").disabled = busy || !connected || !selectedWorkspace || !sourceReady || !workspaceManual.hidden;
+  $("confirm-import").disabled = busy || !connected || !workspaceManual.hidden;
+}
+function excerpt(id, value) {
+  const element = $(id);
+  element.querySelector("p").textContent = value || "";
+  element.hidden = !value;
+}
+$("import-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  if (importing || !selectedWorkspace || !workspaceManual.hidden) return;
+  invalidatePreview();
+  importControls(true);
+  showStatus("import-status", tr("checking"));
+  try {
+    let importSource = source.value.trim();
+    if (sourceKind.value === "zip") {
+      importSource = zipPath.value.trim();
+      if (selectedZIP) {
+        if (!uploadedZIPSource) {
+          showStatus("import-status", tr("uploading"));
+          uploadedZIPSource = await uploadZIP(selectedZIP);
+        }
+        importSource = uploadedZIPSource;
+      }
+    }
+    showStatus("import-status", tr("checking"));
+    const result = await callTool("preview_handoff", {source:importSource, cwd:selectedWorkspace.path});
+    reviewed = result;
+    $("preview-title").textContent = result.title || tr("noTitle");
+    const agent = {codex:"Codex", qoder:"Qoder", claude:"Claude Code", dsh:"DeepSeek Harness"}[result.source_agent] || result.source_agent;
+    $("preview-meta").textContent = [agent, Number.isInteger(result.message_count) ? result.message_count + " " + tr("messages") : ""].filter(Boolean).join(" · ");
+    $("preview-workspace").textContent = result.cwd || selectedWorkspace.path;
+    excerpt("preview-first", result.first_user_message);
+    excerpt("preview-last", result.last_message);
+    $("preview-details").open = false;
+    $("preview-details").hidden = !(result.first_user_message || result.last_message);
+    $("preview-card").hidden = false;
+    $("import-steps").hidden = true;
+    $("import-context-title").dataset.i = "reviewTitle";
+    $("import-context-title").textContent = tr("reviewTitle");
+    $("preview-button").classList.remove("primary");
+    $("preview-title").focus();
+    showStatus("import-status");
+  } catch (error) {
+    showStatus("import-status", error.message, true);
+  } finally {
+    importControls(false);
+  }
+});
+$("confirm-import").addEventListener("click", async () => {
+  if (importing || !reviewed?.ticket || !workspaceManual.hidden) return;
+  importControls(true);
+  showStatus("import-status", tr("creating"));
+  const ticket = reviewed.ticket;
+  invalidatePreview();
+  try {
+    const result = await callTool(toolName("import", "task"), {ticket});
+    const command = host === "codex" ? result.fallback_command : "";
+    const taskID = result.thread_id || result.session_id || result.existing_thread_id || result.new_thread_id || result.task_id;
+    lastImport = {
+      title:tr(result.status === "duplicate" ? "taskExists" : "taskReady"),
+      description:tr(host === "qoder" ? "restart" : command ? "resume" : "codexHistory"),
+      workspace:result.target_cwd,
+      value:command || taskID,
+      label:command ? "resumeCommand" : "taskID",
+      copyLabel:command ? "copyCommand" : "copyID",
+    };
+    $("import-result").hidden = false;
+    showStatus("import-status");
+    openResult(lastImport);
+  } catch (error) {
+    showStatus("import-status", error.message, true);
+  } finally {
+    importControls(false);
+  }
+});
+
+function openResult(result) {
+  if (!result) return;
+  dialogResult = result;
+  $("result-title").textContent = result.title;
+  $("result-description").textContent = result.description;
+  $("result-description").hidden = !result.description;
+  $("result-workspace").textContent = result.workspace || "";
+  $("result-workspace").hidden = !result.workspace;
+  $("result-label").textContent = tr(result.label);
+  $("result-value").value = result.value ?? "";
+  $("result-field").hidden = !result.value;
+  $("result-copy").textContent = tr(result.copyLabel);
+  $("result-copy").hidden = !result.value;
+  $("result-save").hidden = !result.download || !hostCapabilities.downloadFile;
+  $("result-copy").classList.toggle("primary", $("result-save").hidden);
+  showStatus("result-status");
+  if (!dialog.open) dialog.showModal();
+}
+async function copyResult() {
+  const field = $("result-value");
+  field.focus();
+  field.select();
+  try {
+    if (!document.execCommand("copy")) await navigator.clipboard.writeText(field.value);
+    showStatus("result-status", tr("copied"));
+  } catch {
+    showStatus("result-status", tr("copyFailed"));
+  }
+}
+$("result-copy").addEventListener("click", copyResult);
+$("result-close").addEventListener("click", () => dialog.close());
+$("share-result").addEventListener("click", () => openResult(lastShare));
+$("import-result").addEventListener("click", () => openResult(lastImport));
+$("result-save").addEventListener("click", async () => {
+  const result = dialogResult;
+  $("result-save").disabled = true;
+  try {
+    const saved = await request("ui/download-file", {contents:[{type:"resource_link", uri:result.download, name:result.value.split(/[\\/]/).pop(), mimeType:"application/zip"}]});
+    if (dialogResult === result) showStatus("result-status", tr(saved?.isError ? "noSave" : "saved"));
+  } catch {
+    if (dialogResult === result) showStatus("result-status", tr("noSave"), true);
+  } finally {
+    $("result-save").disabled = false;
+  }
+});
+connect();
+</script>
+</html>

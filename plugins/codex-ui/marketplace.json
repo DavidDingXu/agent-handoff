@@ -1,0 +1,20 @@
+{
+  "name": "agent-handoff-codex-preview",
+  "interface": {
+    "displayName": "Agent Handoff Preview"
+  },
+  "plugins": [
+    {
+      "name": "agent-handoff-ui",
+      "source": {
+        "source": "local",
+        "path": "./plugins/agent-handoff-ui"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

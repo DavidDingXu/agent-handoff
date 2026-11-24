@@ -176,7 +176,7 @@ func bridgeShare(args []string) (any, error) {
 			count++
 		}
 	}
-	m := &bundle.Manifest{FormatVersion: bundle.Version2, ArtifactType: bundle.ArtifactType, SourceAgent: bundle.AgentDSH, SourceThreadID: req.SourceThreadID, Title: req.Title, SourceCWD: req.SourceCWD, SourceCLI: req.SourceCLI, CreatedAt: idgen.NowRFC3339(), MessageCount: count, TargetSupport: []string{bundle.AgentCodex, bundle.AgentClaude, bundle.AgentDSH}}
+	m := &bundle.Manifest{FormatVersion: bundle.Version2, ArtifactType: bundle.ArtifactType, SourceAgent: bundle.AgentDSH, SourceThreadID: req.SourceThreadID, Title: req.Title, SourceCWD: req.SourceCWD, SourceCLI: req.SourceCLI, CreatedAt: idgen.NowRFC3339(), MessageCount: count, TargetSupport: []string{bundle.AgentCodex, bundle.AgentClaude, bundle.AgentDSH, bundle.AgentQoder}}
 	// A compact single native envelope is valid JSONL; preserve all SDK data.
 	var compact bytes.Buffer
 	_ = json.Compact(&compact, req.Native)
@@ -283,6 +283,10 @@ func bridgeRead(args []string) (any, error) {
 			return nil, bridgeFail("invalid_native")
 		}
 		native, _ = bundle.ParseDSHNative(b.Session, b.Manifest.SourceThreadID)
+	} else if b.Manifest.SourceAgent == bundle.AgentQoder {
+		if validateQoderTranscript(b) != nil {
+			return nil, bridgeFail("invalid_neutral")
+		}
 	} else if b.Neutral.Schema == "" {
 		b.Neutral = neutralFrom(b.Manifest, b.Session)
 	}

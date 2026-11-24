@@ -29,6 +29,10 @@ claude plugin install agent-handoff@agent-handoff
 
 发送方和接收方均安装或更新至 **0.6.1**，然后重启智能体。
 
+### Codex 桌面面板预览版
+
+可选装 Agent Handoff UI，在面板中选择来源任务和目标工作区。[构建与安装桌面插件](plugins/codex-ui/README.zh-CN.md)。
+
 ### DeepSeek Harness
 
 1. 在 DSH 打开**插件 → 添加插件**。
@@ -37,6 +41,10 @@ claude plugin install agent-handoff@agent-handoff
 
 [npm 包](https://www.npmjs.com/package/dsh-agent-handoff) ·
 [离线安装、Web profile 与源码构建](plugins/dsh/README.zh-CN.md)。
+
+### Qoder Desktop 预览版
+
+Qoder 桌面端预览版可将本机任务分享成 ZIP 或加密链接，并将收到的交接恢复成新任务。 [构建与本地安装](plugins/qoder/README.zh-CN.md)。
 
 ## 使用
 
